@@ -1,0 +1,10 @@
+import {Router} from "express";
+import {authenticate} from "../../middlewares/authenticate.middleware.js";
+import {requireAdmin} from "../../middlewares/authorizeAdmin.middleware.js";
+import {seasonController} from "../../container/dependencies.js";
+export const seasonRouter=Router();
+seasonRouter.get("/",seasonController.list);
+seasonRouter.get("/:id",seasonController.get);
+seasonRouter.post("/",authenticate,requireAdmin,seasonController.create);
+seasonRouter.patch("/:id",authenticate,requireAdmin,seasonController.update);
+seasonRouter.post("/:id/teams",authenticate,requireAdmin,seasonController.registerTeams);
