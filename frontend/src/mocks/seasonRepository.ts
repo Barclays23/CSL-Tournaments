@@ -188,6 +188,18 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Season updated", season as unknown as Season);
   },
+  async deleteSeason(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    seasonById(db, id);
+    db.matches = db.matches.filter((match) => match.seasonRef !== id);
+    db.auctionLots = db.auctionLots.filter((lot) => lot.seasonRef !== id);
+    db.seasonTeams = db.seasonTeams.filter((team) => team.seasonRef !== id);
+    db.groups = db.groups.filter((group) => group.seasonRef !== id);
+    db.seasons = db.seasons.filter((season) => season._id !== id);
+    commitSeasonDb(db);
+    return ok("Season and its preview records deleted", null);
+  },
   async getSeasonTeams(id: string) {
     const db = readSeasonDb();
     seasonById(db, id);
