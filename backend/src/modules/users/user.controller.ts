@@ -16,10 +16,10 @@ export class UserController {
     } catch (error) { next(error); }
   };
 
-  create = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  createUserByAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const input = userCreateSchema.parse(req.body);
-      const user = await this.service.createUser(input);
+      const user = await this.service.createUserByAdmin(input);
       res.status(HTTP_STATUS.CREATED).json(ApiResponse.success("User created", user));
     } catch (error) { next(error); }
   };
