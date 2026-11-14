@@ -15,6 +15,7 @@ export interface Team {
   _id: string;
   name: string;
   shortName: string | null;
+  description: string | null;
   logo: Asset | null;
   poster: Asset | null;
   groupName: string | null;
@@ -26,6 +27,7 @@ export interface Team {
 export interface TeamWrite {
   name: string;
   shortName?: string | null;
+  description?: string | null;
   logo?: Asset | null;
   poster?: Asset | null;
   groupName?: string | null;

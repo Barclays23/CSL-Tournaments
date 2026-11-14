@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const objectId = z.string().regex(/^[a-f\\d]{24}$/i, "Invalid team ID");
+const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid team ID");
 const auctionSettings = z.object({
   currency: z.literal("INR").default("INR"),
   budgetPerTeam: z.coerce.number().finite().min(0).max(100000000),

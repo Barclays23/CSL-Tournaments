@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { ImageUploader } from "@/components/ui/ImageUploader";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Textarea } from "@/components/ui/Textarea";
 import { teamFormSchema, type TeamFormValues } from "@/schemas/team.schema";
 import type { Asset } from "@/types/api.types";
 import type { Team } from "@/types/team.types";
@@ -27,6 +28,7 @@ export function TeamForm({
     defaultValues: {
       name: team?.name ?? "",
       shortName: team?.shortName ?? "",
+      description: team?.description ?? "",
       groupName: team?.groupName ?? "",
       status: team?.status ?? "active",
     },
@@ -46,6 +48,9 @@ export function TeamForm({
     >
       <FormField label="Team name" required error={form.formState.errors.name?.message}>
         <Input {...form.register("name")} />
+      </FormField>
+      <FormField label="Description" error={form.formState.errors.description?.message}>
+        <Textarea {...form.register("description")} rows={3} placeholder="A short description of the team" />
       </FormField>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Short name" error={form.formState.errors.shortName?.message}>

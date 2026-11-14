@@ -9,6 +9,7 @@ export type TeamStatus = "active" | "inactive";
 export interface TeamFields {
   name: string;
   shortName: string | null;
+  description: string | null;
   logo: Asset | null;
   poster: Asset | null;
   groupName: string | null;

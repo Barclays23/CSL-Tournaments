@@ -5,6 +5,7 @@ const assetSchema = z.object({ url: z.url(), publicId: z.string().min(1) }).null
 export const teamCreateSchema = z.object({
   name: z.string().trim().min(2).max(80),
   shortName: z.string().trim().max(8).nullable().optional(),
+  description: z.string().trim().max(1000).nullable().optional(),
   logo: assetSchema.optional(),
   poster: assetSchema.optional(),
   groupName: z.string().trim().max(40).nullable().optional(),
