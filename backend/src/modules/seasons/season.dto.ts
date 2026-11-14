@@ -12,7 +12,7 @@ export interface CreateSeasonDto {
   pointsRules?: SeasonPointsRules;
   standingsTieBreakers?: SeasonTieBreaker[];
   matchRules?: SeasonMatchRules;
-  teamIds?: string[];
+  teamIds: string[];
 }
 export type UpdateSeasonDto = Partial<Omit<CreateSeasonDto, "teamIds">>;
 export interface RegisterSeasonTeamsDto { teamIds: string[]; }
