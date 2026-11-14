@@ -70,7 +70,7 @@ export class UserService implements IUserService {
     };
   }
 
-  async createUser(input: CreateUserDto): Promise<UserResponseDTO> {
+  async createUserByAdmin(input: CreateUserDto): Promise<UserResponseDTO> {
     const email = normalizeEmail(input.email)!;
     const username = input.username?.trim().toLowerCase() || null;
     const mobile = input.mobile?.trim().replace(/^\+?91(?=\d{10}$)/, "") || null;
