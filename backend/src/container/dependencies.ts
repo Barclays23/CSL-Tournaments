@@ -130,3 +130,10 @@ import { SeasonMatchController } from "../modules/matches/seasonMatch.controller
 const seasonMatchRepository = new SeasonMatchRepository();
 const seasonMatchService = new SeasonMatchService(seasonMatchRepository);
 export const seasonMatchController = new SeasonMatchController(seasonMatchService);
+
+import { SeasonStatisticsRepository } from "../modules/statistics/seasonStatistics.repository.js";
+import { SeasonStatisticsService } from "../modules/statistics/seasonStatistics.service.js";
+import { SeasonStatisticsController } from "../modules/statistics/seasonStatistics.controller.js";
+const seasonStatisticsRepository = new SeasonStatisticsRepository();
+const seasonStatisticsService = new SeasonStatisticsService(seasonStatisticsRepository);
+export const seasonStatisticsController = new SeasonStatisticsController(seasonStatisticsService);
