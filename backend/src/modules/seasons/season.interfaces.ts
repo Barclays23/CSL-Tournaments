@@ -11,6 +11,7 @@ export interface ISeasonRepository {
   createWithTeams(data: CreateSeasonDto, teams: Array<{ _id: unknown; name: string; logo: SeasonTeamEntity["logoSnapshot"] }>): Promise<SeasonEntity>;
   update(id: string, data: Partial<SeasonEntity>): Promise<SeasonEntity | null>;
   countLots(seasonId: string): Promise<number>;
+  registerTeamsAtomically(seasonId: string, records: SeasonTeamEntity[], limit: number): Promise<SeasonTeamEntity[]>;
 }
 
 export interface ISeasonService {
