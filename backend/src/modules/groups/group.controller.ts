@@ -8,7 +8,9 @@ import {GroupModel} from "./group.model.js";
 import {SeasonModel} from "../seasons/season.model.js";
 import {SeasonTeamModel} from "../seasonTeams/seasonTeam.model.js";
 import {SeasonMatchModel} from "../matches/seasonMatch.model.js";
-export class GroupController{
+
+
+export class GroupController {
  constructor(private readonly repo:GroupRepository){}
  list=async(req:Request,res:Response,next:NextFunction)=>{try{const id=req.params.seasonId!;if(!Types.ObjectId.isValid(id))throw new AppError("Invalid season ID",400,"INVALID_ID");const season=await SeasonModel.findById(id).select("_id").lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const groups=await this.repo.findBySeason(id);res.status(200).json(ApiResponse.success("Groups fetched",groups.map(g=>({...g,_id:String(g._id),seasonRef:String(g.seasonRef),createdAt:g.createdAt.toISOString(),updatedAt:g.updatedAt.toISOString()}))));}catch(e){next(e);}};
  create=async(req:Request,res:Response,next:NextFunction)=>{try{const id=req.params.seasonId!;if(!Types.ObjectId.isValid(id))throw new AppError("Invalid season ID",400,"INVALID_ID");const season=await SeasonModel.findById(id).select("status").lean().exec();if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is not editable",409,"SEASON_CLOSED");const input=groupCreateSchema.parse(req.body);if(await this.repo.findByName(id,input.groupName))throw new AppError("Group already exists in this season",409,"DUPLICATE_GROUP");const created=await this.repo.create({seasonRef:new Types.ObjectId(id),groupName:input.groupName,displayOrder:input.displayOrder});res.status(201).json(ApiResponse.success("Group created",{...created,_id:String(created._id),seasonRef:String(created.seasonRef),createdAt:created.createdAt.toISOString(),updatedAt:created.updatedAt.toISOString()}));}catch(e){next(e);}};

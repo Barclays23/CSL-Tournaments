@@ -1,5 +1,4 @@
-  AdminSeasonsRoute: AdminSeasonsRoute,
-/* eslint-disable */
+  /* eslint-disable */
 
 // @ts-nocheck
 
