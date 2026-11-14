@@ -21,7 +21,7 @@ export interface IUserService {
   getAdminUserById(userId: string): Promise<AdminUserDTO>;
   getCurrentUserById(userId: string): Promise<AuthenticatedUserDTO>;
   listUsers(query: UserQueryDto): Promise<{ items: UserResponseDTO[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>;
-  createUser(input: CreateUserDto): Promise<UserResponseDTO>;
+  createUserByAdmin(input: CreateUserDto): Promise<UserResponseDTO>;
   updateUser(userId: string, input: UpdateUserDto, actorId: string): Promise<UserResponseDTO>;
   updateUserStatus(userId: string, status: "active" | "blocked", actorId: string): Promise<UserResponseDTO>;
   deleteUser(userId: string, actorId: string): Promise<void>;
@@ -29,7 +29,7 @@ export interface IUserService {
 
 export interface IUserController {
   list: import("../../shared/types/common.types.js").ControllerMethod;
-  create: import("../../shared/types/common.types.js").ControllerMethod;
+  createUserByAdmin: import("../../shared/types/common.types.js").ControllerMethod;
   update: import("../../shared/types/common.types.js").ControllerMethod;
   updateStatus: import("../../shared/types/common.types.js").ControllerMethod;
   delete: import("../../shared/types/common.types.js").ControllerMethod;
