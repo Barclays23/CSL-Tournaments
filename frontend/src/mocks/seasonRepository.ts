@@ -263,7 +263,7 @@ export const seasonPreviewRepository = {
     if (season.status === "completed" || season.status === "archived") fail(409, "Auction is closed for this season");
     if (lot.auctionStatus !== "pending") fail(409, "Only pending lots can be sold");
     const st = db.seasonTeams.find((item) => item._id === input.seasonTeamId && item.seasonRef === lot.seasonRef);
-    if (!st || st.status === "withdrawn") fail(422, "Winning team must be an active participant in the same season");
+    if (!st || st.status === "withdrawn") return fail(422, "Winning team must be an active participant in the same season");
     if (!Number.isFinite(input.purchasePrice) || input.purchasePrice < 0) fail(422, "Purchase price must be zero or greater");
     const existing = soldLots(db, lot.seasonRef, st._id);
     const settings = season.auctionSettings;

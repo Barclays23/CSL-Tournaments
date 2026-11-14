@@ -128,11 +128,14 @@ const sponsors: MockSponsor[] = [
   createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
 
-const seasons: MockSeason[] = [
+const seasonDefinitions: Array<Omit<MockSeason, "_id" | "createdAt" | "updatedAt">> = [
   { seasonNumber: 9, name: "CSL Football Tournament 2024", year: 2024, startDate: "2024-11-01T00:00:00.000Z", endDate: "2024-11-17T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 8000, playersCount: 16, seasonTeamCount: 4, teamSquadSize: 8, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
   { seasonNumber: 10, name: "CSL Football Tournament 2025", year: 2025, startDate: "2025-11-01T00:00:00.000Z", endDate: "2025-11-18T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 9000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
   { seasonNumber: 11, name: "CSL Football Tournament 2026", year: 2026, startDate: "2026-11-01T00:00:00.000Z", endDate: "2026-11-20T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "active", auctionSettings: { currency: "INR", budgetPerTeam: 10000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
-].map((season, index) => ({ _id: oid(10 + index), ...season, createdAt: timestamp(`${season.year}-01-01T08:00:00.000Z`), updatedAt: now }));
+];
+const seasons: MockSeason[] = seasonDefinitions.map((season, index) => ({
+  _id: oid(10 + index), ...season, createdAt: timestamp(`${season.year}-01-01T08:00:00.000Z`), updatedAt: now,
+}));
 
 const groups: MockGroup[] = [];
 const seasonTeams: MockSeasonTeam[] = [];
@@ -198,7 +201,7 @@ seasons.forEach((season, seasonIndex) => {
     auctionLots.push({
       _id: oid(1000 + seasonIndex * 100 + lotNo), seasonRef: season._id, seasonTeamRef: null,
       playerRef: players[playerIndex]._id, lotNumber: lotNo++, auctionStatus: poolStatuses[poolAdded],
-      purchasePrice: null, playerPosition: playerPosition(poolAdded + 1), isIconPlayer: false,
+      purchasePrice: null, playerPosition: playerPosition(poolAdded), isIconPlayer: false,
       isGoalkeeper: poolAdded === 0, jerseyNo: null, nominatedAt,
       soldAt: null, createdAt: nominatedAt, updatedAt: now,
     });
@@ -224,7 +227,7 @@ seasons.forEach((season, seasonIndex) => {
     createdAt: season.createdAt, updatedAt: now,
   });
   const seasonYear = season.year;
-  matches.push(makeMatch(1, "group", groupA, home, away, completedStatus, `${seasonYear}-11-02T11:00:00.000Z`, [
+  matches.push(makeMatch(1, "group", groupA, home, away, "completed", `${seasonYear}-11-02T11:00:00.000Z`, [
     { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
     { scoring: home, scorer: playerFor(0, 2), playerTeam: home, type: "normal" },
     { scoring: away, scorer: playerFor(1, 1), playerTeam: away, type: "normal" },
