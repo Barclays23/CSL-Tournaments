@@ -1,0 +1,13 @@
+import { Router } from "express";
+import { authenticate } from "../../middlewares/authenticate.middleware.js";
+import { requireAdmin } from "../../middlewares/authorizeAdmin.middleware.js";
+import { seasonMatchController } from "../../container/dependencies.js";
+export const seasonMatchRouter = Router({ mergeParams: true });
+seasonMatchRouter.get("/", seasonMatchController.list);
+seasonMatchRouter.get("/:matchId", seasonMatchController.get);
+seasonMatchRouter.post("/", authenticate, requireAdmin, seasonMatchController.create);
+seasonMatchRouter.patch("/:matchId", authenticate, requireAdmin, seasonMatchController.update);
+seasonMatchRouter.delete("/:matchId", authenticate, requireAdmin, seasonMatchController.delete);
+seasonMatchRouter.post("/:matchId/goals", authenticate, requireAdmin, seasonMatchController.addGoal);
+seasonMatchRouter.patch("/:matchId/goals/:goalId", authenticate, requireAdmin, seasonMatchController.updateGoal);
+seasonMatchRouter.delete("/:matchId/goals/:goalId", authenticate, requireAdmin, seasonMatchController.deleteGoal);

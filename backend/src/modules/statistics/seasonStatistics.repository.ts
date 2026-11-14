@@ -37,5 +37,5 @@ export class SeasonStatisticsRepository{
  async findPlayer(id:string):Promise<PlayerEntity|null>{return PlayerModel.findById(id).lean<PlayerEntity>().exec();}
  async findTeam(id:string):Promise<TeamEntity|null>{return TeamModel.findById(id).lean<TeamEntity>().exec();}
  async findPlayersByIds(ids:string[]):Promise<PlayerEntity[]>{if(!ids.length)return [];return PlayerModel.find({_id:{$in:ids.map(x=>new Types.ObjectId(x))}}).lean<PlayerEntity[]>().exec();}
- async findCompletedMatchesForPlayer(id:string):Promise<PopulatedSeasonMatch[]>{return SeasonMatchModel.find({status:"completed","goals.scorerPlayerRef":new Types.ObjectId(id)}).populate(matchPopulation).populate({path:"seasonRef"}).lean<PopulatedSeasonMatch[]>().exec();}
+ async findCompletedMatchesForPlayer(id:string):Promise<PopulatedSeasonMatch[]>{const seasonIds=await AuctionLotModel.distinct("seasonRef",{playerRef:new Types.ObjectId(id),auctionStatus:"sold"}).exec();if(!seasonIds.length)return [];return SeasonMatchModel.find({seasonRef:{$in:seasonIds},status:"completed","goals.scorerPlayerRef":new Types.ObjectId(id)}).populate(matchPopulation).populate({path:"seasonRef"}).lean<PopulatedSeasonMatch[]>().exec();}
 }

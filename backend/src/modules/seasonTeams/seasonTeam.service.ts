@@ -4,7 +4,6 @@ import {ManagerModel} from "../managers/manager.model.js";
 import {SeasonModel} from "../seasons/season.model.js";
 import {GroupModel} from "../groups/group.model.js";
 import {SeasonTeamModel} from "./seasonTeam.model.js";
-import {SeasonMatchModel} from "../matches/seasonMatch.model.js";
 import type {ISeasonTeamService} from "./seasonTeam.interfaces.js";
 import type {SeasonTeamResponseDto,UpdateSeasonTeamDto} from "./seasonTeam.dto.js";
 import type {SeasonTeamStatus} from "./seasonTeam.types.js";

@@ -23,6 +23,6 @@ The multi-season collections are additive. Existing `Settings`, `Player`, `Team`
 
 - Legacy Settings and Player fields remain in place for old endpoints during migration. New season endpoints do not read or mutate those legacy auction fields.
 - Do not run both legacy and season auction workflows for the same live season.
-- The current API supports Season, SeasonTeam registration and AuctionLot nomination/sale/status. Season-scoped Match migration and season-aware standings/team/player history are follow-on work and must be completed before treating historical season analytics as migrated.
+- The season workflow includes Season, SeasonTeam registration, AuctionLot nomination/sale/status, season-scoped fixtures and embedded goal events, standings, top scorers, team dashboards and player auction/goal history. Historical season analytics are only valid after the match and goal backfill has been verified.
 - MongoDB transactions require a replica set or sharded deployment. If the deployment is standalone, configure a replica set before relying on transactional season creation and auction sales.
 - The project plan describes role limits as limits. If the tournament intends exactly one Icon and one Goalkeeper, configure an explicit minimum/exact rule and enforce it at auction closure; do not infer a minimum from a maximum.

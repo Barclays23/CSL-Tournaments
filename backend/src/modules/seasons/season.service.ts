@@ -23,6 +23,7 @@ export class SeasonService implements ISeasonService{
   if(input.status==="active"&&await this.repo.findActive(id))throw new AppError("Another season is already active",409,"ACTIVE_SEASON_EXISTS");
   const lotCount=await this.repo.countLots(id);
   if(lotCount>0&&input.auctionSettings&&JSON.stringify(input.auctionSettings)!==JSON.stringify(current.auctionSettings))throw new AppError("Auction settings cannot be changed after player nominations; preserve historical auction rules",409,"SEASON_AUCTION_LOCKED");
+  if(input.auctionSettings&&input.auctionSettings.seasonTeamCount<await this.seasonTeams.countBySeason(id))throw new AppError("Team limit cannot be lower than the number of registered teams",409,"SEASON_TEAM_LIMIT_LOCKED");
   const updated=await this.repo.update(id,input as Partial<SeasonFields>);if(!updated)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");return this.map(updated);
  }
  async registerTeams(id:string,input:RegisterSeasonTeamsDto):Promise<SeasonTeamEntity[]>{
