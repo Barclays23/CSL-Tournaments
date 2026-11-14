@@ -1,7 +1,6 @@
 import {useEffect,useState} from "react";
 import {Link} from "@tanstack/react-router";
 import {PageContainer} from "@/components/layout/PageContainer";
-import {PageHeader} from "@/components/layout/PageHeader";
 import {Badge} from "@/components/ui/Badge";
 import {ErrorState} from "@/components/ui/ErrorState";
 import {GlassCard} from "@/components/ui/GlassCard";
@@ -13,6 +12,7 @@ import {getTeamById} from "@/services/teamService";
 import {getSeasons} from "@/services/seasonService";
 import {getSeasonTeamDashboard} from "@/services/seasonStatisticsService";
 import {formatCurrency} from "@/utils/formatCurrency";
+import type {ApiResponse} from "@/types/api.types";
 import type {SeasonTeamDashboard} from "@/types/seasonStatistics.types";
 const EMPTY_DASHBOARD:ApiResponse<SeasonTeamDashboard>={success:true,message:"",data:null as unknown as SeasonTeamDashboard};
 const POSITION_LABEL:Record<string,string>={goalkeeper:"Goalkeeper",defender:"Defender",midfielder:"Midfielder",forward:"Forward"};

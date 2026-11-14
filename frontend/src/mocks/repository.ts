@@ -63,7 +63,7 @@ function briefTeam(team: StoredTeam): TeamBrief {
 }
 
 function presentTeam(team: StoredTeam): Team {
-  return { ...team };
+  return { ...team, description: null };
 }
 
 function presentPlayer(db: Database, player: StoredPlayer, admin: boolean): PublicPlayer | AdminPlayer {
