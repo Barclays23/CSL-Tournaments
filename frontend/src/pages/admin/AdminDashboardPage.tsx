@@ -51,6 +51,8 @@ function DashboardBody() {
             <Link to="/sponsors"><Button size="sm" variant="surface">Add sponsor</Button></Link>
             <Link to="/matches"><Button size="sm" variant="surface">Create fixture</Button></Link>
             <Link to="/admin/seasons"><Button size="sm" variant="surface">Seasons</Button></Link>
+            <Link to="/admin/users"><Button size="sm" variant="surface">Users</Button></Link>
+            <Link to="/admin/organizers"><Button size="sm" variant="surface">Organizers</Button></Link>
             <Link to="/admin/settings"><Button size="sm" variant="gold">Settings</Button></Link>
           </div>
           {data.alerts.length ? (

@@ -24,7 +24,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 import { isAdminRecord } from "@/utils/forms";
 
 export function PlayerDetailsPage({ playerId }: { playerId: string }) {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -106,7 +106,7 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
               </>
             ) : null}
           </dl>
-          {isAuthenticated ? (
+          {isAdmin ? (
             <div className="mt-5 flex flex-wrap gap-2">
               <Button onClick={() => setOpen(true)}>Edit</Button>
               <Button

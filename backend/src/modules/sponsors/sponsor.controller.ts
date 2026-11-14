@@ -34,7 +34,7 @@ export class SponsorController implements ISponsorController {
     try {
       const query: GetSponsorsQueryDTO = getSponsorsQuerySchema.parse(request.query);
       const result: PaginatedResult<SponsorResponseDTO> =
-        await this._sponsorService.getSponsors(query, Boolean(request.user));
+        await this._sponsorService.getSponsors(query, request.user?.role === "admin");
       response
         .status(HTTP_STATUS.OK)
         .json(
@@ -57,7 +57,7 @@ export class SponsorController implements ISponsorController {
     try {
       const sponsorId: string = getRequiredRouteParam(request.params.id, "id");
       const sponsor: SponsorResponseDTO =
-        await this._sponsorService.getSponsorById(sponsorId, Boolean(request.user));
+        await this._sponsorService.getSponsorById(sponsorId, request.user?.role === "admin");
       response
         .status(HTTP_STATUS.OK)
         .json(ApiResponse.success<SponsorResponseDTO>(SPONSOR_MESSAGES.SPONSOR_FETCHED, sponsor));

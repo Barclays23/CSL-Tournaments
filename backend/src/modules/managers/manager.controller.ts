@@ -33,7 +33,7 @@ export class ManagerController implements IManagerController {
     try {
       const query: ManagerQueryInput = managerQuerySchema.parse(request.query);
       const result: PaginatedResult<ManagerResponseDTO> =
-        await this._managerService.getManagers(query, Boolean(request.user));
+        await this._managerService.getManagers(query, request.user?.role === "admin");
       response
         .status(HTTP_STATUS.OK)
         .json(
@@ -58,7 +58,7 @@ export class ManagerController implements IManagerController {
       const manager: ManagerResponseDTO =
         await this._managerService.getManagerById(
           managerId,
-          Boolean(request.user),
+          request.user?.role === "admin",
         );
       response
         .status(HTTP_STATUS.OK)

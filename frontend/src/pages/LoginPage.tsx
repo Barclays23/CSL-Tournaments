@@ -18,7 +18,7 @@ import { errorMessage } from "@/utils/errorHandler";
 
 
 export function LoginPage() {
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, user } = useAuth();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
 
@@ -28,17 +28,17 @@ export function LoginPage() {
   });
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated) void navigate({ to: "/admin/dashboard" });
-  }, [isAuthenticated, isLoading, navigate]);
+    if (!isLoading && isAuthenticated) void navigate({ to: user?.role === "admin" ? "/admin/dashboard" : "/" });
+  }, [isAuthenticated, isLoading, navigate, user?.role]);
 
 
 
   return (
     <PageContainer className="max-w-lg">
       <GlassCard className="p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Administrator</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-accent">Account access</p>
         <h1 className="mt-2 font-display text-5xl text-fg">Sign in</h1>
-        <p className="mt-2 text-sm text-muted">Visitors can browse everything without an account. This login is only for the tournament admin.</p>
+        <p className="mt-2 text-sm text-muted">Use the account details provided by the tournament administrator. Public tournament information remains available without signing in.</p>
         {USE_MOCK_API ? (
           <p className="mt-4 rounded-control border border-line bg-surface px-3 py-2 text-sm text-muted">
             Preview mode, not production authentication. Sample admin: {PREVIEW_LOGIN.email} / {PREVIEW_LOGIN.password}

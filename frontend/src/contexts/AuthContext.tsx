@@ -10,6 +10,7 @@ import { toast } from "sonner";
 interface AuthState {
   user: AdminUser | null;
   isAuthenticated: boolean;
+  isAdmin: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -62,13 +63,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isAuthenticated: Boolean(user),
+      isAdmin: user?.role === "admin",
       isLoading,
       loadCurrentUser,
       login: async (email, password) => {
         const response = await authService.login(email, password);
         setUser(response.data);
         toast.success(response.message);
-        void navigate({ to: "/admin/dashboard" });
+        void navigate({ to: response.data.role === "admin" ? "/admin/dashboard" : "/" });
       },
       logout: async () => {
         try {

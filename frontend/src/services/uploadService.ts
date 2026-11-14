@@ -9,6 +9,8 @@ export type UploadPurpose =
   | "team-logo"
   | "team-poster"
   | "manager-profile"
+  | "user-profile"
+  | "organizer-profile"
   | "sponsor-logo";
 
 
