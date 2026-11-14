@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { CalendarRange, Shield, Sparkles, Swords, Trophy, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { AboutSection } from "@/components/home/AboutSection";
 import { FixtureCard } from "@/components/matches/FixtureCard";
 import { SponsorCard } from "@/components/sponsors/SponsorCard";
 import { TopScorerCard } from "@/components/standings/TopScorerCard";
@@ -137,6 +138,8 @@ export function HomePage() {
           </div>
         </section>
       </PageContainer>
+
+      <AboutSection />
     </div>
   );
 }
