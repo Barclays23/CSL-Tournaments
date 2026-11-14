@@ -63,7 +63,7 @@ function briefTeam(team: StoredTeam): TeamBrief {
 }
 
 function presentTeam(team: StoredTeam): Team {
-  return { ...team, description: null };
+  return { ...team, description: team.description };
 }
 
 function presentPlayer(db: Database, player: StoredPlayer, admin: boolean): PublicPlayer | AdminPlayer {
@@ -655,6 +655,7 @@ export const previewRepository = {
       _id: uid("team"),
       name: input.name.trim(),
       shortName: input.shortName?.trim() || null,
+      description: input.description?.trim() || null,
       logo: input.logo ?? null,
       poster: input.poster ?? null,
       groupName: input.groupName?.trim() || null,
@@ -686,6 +687,7 @@ export const previewRepository = {
       ...current,
       name: input.name.trim(),
       shortName: input.shortName?.trim() || null,
+      description: input.description === undefined ? current.description : input.description?.trim() || null,
       logo: input.logo === undefined ? current.logo : input.logo,
       poster: input.poster === undefined ? current.poster : input.poster,
       groupName: input.groupName?.trim() || null,
