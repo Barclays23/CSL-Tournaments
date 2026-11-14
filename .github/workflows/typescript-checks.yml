@@ -5,6 +5,7 @@ on:
     branches:
       - refactor/typed-solid-architecture
       - refactor/module-dto-schema-types
+      - feature/updated-csl-project-plan
   pull_request:
     branches:
       - main

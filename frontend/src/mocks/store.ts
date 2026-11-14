@@ -7,6 +7,7 @@ import type { SponsorStatus } from "@/types/sponsor.types";
 import type { TeamStatus } from "@/types/team.types";
 import { ApiError } from "@/utils/errorHandler";
 import { createSeed } from "@/mocks/seed";
+import { resetSeasonPreviewData } from "@/mocks/seasonStore";
 
 export interface StoredPlayer {
   _id: string;
@@ -81,6 +82,7 @@ export interface StoredTeam {
   logo: Asset | null;
   poster: Asset | null;
   groupName: string | null;
+  description: string | null;
   status: TeamStatus;
   createdAt: string;
   updatedAt: string;
@@ -96,7 +98,7 @@ export interface Database {
   matches: StoredMatch[];
 }
 
-const DB_KEY = "csl-preview-db-v1";
+const DB_KEY = "csl-preview-db-v2";
 const SESSION_KEY = "csl-preview-admin";
 
 let memory: Database | null = null;
@@ -136,6 +138,7 @@ export function commit(db: Database) {
 }
 
 export function resetPreviewData() {
+  resetSeasonPreviewData();
   memory = createSeed();
   if (typeof window !== "undefined") {
     localStorage.setItem(DB_KEY, JSON.stringify(memory));
