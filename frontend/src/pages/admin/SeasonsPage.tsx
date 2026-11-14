@@ -1,4 +1,5 @@
 import {useEffect,useState} from "react";
+import {useConfirm} from "@/contexts/ConfirmContext";
 import type {FormEvent} from "react";
 import {toast} from "sonner";
 import {AdminRoute} from "@/components/auth/AdminRoute";
@@ -11,13 +12,14 @@ import {Select} from "@/components/ui/Select";
 import {Skeleton} from "@/components/ui/Skeleton";
 import {ErrorState} from "@/components/ui/ErrorState";
 import {useServiceQuery} from "@/hooks/useServiceQuery";
-import {getSeasons,createSeason,updateSeason,getSeasonTeams,registerSeasonTeams} from "@/services/seasonService";
+import {getSeasons,createSeason,updateSeason,deleteSeason,getSeasonTeams,registerSeasonTeams} from "@/services/seasonService";
 import {getTeams} from "@/services/teamService";
 import {errorMessage} from "@/utils/errorHandler";
 import type {SeasonStatus,SeasonWrite} from "@/types/season.types";
 
 export function SeasonsPage(){return <AdminRoute><SeasonsBody/></AdminRoute>;}
 function SeasonsBody(){
+ const confirm=useConfirm();
  const seasons=useServiceQuery(()=>getSeasons(),[]);
  const teams=useServiceQuery(()=>getTeams(),[]);
  const [selectedSeason,setSelectedSeason]=useState("");
@@ -34,6 +36,7 @@ function SeasonsBody(){
  const handleCreate=async(e:FormEvent<HTMLFormElement>)=>{e.preventDefault();setSaving(true);try{const payload:SeasonWrite={seasonNumber,name,year,startDate:startDate||null,endDate:endDate||null,status,timeZone:"Asia/Kolkata",auctionSettings:{currency:"INR",budgetPerTeam:budget,playersCount,seasonTeamCount:teamCount,teamSquadSize:squadSize,iconPlayerLimit:iconLimit,goalkeeperLimit},pointsRules:{win:3,draw:1,loss:0},standingsTieBreakers:["points","goalDifference","goalsScored","teamNameAsc"],matchRules:{groupStageDrawAllowed:true,knockoutDrawRequiresShootout:true,shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false},teamIds:selectedTeamIds};const result=await createSeason(payload);toast.success("Season created");setSelectedSeason(result.data._id);resetForm();seasons.reload();seasonTeams.reload();}catch(err){toast.error(errorMessage(err));}finally{setSaving(false);}};
  const addTeams=async()=>{if(!selectedSeason||!selectedTeamIds.length)return;setSaving(true);try{await registerSeasonTeams(selectedSeason,selectedTeamIds);toast.success("Teams registered in season");setSelectedTeamIds([]);seasonTeams.reload();seasons.reload();}catch(err){toast.error(errorMessage(err));}finally{setSaving(false);}};
  const changeStatus=async(next:SeasonStatus)=>{if(!selected)return;setSaving(true);try{await updateSeason(selected._id,{status:next});toast.success("Season status updated");seasons.reload();}catch(err){toast.error(errorMessage(err));}finally{setSaving(false);}};
+ const removeSeason=async()=>{if(!selected)return;const yes=await confirm({title:"Delete this season?",description:"All preview fixtures, auction lots, registrations and groups belonging to this season will be deleted. This cannot be undone.",confirmLabel:"Delete season",danger:true});if(!yes)return;setSaving(true);try{await deleteSeason(selected._id);toast.success("Season deleted");setSelectedSeason("");seasons.reload();}catch(err){toast.error(errorMessage(err));}finally{setSaving(false);}};
  return <PageContainer>
   <PageHeader eyebrow="Admin · tournament setup" title="Season management" description="Create seasons, configure their auction rules and register participating teams. Each season keeps its own history."/>
   {seasons.loading?<Skeleton className="h-32"/>:null}{seasons.error?<ErrorState message={seasons.error} onRetry={seasons.reload}/>:null}
@@ -54,7 +57,7 @@ function SeasonsBody(){
     <GlassCard className="p-5"><h2 className="mb-3 font-display text-2xl text-fg">Existing seasons</h2>
      {seasons.data?.data.length?<div className="grid gap-2">{seasons.data.data.map(s=><button type="button" key={s._id} onClick={()=>{setSelectedSeason(s._id);setSelectedTeamIds([]);}} className={"rounded-xl border p-3 text-left "+(selectedSeason===s._id?"border-accent bg-surface":"border-line")}><div className="flex items-center justify-between gap-2"><span className="font-semibold text-fg">{s.name}</span><span className="text-xs text-muted">{s.status}</span></div><p className="mt-1 text-xs text-muted">Season {s.seasonNumber} · {s.year} · INR {s.auctionSettings.budgetPerTeam.toLocaleString("en-IN")} budget/team</p></button>)}</div>:<p className="text-sm text-muted">No seasons created yet.</p>}
     </GlassCard>
-    {selected?<GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="font-display text-2xl text-fg">{selected.name}</h2><p className="text-xs text-muted">Season {selected.seasonNumber} · {selected.year}</p></div><Select className="max-w-36" value={selected.status} disabled={saving} onChange={e=>void changeStatus(e.target.value as SeasonStatus)}><option value="draft">Draft</option><option value="upcoming">Upcoming</option><option value="active">Active</option><option value="completed">Completed</option><option value="archived">Archived</option></Select></div>
+    {selected?<GlassCard className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="font-display text-2xl text-fg">{selected.name}</h2><p className="text-xs text-muted">Season {selected.seasonNumber} · {selected.year}</p></div><Select className="max-w-36" value={selected.status} disabled={saving} onChange={e=>void changeStatus(e.target.value as SeasonStatus)}><option value="draft">Draft</option><option value="upcoming">Upcoming</option><option value="active">Active</option><option value="completed">Completed</option><option value="archived">Archived</option></Select><Button size="sm" variant="danger" disabled={saving} onClick={()=>void removeSeason()}>Delete season</Button></div>
       <div className="mt-4 grid grid-cols-2 gap-3 text-sm"><div><p className="text-muted">Team limit</p><p className="font-semibold text-fg">{selected.auctionSettings.seasonTeamCount}</p></div><div><p className="text-muted">Squad size</p><p className="font-semibold text-fg">{selected.auctionSettings.teamSquadSize}</p></div><div><p className="text-muted">Player nominations</p><p className="font-semibold text-fg">{selected.auctionSettings.playersCount}</p></div><div><p className="text-muted">Budget</p><p className="font-semibold text-fg">INR {selected.auctionSettings.budgetPerTeam.toLocaleString("en-IN")}</p></div></div>
       <h3 className="mb-2 mt-5 font-semibold text-fg">Registered teams</h3>{seasonTeams.loading?<Skeleton className="h-20"/>:null}{seasonTeams.error?<ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload}/>:null}
       <div className="space-y-2">{seasonTeams.data?.data.map(st=><div key={st._id} className="flex items-center justify-between gap-2 rounded-xl bg-surface p-3 text-sm"><div><p className="font-medium text-fg">{st.displayName}</p><p className="text-xs text-muted">{st.group?.groupName??"No group"} · {st.managers.length} manager(s)</p></div><span className="text-xs text-muted">{st.status}</span></div>)}</div>
