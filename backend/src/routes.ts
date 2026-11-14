@@ -9,6 +9,8 @@ import { matchRouter } from "./modules/matches/match.routes.js";
 import { statisticsRouter } from "./modules/statistics/statistics.routes.js";
 import { auctionRouter } from "./modules/auction/auction.routes.js";
 import { uploadRouter } from "./modules/uploads/upload.routes.js";
+import { seasonRouter } from "./modules/seasons/season.routes.js";
+import { auctionLotRouter } from "./modules/auctionLots/auctionLot.routes.js";
 
 
 
@@ -26,3 +28,5 @@ apiRouter.use("/matches",matchRouter);
 apiRouter.use("/",statisticsRouter);
 apiRouter.use("/auction",auctionRouter);
 apiRouter.use("/uploads",uploadRouter);
+apiRouter.use("/seasons",seasonRouter);
+apiRouter.use("/auction-lots",auctionLotRouter);

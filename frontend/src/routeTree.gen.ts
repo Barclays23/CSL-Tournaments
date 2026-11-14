@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuctionsRouteImport } from './routes/auctions'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
@@ -28,6 +29,7 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuctionsRoute = AuctionsRouteImport.update({ id: '/auctions', path: '/auctions', getParentRoute: () => rootRouteImport } as any)
 const AdminDashboardRoute = AdminDashboardRouteImport.update({
   id: '/admin/dashboard',
   path: '/admin/dashboard',
@@ -91,6 +93,9 @@ const TeamsTeamIdRoute = TeamsTeamIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auctions': typeof AuctionsRoute
+  '/auctions': typeof AuctionsRoute
+  '/auctions': typeof AuctionsRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
@@ -139,6 +144,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auctions'
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/settings'
@@ -185,6 +191,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuctionsRoute: typeof AuctionsRoute
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
@@ -201,6 +208,7 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auctions': { id: '/auctions'; path: '/auctions'; fullPath: '/auctions'; preLoaderRoute: typeof AuctionsRouteImport; parentRoute: typeof rootRouteImport }
     '/': {
       id: '/'
       path: '/'

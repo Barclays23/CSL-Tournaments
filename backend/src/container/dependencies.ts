@@ -98,3 +98,18 @@ export const matchController: IMatchController           = new MatchController(m
 export const statisticsController: IStatisticsController = new StatisticsController(statisticsService);
 export const auctionController: IAuctionController       = new AuctionController(auctionService);
 export const uploadController: IUploadController         = new UploadController(uploadService);
+import { SeasonRepository } from "../modules/seasons/season.repository.js";
+import { SeasonService } from "../modules/seasons/season.service.js";
+import { SeasonController } from "../modules/seasons/season.controller.js";
+import { SeasonTeamRepository } from "../modules/seasonTeams/seasonTeam.repository.js";
+import { AuctionLotRepository } from "../modules/auctionLots/auctionLot.repository.js";
+import { AuctionLotService } from "../modules/auctionLots/auctionLot.service.js";
+import { AuctionLotController } from "../modules/auctionLots/auctionLot.controller.js";
+
+const seasonTeamRepository = new SeasonTeamRepository();
+const seasonRepository = new SeasonRepository();
+const seasonService = new SeasonService(seasonRepository, teamRepo, seasonTeamRepository);
+export const seasonController = new SeasonController(seasonService);
+const auctionLotRepository = new AuctionLotRepository();
+const auctionLotService = new AuctionLotService(auctionLotRepository);
+export const auctionLotController = new AuctionLotController(auctionLotService);
