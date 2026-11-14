@@ -4,7 +4,7 @@ import type { ISeasonRepository } from "./season.interfaces.js";
 import type { SeasonEntity, SeasonFields, SeasonListFilter } from "./season.types.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import type { CreateSeasonDto } from "./season.dto.js";
-import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
+import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 
 export class SeasonRepository implements ISeasonRepository {
  async findSeasons(filter:SeasonListFilter):Promise<SeasonEntity[]>{return SeasonModel.find(filter).sort({year:-1,seasonNumber:-1}).lean<SeasonEntity[]>().exec();}
@@ -20,7 +20,7 @@ export class SeasonRepository implements ISeasonRepository {
   });}finally{await session.endSession();}
  }
  async update(id:string,data:Partial<SeasonFields>):Promise<SeasonEntity|null>{return SeasonModel.findByIdAndUpdate(id,{$set:data}, {returnDocument:"after",runValidators:true}).lean<SeasonEntity>().exec();}
- async registerTeamsAtomically(seasonId:string,records:SeasonTeamEntity[],limit:number):Promise<SeasonTeamEntity[]>{
+ async registerTeamsAtomically(seasonId:string,records:SeasonTeamFields[],limit:number):Promise<SeasonTeamEntity[]>{
   if(!records.length)return [];
   const session=await mongoose.startSession();
   try{

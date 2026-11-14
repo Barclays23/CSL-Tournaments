@@ -1,7 +1,7 @@
 import type { ControllerMethod } from "../../shared/types/common.types.js";
 import type { SeasonEntity, SeasonListFilter } from "./season.types.js";
 import type { CreateSeasonDto, UpdateSeasonDto, SeasonQueryDto, SeasonResponseDto, RegisterSeasonTeamsDto } from "./season.dto.js";
-import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
+import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 
 export interface ISeasonRepository {
   findSeasons(filter: SeasonListFilter): Promise<SeasonEntity[]>;
@@ -11,7 +11,7 @@ export interface ISeasonRepository {
   createWithTeams(data: CreateSeasonDto, teams: Array<{ _id: unknown; name: string; logo: SeasonTeamEntity["logoSnapshot"] }>): Promise<SeasonEntity>;
   update(id: string, data: Partial<SeasonEntity>): Promise<SeasonEntity | null>;
   countLots(seasonId: string): Promise<number>;
-  registerTeamsAtomically(seasonId: string, records: SeasonTeamEntity[], limit: number): Promise<SeasonTeamEntity[]>;
+  registerTeamsAtomically(seasonId: string, records: SeasonTeamFields[], limit: number): Promise<SeasonTeamEntity[]>;
 }
 
 export interface ISeasonService {
