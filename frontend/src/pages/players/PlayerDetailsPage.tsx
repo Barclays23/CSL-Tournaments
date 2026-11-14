@@ -17,6 +17,7 @@ import { useServiceQuery } from "@/hooks/useServiceQuery";
 import type { PlayerFormValues } from "@/schemas/player.schema";
 import { deactivatePlayer, deletePlayer, getPlayerById, updatePlayer } from "@/services/playerService";
 import { getTeams } from "@/services/teamService";
+import { getPlayerHistory } from "@/services/seasonStatisticsService";
 import type { Asset } from "@/types/api.types";
 import { errorMessage } from "@/utils/errorHandler";
 import { formatCurrency } from "@/utils/formatCurrency";
@@ -28,6 +29,7 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const player = useServiceQuery(() => getPlayerById(playerId), [playerId]);
+  const history = useServiceQuery(() => getPlayerHistory(playerId), [playerId]);
   const teams = useServiceQuery(() => getTeams(), []);
   const record = player.data?.data;
   const admin = record && isAdminRecord(record) ? record : null;
@@ -142,6 +144,36 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
           ) : null}
         </div>
       </GlassCard>
+      <section className="mt-8">
+        <h2 className="mb-3 font-display text-3xl text-fg">Season history</h2>
+        {history.loading ? <Skeleton className="h-40" /> : null}
+        {history.error ? <ErrorState message={history.error} onRetry={history.reload} /> : null}
+        {history.data?.data ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <GlassCard className="p-4">
+                <p className="text-xs text-muted">Current season</p>
+                <p className="mt-1 font-semibold text-fg">{history.data.data.currentSeason?.name ?? "No active season"}</p>
+                <p className="mt-1 text-sm text-muted">{history.data.data.currentSeasonTeam ? history.data.data.currentSeasonTeam.team.displayName : "Not signed in the active season"}</p>
+                {history.data.data.currentSeasonTeam ? <p className="mt-1 text-sm text-muted">{history.data.data.currentSeasonTeam.position} · {history.data.data.currentSeasonTeam.jerseyNo ? "#" + history.data.data.currentSeasonTeam.jerseyNo : "No jersey"} · {formatCurrency(history.data.data.currentSeasonTeam.purchasePrice ?? 0)}</p> : null}
+              </GlassCard>
+              <GlassCard className="p-4">
+                <p className="text-xs text-muted">Career normal-time goals</p>
+                <p className="mt-1 font-display text-4xl text-fg">{history.data.data.totalNormalGoals}</p>
+                <p className="text-sm text-muted">Own goals and penalty shootout kicks are excluded.</p>
+              </GlassCard>
+            </div>
+            <GlassCard className="mt-4 p-4">
+              <h3 className="font-display text-2xl text-fg">Auction and team history</h3>
+              {history.data.data.auctionHistory.length ? <div className="mt-3 space-y-2">{history.data.data.auctionHistory.map((entry,index)=><div key={entry.season._id + "-" + index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface p-3 text-sm"><div><p className="font-semibold text-fg">{entry.season.name} · {entry.season.year}</p><p className="text-xs text-muted">{entry.team?.displayName ?? "No team"} · {entry.position}{entry.isIconPlayer ? " · Icon" : ""}{entry.isGoalkeeper ? " · Goalkeeper" : ""}</p></div><div className="text-right"><p className="font-medium text-fg">{entry.status}</p><p className="text-xs text-muted">{entry.purchasePrice === null ? "—" : formatCurrency(entry.purchasePrice)}{entry.jerseyNo ? " · #" + entry.jerseyNo : ""}</p></div></div>)}</div> : <p className="mt-3 text-sm text-muted">No auction history recorded yet.</p>}
+            </GlassCard>
+            <GlassCard className="mt-4 p-4">
+              <h3 className="font-display text-2xl text-fg">Goals by season</h3>
+              {history.data.data.goalHistory.length ? <div className="mt-3 flex flex-wrap gap-2">{history.data.data.goalHistory.map(item=><div key={item.season._id} className="rounded-xl bg-surface px-4 py-3"><p className="text-xs text-muted">{item.season.name}</p><p className="font-semibold text-fg">{item.goals} goal(s)</p></div>)}</div> : <p className="mt-3 text-sm text-muted">No normal-time goals recorded.</p>}
+            </GlassCard>
+          </>
+        ) : null}
+      </section>
       <Drawer open={open} title="Edit player" onClose={() => setOpen(false)}>
         <PlayerForm player={record} teams={teams.data?.data ?? []} submitting={saving} onSubmit={save} />
       </Drawer>

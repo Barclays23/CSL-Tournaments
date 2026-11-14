@@ -1,3 +1,4 @@
+  AdminSeasonsRoute: AdminSeasonsRoute,
 /* eslint-disable */
 
 // @ts-nocheck
@@ -14,6 +15,7 @@ import { Route as AuctionsRouteImport } from './routes/auctions'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
+import { Route as AdminSeasonsRouteImport } from './routes/admin/seasons'
 import { Route as ManagersIndexRouteImport } from './routes/managers/index'
 import { Route as MatchesIndexRouteImport } from './routes/matches/index'
 import { Route as MatchesMatchIdRouteImport } from './routes/matches/$matchId'
@@ -45,6 +47,7 @@ const AdminSettingsRoute = AdminSettingsRouteImport.update({
   path: '/admin/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminSeasonsRoute = AdminSeasonsRouteImport.update({ id: '/admin/seasons', path: '/admin/seasons', getParentRoute: () => rootRouteImport } as any)
 const ManagersIndexRoute = ManagersIndexRouteImport.update({
   id: '/managers/',
   path: '/managers/',
@@ -97,6 +100,7 @@ export interface FileRoutesByFullPath {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/seasons': typeof AdminSeasonsRoute
   '/matches/$matchId': typeof MatchesMatchIdRoute
   '/players/$playerId': typeof PlayersPlayerIdRoute
   '/teams/$teamId': typeof TeamsTeamIdRoute
@@ -113,6 +117,7 @@ export interface FileRoutesByTo {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/seasons': typeof AdminSeasonsRoute
   '/matches/$matchId': typeof MatchesMatchIdRoute
   '/players/$playerId': typeof PlayersPlayerIdRoute
   '/teams/$teamId': typeof TeamsTeamIdRoute
@@ -130,6 +135,7 @@ export interface FileRoutesById {
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/settings': typeof AdminSettingsRoute
+  '/admin/seasons': typeof AdminSeasonsRoute
   '/matches/$matchId': typeof MatchesMatchIdRoute
   '/players/$playerId': typeof PlayersPlayerIdRoute
   '/teams/$teamId': typeof TeamsTeamIdRoute
@@ -148,6 +154,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/settings'
+    | '/admin/seasons'
     | '/matches/$matchId'
     | '/players/$playerId'
     | '/teams/$teamId'
@@ -164,6 +171,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/settings'
+    | '/admin/seasons'
     | '/matches/$matchId'
     | '/players/$playerId'
     | '/teams/$teamId'
@@ -180,6 +188,7 @@ export interface FileRouteTypes {
     | '/admin/dashboard'
     | '/admin/login'
     | '/admin/settings'
+    | '/admin/seasons'
     | '/matches/$matchId'
     | '/players/$playerId'
     | '/teams/$teamId'
@@ -197,6 +206,7 @@ export interface RootRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
+  AdminSeasonsRoute: typeof AdminSeasonsRoute
   MatchesMatchIdRoute: typeof MatchesMatchIdRoute
   PlayersPlayerIdRoute: typeof PlayersPlayerIdRoute
   TeamsTeamIdRoute: typeof TeamsTeamIdRoute
@@ -230,6 +240,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/login'
       fullPath: '/admin/login'
       preLoaderRoute: typeof AdminLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/seasons': {
+      id: '/admin/seasons'
+      path: '/admin/seasons'
+      fullPath: '/admin/seasons'
+      preLoaderRoute: typeof AdminSeasonsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/settings': {
