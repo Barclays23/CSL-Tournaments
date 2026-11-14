@@ -34,7 +34,13 @@ export class SeasonService implements ISeasonService{
   if(additions.length!==input.teamIds.length)throw new AppError("One or more teams are already registered",409,"DUPLICATE_SEASON_TEAM");
   if(existing.length+additions.length>season.auctionSettings.seasonTeamCount)throw new AppError("Season team limit exceeded",422,"SEASON_TEAM_LIMIT");
   const records=await Promise.all(additions.map(async teamId=>{const team=await this.teams.findTeamById(teamId);if(!team||team.status!=="active")throw new AppError("Selected team is not active",422,"INVALID_SEASON_TEAM");return {seasonRef:new Types.ObjectId(id),teamRef:new Types.ObjectId(teamId),displayName:team.name,logoSnapshot:team.logo,groupRef:null,managerRefs:[],status:"registered" as const};}));
-  return this.seasonTeams.createMany(records);
+  try{return await this.repo.registerTeamsAtomically(id,records,season.auctionSettings.seasonTeamCount);}
+  catch(error){
+   if((error as {code?:number}).code===11000)throw new AppError("One or more teams are already registered in this season",409,"DUPLICATE_SEASON_TEAM");
+   if(error instanceof Error&&error.message==="SEASON_TEAM_LIMIT")throw new AppError("Season team limit exceeded",422,"SEASON_TEAM_LIMIT");
+   if(error instanceof Error&&error.message==="SEASON_CLOSED")throw new AppError("Teams cannot be registered in a completed or archived season",409,"SEASON_CLOSED");
+   throw error;
+  }
  }
  private map(s:SeasonEntity):SeasonResponseDto{return {...s,_id:String(s._id),startDate:s.startDate?.toISOString()??null,endDate:s.endDate?.toISOString()??null,createdAt:s.createdAt.toISOString(),updatedAt:s.updatedAt.toISOString()};}
  private ensureId(id:string){if(!Types.ObjectId.isValid(id))throw new AppError("Invalid season ID",400,"INVALID_ID");}

@@ -17,13 +17,6 @@ export class SeasonTeamService implements ISeasonTeamService{
   this.id(id);const current=await SeasonTeamModel.findById(id).exec();if(!current)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
   const season=await SeasonModel.findById(current.seasonRef).select("status").lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(["completed","archived"].includes(season.status))throw new AppError("Completed or archived season participation is read-only",409,"SEASON_CLOSED");
-  if(input.status==="withdrawn"){
-   const [lots,matches]=await Promise.all([
-    (await import("../auctionLots/auctionLot.model.js")).AuctionLotModel.countDocuments({seasonTeamRef:current._id,auctionStatus:"sold"}).exec(),
-    SeasonMatchModel.countDocuments({$or:[{homeSeasonTeamRef:current._id},{awaySeasonTeamRef:current._id}]}).exec()
-   ]);
-   if(lots||matches)throw new AppError("Cannot withdraw a team with sold players or fixtures; correct those records first",409,"SEASON_TEAM_REFERENCED");
-  }
   if(input.managerIds){
    const ids=input.managerIds.map(x=>new Types.ObjectId(x));
    const activeCount=await ManagerModel.countDocuments({_id:{$in:ids},status:"active"}).exec();

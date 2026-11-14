@@ -30,10 +30,27 @@ export class AuctionLotService implements IAuctionLotService{
   return (await this.lots.find(filter)).map(l=>this.map(l));
  }
  async nominate(input:NominatePlayerDto):Promise<AuctionLotResponseDto>{
-  this.id(input.seasonId);this.id(input.playerId);const season=await SeasonModel.findById(input.seasonId).lean().exec();if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
-  const player=await PlayerModel.findById(input.playerId).lean().exec();if(!player||player.status!=="active")throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
-  if(await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId)})>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
-  try{const created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null});const populated=await this.lots.findPopulatedById(String(created._id));return this.map(populated??created);}catch(e){if((e as {code?:number}).code===11000)throw new AppError("This player is already nominated in this season",409,"DUPLICATE_SEASON_PLAYER");throw e;}
+  this.id(input.seasonId);this.id(input.playerId);
+  const player=await PlayerModel.findById(input.playerId).lean().exec();
+  if(!player||player.status!=="active")throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
+  const session=await mongoose.startSession();let created:AuctionLotEntity|null=null;
+  try{
+   await session.withTransaction(async()=>{
+    const season=await SeasonModel.findById(input.seasonId).session(session).lean().exec();
+    if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
+    const lock=await SeasonModel.updateOne({_id:season._id,status:{$nin:["completed","archived"]}},{$inc:{auctionRevision:1}},{session}).exec();
+    if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
+    const count=await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId)},session);
+    if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
+    created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
+   });
+  }catch(error){
+   if((error as {code?:number}).code===11000)throw new AppError("This player is already nominated in this season",409,"DUPLICATE_SEASON_PLAYER");
+   throw error;
+  }finally{await session.endSession();}
+  if(!created)throw new AppError("Player nomination failed",500,"AUCTION_NOMINATION_FAILED");
+  const populated=await this.lots.findPopulatedById(String(created._id));
+  return this.map(populated??created);
  }
  async sell(id:string,input:SellAuctionLotDto):Promise<AuctionLotResponseDto>{
   this.id(id);this.id(input.seasonTeamId);if(input.purchasePrice<0)throw new AppError("Purchase price cannot be negative",422,"INVALID_PRICE");
