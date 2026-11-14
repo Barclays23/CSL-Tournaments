@@ -1,9 +1,13 @@
 import {api,run} from "@/services/api";
 import type {ApiResponse} from "@/types/api.types";
-import type {AuctionSummary,Season,SeasonWrite} from "@/types/season.types";
+import type {AuctionLot,AuctionLotsQuery,AuctionSummary,Season,SeasonTeam,SeasonWrite} from "@/types/season.types";
 export function getSeasons(){return run(()=>api.get<ApiResponse<Season[]>>("/seasons").then(r=>r.data));}
 export function createSeason(data:SeasonWrite){return run(()=>api.post<ApiResponse<Season>>("/seasons",data).then(r=>r.data));}
-export function getAuctionSummary(seasonId:string){return run(()=>api.get<ApiResponse<AuctionSummary>>("/auction-lots",{params:{seasonId}}).then(r=>r.data));}
-export function nominatePlayer(data:{seasonId:string;playerId:string;playerPosition:"goalkeeper"|"defender"|"midfielder"|"forward";isIconPlayer:boolean;isGoalkeeper:boolean}){return run(()=>api.post<ApiResponse<unknown>>("/auction-lots",data).then(r=>r.data));}
-export function sellAuctionLot(id:string,data:{seasonTeamId:string;purchasePrice:number;jerseyNo?:number|null}){return run(()=>api.patch<ApiResponse<unknown>>(`/auction-lots/${id}/sell`,data).then(r=>r.data));}
-export function updateAuctionLotStatus(id:string,auctionStatus:"unsold"|"withdrawn"){return run(()=>api.patch<ApiResponse<unknown>>(`/auction-lots/${id}/status`,{auctionStatus}).then(r=>r.data));}
+export function updateSeason(id:string,data:Partial<SeasonWrite>){return run(()=>api.patch<ApiResponse<Season>>("/seasons/"+id,data).then(r=>r.data));}
+export function registerSeasonTeams(id:string,teamIds:string[]){return run(()=>api.post<ApiResponse<SeasonTeam[]>>("/seasons/"+id+"/teams",{teamIds}).then(r=>r.data));}
+export function getSeasonTeams(id:string){return run(()=>api.get<ApiResponse<SeasonTeam[]>>("/seasons/"+id+"/teams").then(r=>r.data));}
+export function getAuctionSummary(seasonId:string){return run(()=>api.get<ApiResponse<AuctionSummary>>("/auctions/summary",{params:{seasonId}}).then(r=>r.data));}
+export function getAuctionLots(query:AuctionLotsQuery){return run(()=>api.get<ApiResponse<AuctionLot[]>>("/auctions",{params:query}).then(r=>r.data));}
+export function nominatePlayer(data:{seasonId:string;playerId:string;playerPosition:"goalkeeper"|"defender"|"midfielder"|"forward";isIconPlayer:boolean;isGoalkeeper:boolean}){return run(()=>api.post<ApiResponse<AuctionLot>>("/auctions/lots",data).then(r=>r.data));}
+export function sellAuctionLot(id:string,data:{seasonTeamId:string;purchasePrice:number;jerseyNo?:number|null}){return run(()=>api.patch<ApiResponse<AuctionLot>>("/auctions/lots/"+id+"/sell",data).then(r=>r.data));}
+export function updateAuctionLotStatus(id:string,auctionStatus:"unsold"|"withdrawn"){return run(()=>api.patch<ApiResponse<AuctionLot>>("/auctions/lots/"+id+"/status",{auctionStatus}).then(r=>r.data));}

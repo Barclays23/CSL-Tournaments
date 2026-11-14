@@ -3,7 +3,7 @@ import { authenticate } from "../../middlewares/authenticate.middleware.js";
 import { optionalAuthenticate } from "../../middlewares/optionalAuthenticate.middleware.js";
 import { requireAdmin } from "../../middlewares/authorizeAdmin.middleware.js";
 import { validate } from "../../middlewares/validate.middleware.js";
-import { playerController } from "../../container/dependencies.js";
+import { playerController, seasonStatisticsController } from "../../container/dependencies.js";
 import {
   playerAssignmentSchema,
   playerCreateSchema,
@@ -19,6 +19,7 @@ export const playerRouter = Router();
 
 
 
+playerRouter.get("/:id/history", seasonStatisticsController.getPlayerHistory);
 playerRouter.get("/", optionalAuthenticate, validate(playerQuerySchema, "query"), playerController.getPlayers);
 playerRouter.get("/:id", optionalAuthenticate, playerController.getPlayerById);
 playerRouter.post("/", authenticate, requireAdmin, validate(playerCreateSchema), playerController.createPlayer);

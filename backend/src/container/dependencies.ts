@@ -123,3 +123,17 @@ const seasonTeamService = new SeasonTeamService();
 export const seasonTeamController = new SeasonTeamController(seasonTeamService);
 const groupRepository = new GroupRepository();
 export const groupController = new GroupController(groupRepository);
+
+import { SeasonMatchRepository } from "../modules/matches/seasonMatch.repository.js";
+import { SeasonMatchService } from "../modules/matches/seasonMatch.service.js";
+import { SeasonMatchController } from "../modules/matches/seasonMatch.controller.js";
+const seasonMatchRepository = new SeasonMatchRepository();
+const seasonMatchService = new SeasonMatchService(seasonMatchRepository);
+export const seasonMatchController = new SeasonMatchController(seasonMatchService);
+
+import { SeasonStatisticsRepository } from "../modules/statistics/seasonStatistics.repository.js";
+import { SeasonStatisticsService } from "../modules/statistics/seasonStatistics.service.js";
+import { SeasonStatisticsController } from "../modules/statistics/seasonStatistics.controller.js";
+const seasonStatisticsRepository = new SeasonStatisticsRepository();
+const seasonStatisticsService = new SeasonStatisticsService(seasonStatisticsRepository);
+export const seasonStatisticsController = new SeasonStatisticsController(seasonStatisticsService);

@@ -4,6 +4,7 @@ import {ManagerModel} from "../managers/manager.model.js";
 import {SeasonModel} from "../seasons/season.model.js";
 import {GroupModel} from "../groups/group.model.js";
 import {SeasonTeamModel} from "./seasonTeam.model.js";
+import {SeasonMatchModel} from "../matches/seasonMatch.model.js";
 import type {ISeasonTeamService} from "./seasonTeam.interfaces.js";
 import type {SeasonTeamResponseDto,UpdateSeasonTeamDto} from "./seasonTeam.dto.js";
 import type {SeasonTeamStatus} from "./seasonTeam.types.js";
@@ -20,7 +21,7 @@ export class SeasonTeamService implements ISeasonTeamService{
   if(input.status==="withdrawn"){
    const [lots,matches]=await Promise.all([
     (await import("../auctionLots/auctionLot.model.js")).AuctionLotModel.countDocuments({seasonTeamRef:current._id,auctionStatus:"sold"}).exec(),
-    (await import("../matches/match.model.js")).MatchModel.countDocuments({$or:[{homeSeasonTeamRef:current._id},{awaySeasonTeamRef:current._id}]}).exec()
+    SeasonMatchModel.countDocuments({$or:[{homeSeasonTeamRef:current._id},{awaySeasonTeamRef:current._id}]}).exec()
    ]);
    if(lots||matches)throw new AppError("Cannot withdraw a team with sold players or fixtures; correct those records first",409,"SEASON_TEAM_REFERENCED");
   }

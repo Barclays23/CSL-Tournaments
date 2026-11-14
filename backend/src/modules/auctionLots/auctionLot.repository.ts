@@ -1,10 +1,13 @@
 import {Types,type ClientSession} from "mongoose";
 import {AuctionLotModel} from "./auctionLot.model.js";
+import {PlayerModel} from "../players/player.model.js";
 import type {AuctionLotEntity,AuctionLotFields,AuctionLotQuery} from "./auctionLot.types.js";
-const populate=[{path:"playerRef",select:"name profilePic"},{path:"seasonTeamRef",populate:{path:"teamRef",select:"name shortName logo"}}];
+const populate=[{path:"playerRef",select:"name profilePic"},{path:"seasonTeamRef",select:"displayName logoSnapshot teamRef",populate:{path:"teamRef",select:"name shortName logo"}}];
 export class AuctionLotRepository{
  async find(query:AuctionLotQuery):Promise<AuctionLotEntity[]>{return AuctionLotModel.find(query).sort({lotNumber:1,createdAt:1}).populate(populate).lean<AuctionLotEntity[]>().exec();}
  async findById(id:string,session?:ClientSession):Promise<AuctionLotEntity|null>{return AuctionLotModel.findById(id).session(session??null).lean<AuctionLotEntity>().exec();}
+ async findPopulatedById(id:string):Promise<AuctionLotEntity|null>{return AuctionLotModel.findById(id).populate(populate).lean<AuctionLotEntity>().exec();}
+ async findPlayerIdsByName(name:string):Promise<Types.ObjectId[]>{const players=await PlayerModel.find({name:{$regex:name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),$options:"i"}}).select("_id").limit(250).lean<{_id:Types.ObjectId}[]>().exec();return players.map(p=>p._id);}
  async create(data:AuctionLotFields,session?:ClientSession):Promise<AuctionLotEntity>{const [doc]=await AuctionLotModel.create([data],{session});return doc.toObject() as AuctionLotEntity;}
  async update(id:string,data:Partial<AuctionLotFields>,session?:ClientSession):Promise<AuctionLotEntity|null>{return AuctionLotModel.findByIdAndUpdate(id,{$set:data},{session,returnDocument:"after",runValidators:true}).lean<AuctionLotEntity>().exec();}
  async count(query:Partial<AuctionLotQuery>,session?:ClientSession):Promise<number>{return AuctionLotModel.countDocuments(query).session(session??null).exec();}
