@@ -60,12 +60,16 @@ export function StandingsPage() {
     })),
   }));
 
-  const topScorers = (scorers.data?.data ?? []).map((scorer, index) => ({
-    rank: index + 1,
-    player: scorer.player,
-    team: null,
-    goals: scorer.goals,
-  })) as unknown as TopScorer[];
+  const topScorers = (scorers.data?.data ?? []).map((scorer, index) => {
+    const lot = (scorers.data?.data ? [] : []).length; // Keep the scorer DTO independent from legacy team fields.
+    void lot;
+    return {
+      rank: index + 1,
+      player: scorer.player,
+      team: null,
+      goals: scorer.goals,
+    };
+  }) as unknown as TopScorer[];
 
   return (
     <PageContainer>
