@@ -6,6 +6,7 @@ on:
       - refactor/typed-solid-architecture
       - refactor/module-dto-schema-types
       - feature/updated-csl-project-plan
+      - feature/season-based-mock-data
   pull_request:
     branches:
       - main
