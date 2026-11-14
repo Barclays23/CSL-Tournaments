@@ -113,3 +113,13 @@ export const seasonController = new SeasonController(seasonService);
 const auctionLotRepository = new AuctionLotRepository();
 const auctionLotService = new AuctionLotService(auctionLotRepository);
 export const auctionLotController = new AuctionLotController(auctionLotService);
+
+import { SeasonTeamService } from "../modules/seasonTeams/seasonTeam.service.js";
+import { SeasonTeamController } from "../modules/seasonTeams/seasonTeam.controller.js";
+import { GroupRepository } from "../modules/groups/group.repository.js";
+import { GroupController } from "../modules/groups/group.controller.js";
+
+const seasonTeamService = new SeasonTeamService();
+export const seasonTeamController = new SeasonTeamController(seasonTeamService);
+const groupRepository = new GroupRepository();
+export const groupController = new GroupController(groupRepository);
