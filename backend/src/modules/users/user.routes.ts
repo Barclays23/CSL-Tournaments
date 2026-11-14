@@ -6,7 +6,7 @@ import { userController } from "../../container/dependencies.js";
 export const userRouter = Router();
 userRouter.use(authenticate, requireAdmin);
 userRouter.get("/", userController.list);
-userRouter.post("/", userController.create);
+userRouter.post("/", userController.createUserByAdmin);
 userRouter.patch("/:id", userController.update);
 userRouter.patch("/:id/status", userController.updateStatus);
 userRouter.delete("/:id", userController.delete);
