@@ -152,6 +152,7 @@ export class TeamService implements ITeamService {
       _id: String(team._id),
       name: team.name,
       shortName: team.shortName,
+      description: team.description ?? null,
       logo: team.logo,
       poster: team.poster,
       groupName: team.groupName,

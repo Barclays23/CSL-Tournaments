@@ -1,5 +1,5 @@
 import {z} from "zod";
-const objectId=z.string().regex(/^[a-f\\d]{24}$/i,"Invalid ID");
+const objectId=z.string().regex(/^[a-f\d]{24}$/i,"Invalid ID");
 export const updateSeasonTeamSchema=z.object({
  managerIds:z.array(objectId).max(20).optional(),
  groupId:objectId.nullable().optional(),

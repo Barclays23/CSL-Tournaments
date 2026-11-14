@@ -10,6 +10,7 @@ const assetSchema = new Schema<Asset>({
 const teamSchema = new Schema<TeamFields>({
   name: { type: String, required: true, trim: true, unique: true },
   shortName: { type: String, default: null, trim: true },
+  description: { type: String, default: null, trim: true, maxlength: 1000 },
   logo: { type: assetSchema, default: null },
   poster: { type: assetSchema, default: null },
   groupName: { type: String, default: null, trim: true },

@@ -4,6 +4,7 @@ import type { TeamStatus } from "./team.types.js";
 export interface CreateTeamDto {
   name: string;
   shortName?: string | null;
+  description?: string | null;
   logo?: Asset | null;
   poster?: Asset | null;
   groupName?: string | null;
