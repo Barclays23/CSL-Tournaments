@@ -35,6 +35,11 @@ export interface MockSponsor {
   contactPerson: string | null; contactMobile: string | null; status: "active" | "inactive";
   notes: string | null; createdAt: string; updatedAt: string;
 }
+export interface MockOrganizer {
+  _id: string; name: string; title: string; mobile: string | null; email: string | null;
+  profilePic: Asset | null; displayOrder: number; status: "active" | "inactive";
+  notes: string | null; createdAt: string; updatedAt: string;
+}
 export interface MockGroup {
   _id: string; seasonRef: string; groupName: string; displayOrder: number; createdAt: string; updatedAt: string;
 }
@@ -68,7 +73,7 @@ export interface MockUser {
 }
 export interface SeasonMockDatabase {
   users: MockUser[]; teams: MockTeam[]; players: MockPlayer[]; managers: MockManager[];
-  sponsors: MockSponsor[]; seasons: MockSeason[]; seasonTeams: MockSeasonTeam[];
+  sponsors: MockSponsor[]; organizers: MockOrganizer[]; seasons: MockSeason[]; seasonTeams: MockSeasonTeam[];
   auctionLots: MockAuctionLot[]; matches: MockSeasonMatch[]; groups: MockGroup[];
 }
 
@@ -127,6 +132,13 @@ const sponsors: MockSponsor[] = [
   status: index === 3 ? "inactive" : "active",
   createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
+
+const organizers: MockOrganizer[] = [
+  { _id: oid(450), name: "Abdul Rahman", title: "Tournament President", mobile: "9847000450", email: "rahman@csl.local", profilePic: asset("https://i.pravatar.cc/240?img=11", "mock/organizers/organizer-1"), displayOrder: 1, status: "active", notes: "Oversees tournament planning and committee decisions.", createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now },
+  { _id: oid(451), name: "Niyas K", title: "General Secretary", mobile: "9847000451", email: "niyas@csl.local", profilePic: asset("https://i.pravatar.cc/240?img=14", "mock/organizers/organizer-2"), displayOrder: 2, status: "active", notes: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now },
+  { _id: oid(452), name: "Shameer P", title: "Finance Coordinator", mobile: "9847000452", email: null, profilePic: asset("https://i.pravatar.cc/240?img=18", "mock/organizers/organizer-3"), displayOrder: 3, status: "active", notes: "Coordinates tournament accounts and sponsor contributions.", createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now },
+  { _id: oid(453), name: "Fathima A", title: "Media Coordinator", mobile: null, email: "media@csl.local", profilePic: asset("https://i.pravatar.cc/240?img=23", "mock/organizers/organizer-4"), displayOrder: 4, status: "inactive", notes: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now },
+];
 
 const seasonDefinitions: Array<Omit<MockSeason, "_id" | "createdAt" | "updatedAt">> = [
   { seasonNumber: 9, name: "CSL Football Tournament 2024", year: 2024, startDate: "2024-11-01T00:00:00.000Z", endDate: "2024-11-17T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 8000, playersCount: 16, seasonTeamCount: 4, teamSquadSize: 8, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
@@ -212,6 +224,10 @@ seasons.forEach((season, seasonIndex) => {
   const away = seasonTeamId(seasonIndex, Math.min(1, participatingCount - 1));
   const third = seasonTeamId(seasonIndex, Math.min(2, participatingCount - 1));
   const fourth = seasonTeamId(seasonIndex, Math.min(3, participatingCount - 1));
+  const groupBHomeIndex = Math.ceil(participatingCount / 2);
+  const groupBAwayIndex = Math.min(groupBHomeIndex + 1, participatingCount - 1);
+  const groupBHome = seasonTeamId(seasonIndex, groupBHomeIndex);
+  const groupBAway = seasonTeamId(seasonIndex, groupBAwayIndex);
   const playerFor = (teamIndex: number, slot: number) => {
     const lot = auctionLots.find((item) => item.seasonRef === season._id && item.seasonTeamRef === seasonTeamId(seasonIndex, teamIndex) && item.auctionStatus === "sold" && item.lotNumber === teamIndex * 3 + slot + 1);
     return lot?.playerRef ?? null;
@@ -232,9 +248,9 @@ seasons.forEach((season, seasonIndex) => {
     { scoring: home, scorer: playerFor(0, 2), playerTeam: home, type: "normal" },
     { scoring: away, scorer: playerFor(1, 1), playerTeam: away, type: "normal" },
   ]));
-  matches.push(makeMatch(2, "group", groupB, third, fourth, "completed", `${seasonYear}-11-04T11:00:00.000Z`, [
-    { scoring: third, scorer: playerFor(Math.min(2, participatingCount - 1), 1), playerTeam: third, type: "normal" },
-    { scoring: fourth, scorer: null, playerTeam: third, type: "own_goal" },
+  matches.push(makeMatch(2, "group", groupB, groupBHome, groupBAway, "completed", `${seasonYear}-11-04T11:00:00.000Z`, [
+    { scoring: groupBHome, scorer: playerFor(groupBHomeIndex, 1), playerTeam: groupBHome, type: "normal" },
+    { scoring: groupBAway, scorer: null, playerTeam: groupBHome, type: "own_goal" },
   ]));
   if (participatingCount >= 6) {
     matches.push(makeMatch(3, "group", groupA, away, third, season.status === "active" ? "live" : "completed", `${seasonYear}-11-06T11:00:00.000Z`, [
@@ -262,6 +278,7 @@ seasons.forEach((season, seasonIndex) => {
   }
   matches.push(makeMatch(5, "final", null, home, away, season.status === "active" ? "scheduled" : "completed", `${seasonYear}-11-18T13:00:00.000Z`, season.status === "active" ? [] : [
     { scoring: home, scorer: playerFor(0, 2), playerTeam: home, type: "normal" },
+    { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
     { scoring: away, scorer: playerFor(1, 2), playerTeam: away, type: "normal" },
   ], null, season.status === "active" ? null : home));
 });
@@ -272,7 +289,7 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   const validId = (value: string) => /^[a-f0-9]{24}$/i.test(value);
   for (const [label, docs] of Object.entries({
     users: db.users, teams: db.teams, players: db.players, managers: db.managers,
-    sponsors: db.sponsors, seasons: db.seasons, seasonTeams: db.seasonTeams,
+    sponsors: db.sponsors, organizers: db.organizers, seasons: db.seasons, seasonTeams: db.seasonTeams,
     auctionLots: db.auctionLots, matches: db.matches, groups: db.groups,
   })) {
     unique(docs.map((doc) => doc._id), `${label} _id`);
@@ -303,6 +320,18 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
     assert(Boolean(seasonTeam(match.homeSeasonTeamRef, match.seasonRef)), `Match ${match._id} home team is from another season`);
     assert(Boolean(seasonTeam(match.awaySeasonTeamRef, match.seasonRef)), `Match ${match._id} away team is from another season`);
     assert(match.groupRef === null || db.groups.some((g) => g._id === match.groupRef && g.seasonRef === match.seasonRef), `Match ${match._id} has an invalid group`);
+    assert(match.homeSeasonTeamRef !== match.awaySeasonTeamRef, `Match ${match._id} has the same home and away team`);
+    if (match.stage === "group") {
+      const homeTeam = seasonTeam(match.homeSeasonTeamRef, match.seasonRef);
+      const awayTeam = seasonTeam(match.awaySeasonTeamRef, match.seasonRef);
+      assert(Boolean(match.groupRef && homeTeam?.groupRef === match.groupRef && awayTeam?.groupRef === match.groupRef), `Group match ${match._id} teams must belong to its group`);
+      assert(match.penaltyShootout === null, `Group match ${match._id} cannot have a shootout`);
+    }
+    if (match.status === "completed" && match.stage !== "group") {
+      const homeScore = match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length;
+      const awayScore = match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length;
+      if (homeScore === awayScore) assert(Boolean(match.penaltyShootout?.status === "completed" && match.winnerSeasonTeamRef), `Tied knockout match ${match._id} requires a completed shootout and winner`);
+    }
     assert(match.winnerSeasonTeamRef === null || Boolean(seasonTeam(match.winnerSeasonTeamRef, match.seasonRef)), `Match ${match._id} winner is from another season`);
     for (const goal of match.goals) {
       assert(Boolean(seasonTeam(goal.scoringSeasonTeamRef, match.seasonRef)), `Goal ${goal._id} scoring team is from another season`);
@@ -331,7 +360,7 @@ export function createSeasonDatabase(): SeasonMockDatabase {
       passwordHash: "$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", role: "user", profilePic: null,
       status: "active", lastLoginAt: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
     }],
-    teams, players, managers, sponsors, seasons, seasonTeams, auctionLots, matches, groups,
+    teams, players, managers, sponsors, organizers, seasons, seasonTeams, auctionLots, matches, groups,
   };
   assertSeedIntegrity(database);
   return database;
