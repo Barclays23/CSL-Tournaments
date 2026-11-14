@@ -20,12 +20,12 @@ import { errorMessage } from "@/utils/errorHandler";
 import { isAdminRecord } from "@/utils/forms";
 
 export function SponsorsPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const sponsors = useServiceQuery(() => getSponsors({ limit: 24 }), []);
   const [editing, setEditing] = useState<PublicSponsor | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
-  const visible = sponsors.data?.data.filter((sponsor) => isAuthenticated || sponsor.status === "active") ?? [];
+  const visible = sponsors.data?.data.filter((sponsor) => isAdmin || sponsor.status === "active") ?? [];
 
   const save = async (values: SponsorFormValues, logo: Asset | null) => {
     setSaving(true);
@@ -50,7 +50,7 @@ export function SponsorsPage() {
         eyebrow="Support"
         title="Sponsors"
         description="The people and businesses backing this tournament."
-        actions={isAuthenticated ? <Button onClick={() => setEditing(null)}>Add sponsor</Button> : null}
+        actions={isAdmin ? <Button onClick={() => setEditing(null)}>Add sponsor</Button> : null}
       />
       {sponsors.loading ? <CardSkeletonGrid /> : null}
       {sponsors.error ? <ErrorState message={sponsors.error} onRetry={sponsors.reload} /> : null}
@@ -59,12 +59,12 @@ export function SponsorsPage() {
         {visible.map((sponsor) => (
           <div key={sponsor._id} className="grid gap-2">
             <SponsorCard sponsor={sponsor} />
-            {isAuthenticated && isAdminRecord(sponsor) ? (
+            {isAdmin && isAdminRecord(sponsor) ? (
               <p className="px-1 text-xs text-muted">
                 {"notes" in sponsor && sponsor.notes ? sponsor.notes : "No internal notes"}
               </p>
             ) : null}
-            {isAuthenticated ? (
+            {isAdmin ? (
               <div className="flex gap-2">
                 <Button size="sm" variant="surface" onClick={() => setEditing(sponsor)}>Edit</Button>
                 <Button

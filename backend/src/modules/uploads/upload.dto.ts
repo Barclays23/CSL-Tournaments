@@ -4,7 +4,8 @@ export type UploadPurpose =
   | "team-logo"
   | "team-poster"
   | "manager-profile"
-  | "sponsor-logo";
+  | "sponsor-logo"
+  | "organizer-profile";
 
 export interface ImageUploadDto {
   purpose: UploadPurpose;

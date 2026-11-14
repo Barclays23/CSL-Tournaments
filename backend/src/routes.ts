@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { authRouter } from "./modules/auth/auth.routes.js";
+import { userRouter } from "./modules/users/user.routes.js";
+import { organizerRouter } from "./modules/organizers/organizer.routes.js";
 import { settingsRouter } from "./modules/settings/settings.routes.js";
 import { playerRouter } from "./modules/players/player.routes.js";
 import { teamRouter } from "./modules/teams/team.routes.js";
@@ -20,6 +22,8 @@ export const apiRouter = Router();
 
 
 apiRouter.use("/auth",authRouter);
+apiRouter.use("/users",userRouter);
+apiRouter.use("/organizers",organizerRouter);
 apiRouter.use("/settings",settingsRouter);
 apiRouter.use("/players",playerRouter);
 apiRouter.use("/teams",teamRouter);

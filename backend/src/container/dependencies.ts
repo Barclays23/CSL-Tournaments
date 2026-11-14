@@ -9,6 +9,10 @@ import { StatisticsRepository } from "../modules/statistics/statistics.repositor
 
 import { AuthService } from "../modules/auth/auth.service.js";
 import { UserService } from "../modules/users/user.service.js";
+import { UserController } from "../modules/users/user.controller.js";
+import { OrganizerRepository } from "../modules/organizers/organizer.repository.js";
+import { OrganizerService } from "../modules/organizers/organizer.service.js";
+import { OrganizerController } from "../modules/organizers/organizer.controller.js";
 import { SettingsService } from "../modules/settings/settings.service.js";
 import { PlayerService } from "../modules/players/player.service.js";
 import { TeamService } from "../modules/teams/team.service.js";
@@ -66,6 +70,10 @@ const statisticsRepo: IStatisticsRepository = new StatisticsRepository();
 const uploadService: IUploadService     = new UploadService();
 export const settingsService: ISettingsService = new SettingsService(settingsRepo);
 export const userService: IUserService         = new UserService(userRepo);
+export const userController = new UserController(userService);
+const organizerRepository = new OrganizerRepository();
+const organizerService = new OrganizerService(organizerRepository);
+export const organizerController = new OrganizerController(organizerService);
 const authService: IAuthService         = new AuthService(userRepo);
 const sponsorService: ISponsorService   = new SponsorService(sponsorRepo);
 

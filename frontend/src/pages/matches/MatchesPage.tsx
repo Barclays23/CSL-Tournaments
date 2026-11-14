@@ -34,7 +34,7 @@ const TABS: { value: MatchStatus | ""; label: string }[] = [
 ];
 
 export function MatchesPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const [status, setStatus] = useState<MatchStatus | "">("");
   const [stage, setStage] = useState<MatchStage | "">("");
   const [groupName, setGroupName] = useState("");
@@ -55,7 +55,7 @@ export function MatchesPage() {
         eyebrow="Calendar"
         title="Fixtures"
         description="Kick-off times, scores and penalty shootouts. Shootout kicks never change the match score."
-        actions={isAuthenticated ? <Button onClick={() => setOpen(true)}>Create fixture</Button> : null}
+        actions={isAdmin ? <Button onClick={() => setOpen(true)}>Create fixture</Button> : null}
       />
       <Tabs tabs={TABS} value={status} onChange={(value) => { setStatus(value as MatchStatus | ""); setPage(1); }} />
       <div className="my-4 grid gap-3 md:grid-cols-3">

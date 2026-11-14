@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Types } from "mongoose";
 
-export type UserRole = "admin";
+export type UserRole = "user" | "admin";
 export type RecordStatus = "active" | "inactive";
 export type Position = "GK" | "DF" | "MF" | "FW";
 export type AuctionStatus = "pending" | "sold" | "unsold";
@@ -16,9 +16,7 @@ export interface AuthUser {
   email: string;
 }
 
-export interface AuthRequest extends Request {
-  user?: AuthUser;
-}
+export interface AuthRequest extends Request { user?: AuthUser; }
 
 export interface Asset {
   url: string;
@@ -31,24 +29,9 @@ export interface IPagination {
   total: number;
   totalPages: number;
 }
-
-export interface IPaginationQuery {
-  page: number;
-  limit: number;
-}
-
+export interface IPaginationQuery { page: number; limit: number; }
+export interface PaginatedResult<TEntity> { items: TEntity[]; pagination: IPagination; }
 export type Pagination = IPagination;
 export type PaginationQuery = IPaginationQuery;
-
-export interface PaginatedResult<TEntity> {
-  items: TEntity[];
-  pagination: IPagination;
-}
-
-export type ControllerMethod = (
-  request: Request,
-  response: Response,
-  next: NextFunction
-) => Promise<void>;
-
+export type ControllerMethod = (request: Request, response: Response, next: NextFunction) => Promise<void>;
 export type MongoId = Types.ObjectId;

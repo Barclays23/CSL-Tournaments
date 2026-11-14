@@ -24,7 +24,7 @@ const EMPTY_SUMMARY:ApiResponse<null>={success:true,message:"",data:null};
 const POSITIONS:Record<SeasonPlayerPosition,string>={goalkeeper:"Goalkeeper",defender:"Defender",midfielder:"Midfielder",forward:"Forward"};
 
 export function AuctionsPage(){
-  const {isAuthenticated}=useAuth();
+  const {isAdmin}=useAuth();
   const seasons=useServiceQuery(()=>getSeasons(),[]);
   const [seasonId,setSeasonId]=useState("");
   useEffect(()=>{if(!seasonId&&seasons.data?.data.length){const active=seasons.data.data.find(s=>s.status==="active");setSeasonId(active?active._id:seasons.data.data[0]._id);}},[seasonId,seasons.data]);
@@ -61,7 +61,7 @@ export function AuctionsPage(){
     <PageHeader eyebrow="Season auction" title="Auctions" description="Season-wise nominations, player purchases, budgets and squad composition."/>
     <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end">
       <div className="w-full max-w-sm"><label className="mb-1.5 block text-sm font-medium text-fg">Season</label><Select value={seasonId} onChange={e=>{setSeasonId(e.target.value);setTeamFilter("");}}><option value="">Select season</option>{seasons.data?.data.map(s=><option key={s._id} value={s._id}>{s.name} · {s.year}</option>)}</Select></div>
-      {isAuthenticated&&data&&!["completed","archived"].includes(data.season.status)?<Button onClick={()=>setNominateOpen(true)}>Nominate player</Button>:null}
+      {isAdmin&&data&&!["completed","archived"].includes(data.season.status)?<Button onClick={()=>setNominateOpen(true)}>Nominate player</Button>:null}
     </div>
     {seasons.loading?<Skeleton className="h-24"/>:null}
     {seasons.error?<ErrorState message={seasons.error} onRetry={seasons.reload}/>:null}
@@ -99,7 +99,7 @@ export function AuctionsPage(){
         {!lots.loading&&!lots.error&&!lotRows.length?<GlassCard className="p-5 text-sm text-muted">No auction lots match these filters.</GlassCard>:null}
         <div className="grid gap-3">{lotRows.map(lot=><GlassCard key={lot._id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold text-fg">{playerNameFor(lot)}</h3><span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{lot.auctionStatus}</span>{lot.isIconPlayer?<span className="rounded-full bg-surface px-2 py-1 text-xs text-gold">Icon</span>:null}{lot.isGoalkeeper?<span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">Goalkeeper</span>:null}</div><p className="mt-1 text-xs text-muted">{POSITIONS[lot.playerPosition]} · {teamNameFor(lot)}{lot.jerseyNo?" · #"+lot.jerseyNo:""}</p></div>
-          <div className="flex flex-wrap items-center gap-2"><span className="mr-1 text-sm font-semibold text-fg">{lot.purchasePrice===null?"—":formatCurrency(lot.purchasePrice)}</span>{isAuthenticated&&lot.auctionStatus==="pending"&&!["completed","archived"].includes(data.season.status)?<><Button size="sm" onClick={()=>openSale(lot)}>Sell</Button><Button size="sm" variant="surface" onClick={async()=>{try{await updateAuctionLotStatus(lot._id,"unsold");toast.success("Lot marked unsold");refresh();}catch(e){toast.error(errorMessage(e));}}}>Unsold</Button><Button size="sm" variant="ghost" onClick={async()=>{try{await updateAuctionLotStatus(lot._id,"withdrawn");toast.success("Lot withdrawn");refresh();}catch(e){toast.error(errorMessage(e));}}}>Withdraw</Button></>:null}</div>
+          <div className="flex flex-wrap items-center gap-2"><span className="mr-1 text-sm font-semibold text-fg">{lot.purchasePrice===null?"—":formatCurrency(lot.purchasePrice)}</span>{isAdmin&&lot.auctionStatus==="pending"&&!["completed","archived"].includes(data.season.status)?<><Button size="sm" onClick={()=>openSale(lot)}>Sell</Button><Button size="sm" variant="surface" onClick={async()=>{try{await updateAuctionLotStatus(lot._id,"unsold");toast.success("Lot marked unsold");refresh();}catch(e){toast.error(errorMessage(e));}}}>Unsold</Button><Button size="sm" variant="ghost" onClick={async()=>{try{await updateAuctionLotStatus(lot._id,"withdrawn");toast.success("Lot withdrawn");refresh();}catch(e){toast.error(errorMessage(e));}}}>Withdraw</Button></>:null}</div>
         </GlassCard>)}</div>
       </section>
     </>:null}

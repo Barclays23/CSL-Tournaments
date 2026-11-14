@@ -6,7 +6,7 @@ import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, isAdmin, logout } = useAuth();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 bg-bg/80 backdrop-blur-md lg:hidden">
@@ -26,11 +26,11 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
         <div className="mt-auto">
           {isAuthenticated ? (
             <div className="flex flex-col gap-2">
-              <Link to="/admin/dashboard" onClick={onClose}>
+              {isAdmin ? <Link to="/admin/dashboard" onClick={onClose}>
                 <Button variant="surface" className="w-full">
                   Dashboard
                 </Button>
-              </Link>
+              </Link> : null}
               <Button
                 variant="danger"
                 className="w-full"

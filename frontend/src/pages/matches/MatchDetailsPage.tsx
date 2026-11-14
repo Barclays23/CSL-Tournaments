@@ -23,7 +23,7 @@ import { fromDateTimeInput, formatDate, formatTime } from "@/utils/formatDate";
 import { errorMessage } from "@/utils/errorHandler";
 
 export function MatchDetailsPage({ matchId }: { matchId: string }) {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const navigate = useNavigate();
   const match = useServiceQuery(() => getMatchById(matchId), [matchId]);
@@ -100,7 +100,7 @@ export function MatchDetailsPage({ matchId }: { matchId: string }) {
           {record.venue ? ` · ${record.venue}` : ""}
         </p>
         {record.notes ? <p className="mt-3 text-center text-sm text-muted">{record.notes}</p> : null}
-        {isAuthenticated ? (
+        {isAdmin ? (
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <Button onClick={() => setEditingMatch(true)}>Edit fixture</Button>
             <Button variant="surface" onClick={() => setEditingGoal(null)}>Add goal</Button>
@@ -131,7 +131,7 @@ export function MatchDetailsPage({ matchId }: { matchId: string }) {
       <section className="mt-6">
         <h2 className="mb-3 font-display text-3xl text-fg">Goals</h2>
         <GoalScorerList match={record} />
-        {isAuthenticated ? (
+        {isAdmin ? (
           <div className="mt-3 flex flex-col gap-2">
             {record.goals.map((goal) => (
               <div key={goal._id} className="flex gap-2">
