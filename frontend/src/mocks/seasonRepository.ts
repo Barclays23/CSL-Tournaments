@@ -182,7 +182,8 @@ export const seasonPreviewRepository = {
     if (input.status === "active" && db.seasons.some((s) => s._id !== id && s.status === "active")) fail(409, "Another season is already active");
     if (input.auctionSettings && db.auctionLots.some((lot) => lot.seasonRef === id) && JSON.stringify(input.auctionSettings) !== JSON.stringify(season.auctionSettings)) fail(409, "Auction settings cannot be changed after player nominations");
     if (input.auctionSettings && input.auctionSettings.seasonTeamCount < db.seasonTeams.filter((st) => st.seasonRef === id).length) fail(409, "Team limit cannot be lower than registered teams");
-    const { teamIds: _teamIds, ...patch } = input;
+    const patch: Partial<SeasonWrite> = { ...input };
+    delete patch.teamIds;
     Object.assign(season, patch, { updatedAt: now() });
     commitSeasonDb(db);
     return ok("Season updated", season as unknown as Season);
