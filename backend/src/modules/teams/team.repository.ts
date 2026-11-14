@@ -54,6 +54,7 @@ export class TeamRepository implements ITeamRepository {
     const fields: TeamFields = {
       name: data.name.trim(),
       shortName: data.shortName?.trim() || null,
+      description: data.description?.trim() || null,
       logo: data.logo ?? null,
       poster: data.poster ?? null,
       groupName: data.groupName?.trim() || null,
@@ -69,6 +70,7 @@ export class TeamRepository implements ITeamRepository {
     const updateFields: Partial<TeamFields> = {};
     if (data.name !== undefined) updateFields.name = data.name.trim();
     if (data.shortName !== undefined) updateFields.shortName = data.shortName?.trim() || null;
+    if (data.description !== undefined) updateFields.description = data.description?.trim() || null;
     if (data.logo !== undefined) updateFields.logo = data.logo;
     if (data.poster !== undefined) updateFields.poster = data.poster;
     if (data.groupName !== undefined) updateFields.groupName = data.groupName?.trim() || null;

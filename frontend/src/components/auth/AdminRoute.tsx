@@ -5,19 +5,18 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
 
 export function AdminRoute({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
   const navigate = useNavigate();
+  const isAdmin = user?.role === "admin";
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) void navigate({ to: "/admin/login", replace: true });
-  }, [isAuthenticated, isLoading, navigate]);
+    if (!isLoading && !isAdmin) {
+      void navigate({ to: user ? "/" : "/admin/login", replace: true });
+    }
+  }, [isAdmin, isLoading, navigate, user]);
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <PageContainer>
-        <LoadingSpinner label="Checking admin session" />
-      </PageContainer>
-    );
+  if (isLoading || !isAdmin) {
+    return <PageContainer><LoadingSpinner label="Checking administrator session" /></PageContainer>;
   }
   return <>{children}</>;
 }

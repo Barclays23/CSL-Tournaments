@@ -30,7 +30,7 @@ import { errorMessage } from "@/utils/errorHandler";
 
 
 export function PlayersPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState<Position | "">("");
@@ -50,10 +50,10 @@ export function PlayersPage() {
         search: debounced,
         position,
         teamRef,
-        status: isAuthenticated ? status : "",
-        auctionStatus: isAuthenticated ? auctionStatus : "",
+        status: isAdmin ? status : "",
+        auctionStatus: isAdmin ? auctionStatus : "",
       }),
-    [page, debounced, position, teamRef, status, auctionStatus, isAuthenticated],
+    [page, debounced, position, teamRef, status, auctionStatus, isAdmin],
   );
 
   const save = async (values: PlayerFormValues, photo: Asset | null) => {
@@ -97,7 +97,7 @@ export function PlayersPage() {
         title="Players"
         description="Every player in the current tournament. Contact details stay with the admin."
         actions={
-          isAuthenticated ? (
+          isAdmin ? (
             <Button onClick={() => setEditing(null)}>Add player</Button>
           ) : null
         }
@@ -117,7 +117,7 @@ export function PlayersPage() {
             <option key={team._id} value={team._id}>{team.name}</option>
           ))}
         </Select>
-        {isAuthenticated ? (
+        {isAdmin ? (
           <>
             <Select value={status} onChange={(event) => { setStatus(event.target.value as PlayerStatus | ""); setPage(1); }} aria-label="Status">
               <option value="">Any status</option>
@@ -146,7 +146,7 @@ export function PlayersPage() {
         {players.data?.data.map((player) => (
           <div key={player._id} className="grid gap-2">
             <PlayerCard player={player} />
-            {isAuthenticated ? (
+            {isAdmin ? (
               <div className="flex gap-2">
                 <Button size="sm" variant="surface" onClick={() => setEditing(player)}>Edit</Button>
                 <Button size="sm" variant="danger" onClick={() => void remove(player)}>Delete</Button>

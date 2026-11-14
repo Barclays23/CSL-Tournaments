@@ -23,7 +23,7 @@ import type { PublicManager } from "@/types/manager.types";
 import { errorMessage } from "@/utils/errorHandler";
 
 export function ManagersPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -56,7 +56,7 @@ export function ManagersPage() {
         eyebrow="Bench"
         title="Managers"
         description="Who is in charge of each side. Phone numbers are not shown publicly."
-        actions={isAuthenticated ? <Button onClick={() => setEditing(null)}>Add manager</Button> : null}
+        actions={isAdmin ? <Button onClick={() => setEditing(null)}>Add manager</Button> : null}
       />
       <div className="mb-5 max-w-md">
         <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search managers" />
@@ -68,7 +68,7 @@ export function ManagersPage() {
         {managers.data?.data.map((manager) => (
           <div key={manager._id} className="grid gap-2">
             <ManagerCard manager={manager} />
-            {isAuthenticated ? (
+            {isAdmin ? (
               <div className="flex gap-2">
                 <Button size="sm" variant="surface" onClick={() => setEditing(manager)}>Edit</Button>
                 <Button

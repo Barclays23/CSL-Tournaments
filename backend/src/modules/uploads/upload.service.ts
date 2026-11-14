@@ -14,6 +14,7 @@ const uploadFolderByPurpose: Record<UploadPurpose, string> = {
   "team-logo": `${appConfig.CLOUDINARY_FOLDER}/teams/logos`,
   "team-poster": `${appConfig.CLOUDINARY_FOLDER}/teams/posters`,
   "manager-profile": `${appConfig.CLOUDINARY_FOLDER}/managers`,
+  "organizer-profile": `${appConfig.CLOUDINARY_FOLDER}/organizers`,
   "sponsor-logo": `${appConfig.CLOUDINARY_FOLDER}/sponsors`,
 };
 

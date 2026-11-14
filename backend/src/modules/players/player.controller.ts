@@ -34,7 +34,7 @@ export class PlayerController implements IPlayerController {
     try {
       const query: PlayerQueryInput = playerQuerySchema.parse(request.query);
       const result: PaginatedResult<PlayerResponseDTO> =
-        await this._playerService.getPlayers(query, Boolean(request.user));
+        await this._playerService.getPlayers(query, request.user?.role === "admin");
       response
         .status(HTTP_STATUS.OK)
         .json(
@@ -59,7 +59,7 @@ export class PlayerController implements IPlayerController {
       const player: PlayerResponseDTO =
         await this._playerService.getPlayerById(
           playerId,
-          Boolean(request.user),
+          request.user?.role === "admin",
         );
       response
         .status(HTTP_STATUS.OK)

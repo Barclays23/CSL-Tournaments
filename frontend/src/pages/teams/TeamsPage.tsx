@@ -21,7 +21,7 @@ import type { Team } from "@/types/team.types";
 import { errorMessage } from "@/utils/errorHandler";
 
 export function TeamsPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const teams = useServiceQuery(() => getTeams(), []);
   const [editing, setEditing] = useState<Team | null | undefined>(undefined);
@@ -67,7 +67,7 @@ export function TeamsPage() {
         eyebrow="Tournament directory"
         title="Teams"
         description="Permanent team identities, logos and descriptions. Season squads, auction spending and match statistics are shown in season-specific views."
-        actions={isAuthenticated ? <Button onClick={() => setEditing(null)}>Add team</Button> : null}
+        actions={isAdmin ? <Button onClick={() => setEditing(null)}>Add team</Button> : null}
       />
       {teams.loading ? <Skeleton className="h-40" /> : null}
       {teams.error ? <ErrorState message={teams.error} onRetry={teams.reload} /> : null}
@@ -92,7 +92,7 @@ export function TeamsPage() {
               <Link to="/teams/$teamId" params={{ teamId: team._id }}>
                 <Button size="sm" variant="surface">Team details</Button>
               </Link>
-              {isAuthenticated ? (
+              {isAdmin ? (
                 <>
                   <Button size="sm" variant="surface" onClick={() => setEditing(team)}>Edit</Button>
                   <Button size="sm" variant="danger" onClick={() => void remove(team)}>Delete</Button>

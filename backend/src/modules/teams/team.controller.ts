@@ -37,7 +37,7 @@ export class TeamController implements ITeamController {
       const query: TeamQueryInput = teamQuerySchema.parse(request.query);
       const result: PaginatedResult<TeamDTO> = await this._teamService.getTeams(
         query,
-        Boolean(request.user),
+        request.user?.role === "admin",
       );
       response
         .status(HTTP_STATUS.OK)

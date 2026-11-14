@@ -1,6 +1,9 @@
 import { ArrowUpRight, MapPin, Trophy, Users } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { Avatar } from "@/components/ui/Avatar";
+import { useServiceQuery } from "@/hooks/useServiceQuery";
+import { getOrganizers } from "@/services/organizerService";
 
 const highlights = [
   {
@@ -16,6 +19,7 @@ const highlights = [
 ];
 
 export function AboutSection() {
+  const organizers = useServiceQuery(() => getOrganizers({ limit: 8, status: "active" }), []);
   return (
     <section aria-labelledby="about-csl-heading" className="relative mt-12 overflow-hidden border-y border-line bg-glass">
       <div className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
@@ -57,6 +61,25 @@ export function AboutSection() {
             ))}
           </div>
         </div>
+        {organizers.data?.data.length ? (
+          <section className="mt-10 border-t border-line pt-8" aria-labelledby="organizers-heading">
+            <div className="mb-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-accent">The people behind CSL</p>
+              <h3 id="organizers-heading" className="mt-1 font-display text-3xl text-fg">Tournament organizers</h3>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {organizers.data.data.map((organizer) => (
+                <div key={organizer._id} className="flex items-center gap-3 rounded-card border border-line bg-surface/65 p-4">
+                  <Avatar name={organizer.name} asset={organizer.profilePic} className="h-12 w-12" />
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-fg">{organizer.name}</p>
+                    <p className="text-sm text-muted">{organizer.title}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </PageContainer>
     </section>
   );

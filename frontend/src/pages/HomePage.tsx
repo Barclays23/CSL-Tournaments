@@ -17,7 +17,7 @@ import { getDashboardSummary, getTopScorers } from "@/services/statisticsService
 import { formatDateRange } from "@/utils/formatDate";
 
 export function HomePage() {
-  const { isAuthenticated } = useAuth();
+  const { isAdmin } = useAuth();
   const dashboard = useServiceQuery(() => getDashboardSummary(), []);
   const scorers = useServiceQuery(() => getTopScorers(), []);
   const sponsors = useServiceQuery(() => getSponsors({ limit: 8 }), []);
@@ -65,7 +65,7 @@ export function HomePage() {
       </PageContainer>
 
       <PageContainer>
-        {isAuthenticated ? (
+        {isAdmin ? (
           <GlassCard className="mb-6 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-fg">You are managing this tournament.</p>
             <div className="flex flex-wrap gap-2">
