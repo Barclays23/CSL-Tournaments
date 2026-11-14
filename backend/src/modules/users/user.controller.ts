@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "../../utils/apiResponse.utils.js";
 import { HTTP_STATUS } from "../../shared/constants/http-status.constants.js";
+import { getRequiredRouteParam } from "../../shared/utils/routeParams.js";
 import type { IUserService } from "./user.interfaces.js";
 import { userCreateSchema, userQuerySchema, userStatusSchema, userUpdateSchema } from "./user.schema.js";
 
@@ -26,7 +27,7 @@ export class UserController {
   update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const input = userUpdateSchema.parse(req.body);
-      const user = await this.service.updateUser(req.params.id!, input, req.user?.id ?? "");
+      const user = await this.service.updateUser(getRequiredRouteParam(req.params.id, "id"), input, req.user?.id ?? "");
       res.status(HTTP_STATUS.OK).json(ApiResponse.success("User updated", user));
     } catch (error) { next(error); }
   };
@@ -34,14 +35,14 @@ export class UserController {
   updateStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const input = userStatusSchema.parse(req.body);
-      const user = await this.service.updateUserStatus(req.params.id!, input.status, req.user?.id ?? "");
+      const user = await this.service.updateUserStatus(getRequiredRouteParam(req.params.id, "id"), input.status, req.user?.id ?? "");
       res.status(HTTP_STATUS.OK).json(ApiResponse.success("User status updated", user));
     } catch (error) { next(error); }
   };
 
   delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await this.service.deleteUser(req.params.id!, req.user?.id ?? "");
+      await this.service.deleteUser(getRequiredRouteParam(req.params.id, "id"), req.user?.id ?? "");
       res.status(HTTP_STATUS.OK).json(ApiResponse.success("User deleted", null));
     } catch (error) { next(error); }
   };

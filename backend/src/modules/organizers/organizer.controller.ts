@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "../../utils/apiResponse.utils.js";
 import { HTTP_STATUS } from "../../shared/constants/http-status.constants.js";
+import { getRequiredRouteParam } from "../../shared/utils/routeParams.js";
 import type { IOrganizerService } from "./organizer.interfaces.js";
 import { organizerCreateSchema, organizerQuerySchema, organizerUpdateSchema } from "./organizer.schema.js";
 
@@ -15,7 +16,7 @@ export class OrganizerController {
   };
   get = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.service.getOrganizerById(req.params.id!, req.user?.role === "admin");
+      const result = await this.service.getOrganizerById(getRequiredRouteParam(req.params.id, "id"), req.user?.role === "admin");
       res.status(HTTP_STATUS.OK).json(ApiResponse.success("Organizer fetched", result));
     } catch (error) { next(error); }
   };
@@ -27,13 +28,13 @@ export class OrganizerController {
   };
   update = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const result = await this.service.updateOrganizer(req.params.id!, organizerUpdateSchema.parse(req.body));
+      const result = await this.service.updateOrganizer(getRequiredRouteParam(req.params.id, "id"), organizerUpdateSchema.parse(req.body));
       res.status(HTTP_STATUS.OK).json(ApiResponse.success("Organizer updated", result));
     } catch (error) { next(error); }
   };
   delete = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      await this.service.deleteOrganizer(req.params.id!);
+      await this.service.deleteOrganizer(getRequiredRouteParam(req.params.id, "id"));
       res.status(HTTP_STATUS.OK).json(ApiResponse.success("Organizer deleted", null));
     } catch (error) { next(error); }
   };
