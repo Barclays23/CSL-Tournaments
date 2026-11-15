@@ -104,9 +104,3 @@ export interface SeasonMatchWrite {
   notes?: string | null;
 }
 
-export type SeasonMatchListResponse = {
-  success: boolean;
-  message: string;
-  data: SeasonMatch[];
-  pagination?: Pagination;
-};
