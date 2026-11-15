@@ -28,6 +28,11 @@ export class SeasonMatchRepository {
     ]);
     return { items, total };
   }
+  async findSeasonTeamIdsByName(seasonId: string, search: string): Promise<Types.ObjectId[]> {
+    const escaped = search.split("").map((character) => "\\^$.*+?()[]{}|".includes(character) ? `\\${character}` : character).join("");
+    const rows = await SeasonTeamModel.find({ seasonRef: new Types.ObjectId(seasonId), displayName: { $regex: escaped, $options: "i" } }).select("_id").lean<Array<{ _id: Types.ObjectId }>>().exec();
+    return rows.map((row) => row._id);
+  }
   async findById(id: string): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findById(id).lean<SeasonMatchEntity>().exec(); }
   async findPopulatedById(id: string): Promise<PopulatedSeasonMatch | null> { return SeasonMatchModel.findById(id).populate(population).lean<PopulatedSeasonMatch>().exec(); }
   async findByNumber(seasonId: string, number: number): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findOne({ seasonRef: new Types.ObjectId(seasonId), matchNumber: number }).lean<SeasonMatchEntity>().exec(); }
