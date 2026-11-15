@@ -13,7 +13,6 @@ const teamSchema = new Schema<TeamFields>({
   description: { type: String, default: null, trim: true, maxlength: 1000 },
   logo: { type: assetSchema, default: null },
   poster: { type: assetSchema, default: null },
-  groupName: { type: String, default: null, trim: true },
   status: { type: String, enum: ["active", "inactive"], default: "active" },
 }, { timestamps: true });
 

@@ -18,7 +18,6 @@ export class TeamService implements ITeamService {
     if (isAdmin && query.status) filter.status = query.status;
     else if (!isAdmin) filter.status = "active";
     if (query.search) filter.name = { $regex: query.search, $options: "i" };
-    if (query.groupName) filter.groupName = query.groupName;
 
     const result = await this._teamRepository.findTeams(filter, query.page, query.limit);
     return {
@@ -155,7 +154,6 @@ export class TeamService implements ITeamService {
       description: team.description ?? null,
       logo: team.logo,
       poster: team.poster,
-      groupName: team.groupName,
       status: team.status,
       createdAt: team.createdAt.toISOString(),
       updatedAt: team.updatedAt.toISOString(),

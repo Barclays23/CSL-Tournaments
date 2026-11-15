@@ -62,7 +62,6 @@ export interface StoredMatch {
   _id: string;
   matchNo: string;
   stage: MatchStage;
-  groupName: string | null;
   kickoffAt: string;
   venue: string | null;
   team1Ref: string;

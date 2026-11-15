@@ -58,7 +58,6 @@ function briefTeam(team: StoredTeam): TeamBrief {
     name: team.name,
     shortName: team.shortName,
     logo: team.logo,
-    groupName: team.groupName,
   };
 }
 
@@ -372,12 +371,18 @@ function emptyRow(team: StoredTeam): StandingRow {
 }
 
 function buildStandings(db: Database): GroupStanding[] {
+  // The compatibility preview derives group participation from season fixture
+  // snapshots. Permanent Team records deliberately contain no group assignment.
   const groups = new Map<string, StandingRow[]>();
-  for (const team of db.teams) {
-    if (team.status !== "active" || !team.groupName) continue;
-    const rows = groups.get(team.groupName) ?? [];
-    rows.push(emptyRow(team));
-    groups.set(team.groupName, rows);
+  for (const match of db.matches) {
+    if (match.stage !== "group" || !match.groupName) continue;
+    const rows = groups.get(match.groupName) ?? [];
+    for (const teamId of [match.team1Ref, match.team2Ref]) {
+      if (rows.some((row) => row.team._id === teamId)) continue;
+      const team = db.teams.find((item) => item._id === teamId);
+      if (team && team.status === "active") rows.push(emptyRow(team));
+    }
+    groups.set(match.groupName, rows);
   }
   const rule = db.settings.pointsRule;
   for (const match of db.matches) {
@@ -388,43 +393,19 @@ function buildStandings(db: Database): GroupStanding[] {
     const home = rows.find((row) => row.team._id === match.team1Ref);
     const away = rows.find((row) => row.team._id === match.team2Ref);
     if (!home || !away) continue;
-    home.played += 1;
-    away.played += 1;
-    home.goalsFor += score.team1;
-    home.goalsAgainst += score.team2;
-    away.goalsFor += score.team2;
-    away.goalsAgainst += score.team1;
-    if (score.team1 > score.team2) {
-      home.won += 1;
-      away.lost += 1;
-      home.points += rule.win;
-      away.points += rule.loss;
-    } else if (score.team1 < score.team2) {
-      away.won += 1;
-      home.lost += 1;
-      away.points += rule.win;
-      home.points += rule.loss;
-    } else {
-      home.drawn += 1;
-      away.drawn += 1;
-      home.points += rule.draw;
-      away.points += rule.draw;
-    }
+    home.played += 1; away.played += 1;
+    home.goalsFor += score.team1; home.goalsAgainst += score.team2;
+    away.goalsFor += score.team2; away.goalsAgainst += score.team1;
+    if (score.team1 > score.team2) { home.won += 1; away.lost += 1; home.points += rule.win; away.points += rule.loss; }
+    else if (score.team1 < score.team2) { away.won += 1; home.lost += 1; away.points += rule.win; home.points += rule.loss; }
+    else { home.drawn += 1; away.drawn += 1; home.points += rule.draw; away.points += rule.draw; }
   }
-  return [...groups.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([groupName, rows]) => {
-      const sorted = rows
-        .map((row) => ({ ...row, goalDifference: row.goalsFor - row.goalsAgainst }))
-        .sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points;
-          if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-          if (b.goalsFor !== a.goalsFor) return b.goalsFor - a.goalsFor;
-          return a.team.name.localeCompare(b.team.name);
-        })
-        .map((row, index) => ({ ...row, position: index + 1, qualified: index < 2 }));
-      return { groupName, rows: sorted };
-    });
+  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([groupName, rows]) => {
+    const sorted = rows.map((row) => ({ ...row, goalDifference: row.goalsFor - row.goalsAgainst }))
+      .sort((a, b) => b.points - a.points || b.goalDifference - a.goalDifference || b.goalsFor - a.goalsFor || a.team.name.localeCompare(b.team.name))
+      .map((row, index) => ({ ...row, position: index + 1, qualified: index < 2 }));
+    return { groupName, rows: sorted };
+  });
 }
 
 function topScorers(db: Database): TopScorer[] {
@@ -663,7 +644,6 @@ export const previewRepository = {
       description: input.description?.trim() || null,
       logo: input.logo ?? null,
       poster: input.poster ?? null,
-      groupName: input.groupName?.trim() || null,
       status: input.status,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -695,7 +675,6 @@ export const previewRepository = {
       description: input.description === undefined ? current.description : input.description?.trim() || null,
       logo: input.logo === undefined ? current.logo : input.logo,
       poster: input.poster === undefined ? current.poster : input.poster,
-      groupName: input.groupName?.trim() || null,
       status: input.status,
       updatedAt: new Date().toISOString(),
     };

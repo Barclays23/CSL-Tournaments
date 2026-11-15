@@ -57,7 +57,6 @@ export class TeamRepository implements ITeamRepository {
       description: data.description?.trim() || null,
       logo: data.logo ?? null,
       poster: data.poster ?? null,
-      groupName: data.groupName?.trim() || null,
       status: data.status,
     };
     const createdTeam = await TeamModel.create(fields);
@@ -73,7 +72,6 @@ export class TeamRepository implements ITeamRepository {
     if (data.description !== undefined) updateFields.description = data.description?.trim() || null;
     if (data.logo !== undefined) updateFields.logo = data.logo;
     if (data.poster !== undefined) updateFields.poster = data.poster;
-    if (data.groupName !== undefined) updateFields.groupName = data.groupName?.trim() || null;
     if (data.status !== undefined) updateFields.status = data.status;
     return TeamModel.findByIdAndUpdate(teamId, { $set: updateFields }, {
       returnDocument: "after",

@@ -16,7 +16,7 @@ export interface MockSeason {
 }
 export interface MockTeam {
   _id: string; __v: number; name: string; shortName: string | null; description: string | null;
-  logo: Asset | null; poster: Asset | null; groupName: string | null;
+  logo: Asset | null; poster: Asset | null;
   status: "active" | "inactive"; createdAt: string; updatedAt: string;
 }
 export interface MockPlayer {
@@ -91,7 +91,7 @@ const teams: MockTeam[] = teamInfo.map(([name, shortName, description, color], i
   _id: teamIds[index], __v: 0, name, shortName, description,
   logo: asset(`https://placehold.co/256x256/${color.slice(1)}/ffffff?text=${shortName}`, `mock/teams/${shortName.toLowerCase()}-logo`),
   poster: asset(`https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1200&auto=format&fit=crop&q=80`, `mock/teams/${shortName.toLowerCase()}-poster`),
-  groupName: null, status: "active", createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
+  status: "active", createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
 
 const playerNames = [

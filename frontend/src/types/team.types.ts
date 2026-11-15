@@ -8,7 +8,6 @@ export interface TeamBrief {
   name: string;
   shortName: string | null;
   logo: Asset | null;
-  groupName: string | null;
 }
 
 export interface Team {
@@ -30,7 +29,6 @@ export interface TeamWrite {
   description?: string | null;
   logo?: Asset | null;
   poster?: Asset | null;
-  groupName?: string | null;
   status: TeamStatus;
 }
 

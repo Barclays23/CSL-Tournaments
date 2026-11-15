@@ -12,7 +12,6 @@ export interface TeamFields {
   description: string | null;
   logo: Asset | null;
   poster: Asset | null;
-  groupName: string | null;
   status: TeamStatus;
 }
 
@@ -40,7 +39,6 @@ export interface TeamBriefEntity {
 
 export interface TeamListFilter {
   status?: TeamStatus;
-  groupName?: string;
   name?: { $regex: string; $options: "i" };
 }
 

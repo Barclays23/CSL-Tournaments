@@ -29,7 +29,6 @@ export function TeamForm({
       name: team?.name ?? "",
       shortName: team?.shortName ?? "",
       description: team?.description ?? "",
-      groupName: team?.groupName ?? "",
       status: team?.status ?? "active",
     },
   });
@@ -55,9 +54,6 @@ export function TeamForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Short name" error={form.formState.errors.shortName?.message}>
           <Input {...form.register("shortName")} placeholder="CS" />
-        </FormField>
-        <FormField label="Group" error={form.formState.errors.groupName?.message}>
-          <Input {...form.register("groupName")} placeholder="Group A" />
         </FormField>
       </div>
       <FormField label="Status" error={form.formState.errors.status?.message}>
