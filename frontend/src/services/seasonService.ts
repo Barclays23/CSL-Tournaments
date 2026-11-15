@@ -13,6 +13,11 @@ export function createSeason(data: SeasonWrite) {
 export function updateSeason(id: string, data: Partial<SeasonWrite>) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.updateSeason(id, data) : api.patch<ApiResponse<Season>>("/seasons/" + id, data).then((r) => r.data));
 }
+export function deleteSeason(id: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.deleteSeason(id)
+    : Promise.reject(new Error("Season deletion is not available in the current backend API.")));
+}
 export function registerSeasonTeams(id: string, teamIds: string[]) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.registerSeasonTeams(id, teamIds) : api.post<ApiResponse<SeasonTeam[]>>("/seasons/" + id + "/teams", { teamIds }).then((r) => r.data));
 }
