@@ -7,7 +7,7 @@ export interface SeasonDateWindow {
 }
 
 export function normalizeSeasonName(value: string): string {
-  return value.trim().replace(/\\s+/g, " ").toLocaleLowerCase("en");
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
 }
 
 export function isAllowedSeasonTransition(current: SeasonLifecycleState, next: SeasonLifecycleState): boolean {

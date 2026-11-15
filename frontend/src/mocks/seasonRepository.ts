@@ -294,9 +294,9 @@ export const seasonPreviewRepository = {
   async createSeason(input: SeasonWrite) {
     requireAdmin();
     const db = readSeasonDb();
-    const normalizedName = input.name.trim().replace(/\\s+/g, " ").toLowerCase();
+    const normalizedName = input.name.trim().replace(/\s+/g, " ").toLowerCase();
     if (db.seasons.some((s) => s.seasonNumber === input.seasonNumber)) fail(409, "Season number already exists");
-    if (db.seasons.some((s) => s.name.trim().replace(/\\s+/g, " ").toLowerCase() === normalizedName)) fail(409, "Season name already exists");
+    if (db.seasons.some((s) => s.name.trim().replace(/\s+/g, " ").toLowerCase() === normalizedName)) fail(409, "Season name already exists");
     if (input.teamIds.length !== new Set(input.teamIds).size) fail(409, "A team can only be registered once in a season");
     if (input.teamIds.length > input.auctionSettings.seasonTeamCount) fail(422, "Selected teams exceed the season team limit");
     if (input.startDate && input.endDate && input.endDate < input.startDate) fail(422, "End date must be on or after start date");
@@ -334,8 +334,8 @@ export const seasonPreviewRepository = {
     }
     if (input.seasonNumber !== undefined && db.seasons.some((s) => s._id !== id && s.seasonNumber === input.seasonNumber)) fail(409, "Season number already exists");
     if (input.name !== undefined) {
-      const normalized = input.name.trim().replace(/\\s+/g, " ").toLowerCase();
-      if (db.seasons.some((s) => s._id !== id && s.name.trim().replace(/\\s+/g, " ").toLowerCase() === normalized)) fail(409, "Season name already exists");
+      const normalized = input.name.trim().replace(/\s+/g, " ").toLowerCase();
+      if (db.seasons.some((s) => s._id !== id && s.name.trim().replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "Season name already exists");
     }
     if (input.auctionSettings && lots.length) fail(409, "Auction settings are locked after the first AuctionLot is created");
     if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined) && matches.length) {
@@ -502,8 +502,8 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     if (!["draft", "upcoming"].includes(season.status) || db.matches.some((match) => match.seasonRef === seasonId)) fail(409, "Groups can only be created before fixtures exist");
-    const normalized = input.groupName.trim().replace(/\\s+/g, " ").toLowerCase();
-    if (db.groups.some((group) => group.seasonRef === seasonId && group.groupName.trim().replace(/\\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
+    const normalized = input.groupName.trim().replace(/\s+/g, " ").toLowerCase();
+    if (db.groups.some((group) => group.seasonRef === seasonId && group.groupName.trim().replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
     const group = { _id: newId(), seasonRef: seasonId, groupName: input.groupName.trim(), displayOrder: input.displayOrder ?? 0, createdAt: now(), updatedAt: now() };
     db.groups.push(group); commitSeasonDb(db); return ok("Season group created", group);
   },
@@ -514,8 +514,8 @@ export const seasonPreviewRepository = {
     const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
     if (!group) fail(404, "Group not found");
     if (input.groupName !== undefined) {
-      const normalized = input.groupName.trim().replace(/\\s+/g, " ").toLowerCase();
-      if (db.groups.some((item) => item._id !== groupId && item.seasonRef === seasonId && item.groupName.trim().replace(/\\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
+      const normalized = input.groupName.trim().replace(/\s+/g, " ").toLowerCase();
+      if (db.groups.some((item) => item._id !== groupId && item.seasonRef === seasonId && item.groupName.trim().replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
       group.groupName = input.groupName.trim();
     }
     if (input.displayOrder !== undefined) group.displayOrder = input.displayOrder;

@@ -2,7 +2,7 @@ import "dotenv/config";
 import mongoose from "mongoose";
 import { appConfig } from "../config/env.config.js";
 
-const normalize = (value: unknown): string => String(value ?? "").trim().replace(/\\s+/g, " ").toLocaleLowerCase("en");
+const normalize = (value: unknown): string => String(value ?? "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
 
 async function migrate(): Promise<void> {
   const apply = process.argv.includes("--apply");
