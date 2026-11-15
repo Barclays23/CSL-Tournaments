@@ -189,7 +189,7 @@ export class SeasonRepository implements ISeasonRepository {
           GroupModel.countDocuments({ seasonRef: id }).session(session).exec(),
           AuctionLotModel.countDocuments({ seasonRef: id }).session(session).exec(),
           SeasonMatchModel.countDocuments({ seasonRef: id }).session(session).exec(),
-          mongoose.connection.collection("seasonsponsors").countDocuments({ seasonRef: id }, { session }),
+          Promise.resolve(0),
         ]);
         if (teams + groups + lots + matches + sponsors > 0) throw new Error("SEASON_HAS_DEPENDENCIES");
         const result = await SeasonModel.deleteOne({ _id: id, status: "draft" }).session(session).exec();

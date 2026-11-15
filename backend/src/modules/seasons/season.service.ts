@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
+import { isAllowedSeasonTransition, normalizeSeasonName } from "./season.rules.js";
 import type { ITeamRepository } from "../teams/team.interfaces.js";
 import { SeasonTeamRepository } from "../seasonTeams/seasonTeam.repository.js";
 import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
@@ -164,8 +165,7 @@ export class SeasonService implements ISeasonService {
     const current = await this.repo.findById(id);
     if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     const next = input.status;
-    const allowed = (current.status === "draft" && next === "upcoming")
-      || (current.status === "upcoming" && (next === "active" || next === "draft"));
+    const allowed = isAllowedSeasonTransition(current.status, next);
     if (!allowed) throw new AppError("This season lifecycle transition is not allowed", 409, "INVALID_SEASON_TRANSITION", {
       status: current.status + " cannot transition to " + next,
     });
