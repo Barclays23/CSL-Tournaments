@@ -272,6 +272,7 @@ export function AuctionsPage() {
               <span className="text-xs text-muted">{lotRows.length} result(s)</span>
             </div>
             <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+              <Input placeholder="Search Player Name" value={playerName} onChange={(event) => setPlayerName(event.target.value)} />
               <Select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
                 <option value="">All teams</option>
                 {data.teams.map((team) => (
@@ -291,7 +292,6 @@ export function AuctionsPage() {
                   <option key={value} value={value}>{label}</option>
                 ))}
               </Select>
-              <Input placeholder="Player name" value={playerName} onChange={(event) => setPlayerName(event.target.value)} />
               <Select value={iconFilter} onChange={(event) => setIconFilter(event.target.value)}>
                 <option value="">Icon: all</option>
                 <option value="true">Icon players</option>
