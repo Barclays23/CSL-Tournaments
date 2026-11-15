@@ -448,16 +448,16 @@ export const seasonPreviewRepository = {
     if (input.auctionStatus === "sold") {
       const selectedSeasonTeamId = input.seasonTeamId ?? (lot.auctionStatus === "sold" ? lot.seasonTeamRef : null);
       const purchasePrice = input.purchasePrice ?? (lot.auctionStatus === "sold" ? lot.purchasePrice : null);
-      if (!selectedSeasonTeamId || purchasePrice === null || purchasePrice === undefined) {
-        fail(422, "A sold lot must have a season team and purchase price");
-      }
-      if (!Number.isFinite(purchasePrice) || purchasePrice < 0) fail(422, "Purchase price must be zero or greater");
+      if (!selectedSeasonTeamId) return fail(422, "A sold lot must have a season team and purchase price");
+      if (purchasePrice === null || purchasePrice === undefined) return fail(422, "A sold lot must have a season team and purchase price");
+      if (!Number.isFinite(purchasePrice) || purchasePrice < 0) return fail(422, "Purchase price must be zero or greater");
 
       const seasonTeam = db.seasonTeams.find((item) =>
         item._id === selectedSeasonTeamId && item.seasonRef === lot.seasonRef,
       );
-      if (!seasonTeam || ["withdrawn", "eliminated", "completed"].includes(seasonTeam.status)) {
-        fail(422, "Select an eligible team registered in this season");
+      if (!seasonTeam) return fail(422, "Select an eligible team registered in this season");
+      if (["withdrawn", "eliminated", "completed"].includes(seasonTeam.status)) {
+        return fail(422, "Select an eligible team registered in this season");
       }
       const player = playerById(db, lot.playerRef);
       if (player.status !== "active") fail(409, "Only active players can be assigned to a team");
