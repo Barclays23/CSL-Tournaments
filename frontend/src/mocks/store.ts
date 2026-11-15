@@ -98,7 +98,7 @@ export interface Database {
   matches: StoredMatch[];
 }
 
-const DB_KEY = "csl-preview-db-v3";
+const DB_KEY = "csl-preview-db-v4";
 const SESSION_KEY = "csl-preview-admin";
 
 let memory: Database | null = null;

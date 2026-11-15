@@ -29,7 +29,7 @@ export interface GroupStanding {
 
 export interface TopScorer {
   rank: number;
-  player: PublicPlayer;
+  player: Pick<PublicPlayer, "_id" | "name" | "profilePic">;
   team: TeamBrief | null;
   goals: number;
 }

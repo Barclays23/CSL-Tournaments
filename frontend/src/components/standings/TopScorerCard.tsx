@@ -12,7 +12,7 @@ export function TopScorerCard({ scorer }: { scorer: TopScorer }) {
         <Avatar name={scorer.player.name} asset={scorer.player.profilePic} />
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-fg">{scorer.player.name}</p>
-          <p className="truncate text-xs text-muted">{scorer.team?.name ?? "Unassigned"}</p>
+          <p className="truncate text-xs text-muted">{scorer.team?.name ?? "Team not recorded"}</p>
         </div>
         <Badge tone="accent">{scorer.goals}</Badge>
       </GlassCard>

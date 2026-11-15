@@ -1,6 +1,6 @@
 import type {Request,Response,NextFunction} from "express";
 import {ApiResponse} from "../../utils/apiResponse.utils.js";
-import {nominatePlayerSchema,sellAuctionLotSchema,auctionLotStatusSchema,auctionQuerySchema} from "./auctionLot.schema.js";
+import {nominatePlayerSchema,sellAuctionLotSchema,auctionLotStatusSchema,updateAuctionLotSchema,auctionQuerySchema} from "./auctionLot.schema.js";
 import type {IAuctionLotService} from "./auctionLot.interfaces.js";
 export class AuctionLotController{
  constructor(private readonly service:IAuctionLotService){}
@@ -9,4 +9,5 @@ export class AuctionLotController{
  nominate=async(req:Request,res:Response,next:NextFunction)=>{try{res.status(201).json(ApiResponse.success("Player nominated",await this.service.nominate(nominatePlayerSchema.parse(req.body))));}catch(e){next(e);}};
  sell=async(req:Request,res:Response,next:NextFunction)=>{try{res.status(200).json(ApiResponse.success("Auction lot sold",await this.service.sell(req.params.id!,sellAuctionLotSchema.parse(req.body))));}catch(e){next(e);}};
  updateStatus=async(req:Request,res:Response,next:NextFunction)=>{try{res.status(200).json(ApiResponse.success("Auction lot status updated",await this.service.updateStatus(req.params.id!,auctionLotStatusSchema.parse(req.body))));}catch(e){next(e);}};
+ update=async(req:Request,res:Response,next:NextFunction)=>{try{res.status(200).json(ApiResponse.success("Auction lot updated",await this.service.update(req.params.id!,updateAuctionLotSchema.parse(req.body))));}catch(e){next(e);}};
 }

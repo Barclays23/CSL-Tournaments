@@ -13,15 +13,44 @@ import { StatCard } from "@/components/ui/StatCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getSponsors } from "@/services/sponsorService";
-import { getDashboardSummary, getTopScorers } from "@/services/statisticsService";
+import { getDashboardSummary } from "@/services/statisticsService";
+import { getSeasons } from "@/services/seasonService";
+import { getSeasonTopScorers } from "@/services/seasonStatisticsService";
+import type { TopScorer } from "@/types/statistics.types";
 import { formatDateRange } from "@/utils/formatDate";
 
 export function HomePage() {
   const { isAdmin } = useAuth();
   const dashboard = useServiceQuery(() => getDashboardSummary(), []);
-  const scorers = useServiceQuery(() => getTopScorers(), []);
+  const seasons = useServiceQuery(() => getSeasons(), []);
+  const activeSeason = seasons.data?.data.find((season) => season.status === "active") ?? seasons.data?.data[0];
+  const activeSeasonId = activeSeason?._id ?? "";
+  const scorers = useServiceQuery(
+    () => activeSeasonId
+      ? getSeasonTopScorers(activeSeasonId)
+      : Promise.resolve({
+          success: true,
+          message: "No season available",
+          data: { season: undefined as never, items: [] },
+        }),
+    [activeSeasonId],
+  );
   const sponsors = useServiceQuery(() => getSponsors({ limit: 8 }), []);
   const data = dashboard.data?.data;
+  const topScorers: TopScorer[] = (scorers.data?.data.items ?? []).map((scorer) => ({
+    rank: scorer.rank,
+    player: scorer.player,
+    team: scorer.team
+      ? {
+          _id: scorer.team.teamId,
+          name: scorer.team.displayName,
+          shortName: scorer.team.shortName,
+          logo: scorer.team.logo,
+          groupName: scorer.team.groupName,
+        }
+      : null,
+    goals: scorer.goals,
+  }));
 
   return (
     <div>
@@ -125,7 +154,8 @@ export function HomePage() {
             </Link>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {scorers.data?.data.slice(0, 5).map((scorer) => <TopScorerCard key={scorer.player._id} scorer={scorer} />)}
+            {topScorers.slice(0, 5).map((scorer) => <TopScorerCard key={scorer.player._id} scorer={scorer} />)}
+            {!scorers.loading && !topScorers.length ? <p className="text-sm text-muted">No goals recorded for the current season yet.</p> : null}
           </div>
         </section>
 

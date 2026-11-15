@@ -28,17 +28,25 @@ export function StandingsPage() {
   const standings = useServiceQuery(
     () => seasonId
       ? getSeasonStandings(seasonId)
-      : Promise.resolve({ success: true, message: "Waiting for a season", data: [] }),
+      : Promise.resolve({
+          success: true,
+          message: "Waiting for a season",
+          data: { season: undefined as never, groups: [] },
+        }),
     [seasonId],
   );
   const scorers = useServiceQuery(
     () => seasonId
       ? getSeasonTopScorers(seasonId)
-      : Promise.resolve({ success: true, message: "Waiting for a season", data: [] }),
+      : Promise.resolve({
+          success: true,
+          message: "Waiting for a season",
+          data: { season: undefined as never, items: [] },
+        }),
     [seasonId],
   );
 
-  const groups: GroupStanding[] = (standings.data?.data ?? []).map((group) => ({
+  const groups: GroupStanding[] = (standings.data?.data.groups ?? []).map((group) => ({
     groupName: group.groupName,
     rows: group.rows.map((row) => ({
       position: row.position,
@@ -47,6 +55,7 @@ export function StandingsPage() {
         name: row.team.displayName,
         shortName: row.team.shortName,
         logo: row.team.logo,
+        groupName: row.team.groupName,
       },
       played: row.played,
       won: row.won,
@@ -56,16 +65,24 @@ export function StandingsPage() {
       goalsAgainst: row.goalsConceded,
       goalDifference: row.goalDifference,
       points: row.points,
-      qualified: row.position <= 2,
+      qualified: row.qualified,
     })),
   }));
 
-  const topScorers = (scorers.data?.data ?? []).map((scorer, index) => ({
-    rank: index + 1,
+  const topScorers: TopScorer[] = (scorers.data?.data.items ?? []).map((scorer) => ({
+    rank: scorer.rank,
     player: scorer.player,
-    team: null,
+    team: scorer.team
+      ? {
+          _id: scorer.team.teamId,
+          name: scorer.team.displayName,
+          shortName: scorer.team.shortName,
+          logo: scorer.team.logo,
+          groupName: scorer.team.groupName,
+        }
+      : null,
     goals: scorer.goals,
-  })) as unknown as TopScorer[];
+  }));
 
   return (
     <PageContainer>
