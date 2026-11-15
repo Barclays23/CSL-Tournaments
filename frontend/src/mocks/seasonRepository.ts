@@ -1,9 +1,10 @@
 import type { ApiResponse } from "@/types/api.types";
 import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, SeasonWrite, UpdateAuctionLotInput } from "@/types/season.types";
 import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
+import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
 import { requireAdmin } from "@/mocks/store";
-import type { MockAuctionLot, MockSeason, MockSeasonTeam, SeasonMockDatabase } from "@/mocks/seasonSeed";
+import type { MockAuctionLot, MockSeason, MockSeasonMatch, MockSeasonTeam, SeasonMockDatabase } from "@/mocks/seasonSeed";
 import { ApiError } from "@/utils/errorHandler";
 
 let sequence = 9000;
@@ -112,6 +113,42 @@ function fixture(db: SeasonMockDatabase, match: SeasonMockDatabase["matches"][nu
     penaltyShootout: match.penaltyShootout ? { homeTeamScore: match.penaltyShootout.homeTeamScore, awayTeamScore: match.penaltyShootout.awayTeamScore, status: match.penaltyShootout.status } : null,
   };
 }
+function populatedMatchTeam(db: SeasonMockDatabase, seasonTeamId: string) {
+  const seasonTeam = db.seasonTeams.find((item) => item._id === seasonTeamId);
+  if (!seasonTeam) return null;
+  const team = teamById(db, seasonTeam.teamRef);
+  return {
+    _id: seasonTeam._id,
+    displayName: seasonTeam.displayName,
+    logoSnapshot: seasonTeam.logoSnapshot,
+    team: { _id: team._id, name: team.name, shortName: team.shortName, logo: team.logo },
+  };
+}
+function populatedSeasonMatch(db: SeasonMockDatabase, match: MockSeasonMatch): SeasonMatch {
+  return {
+    ...match,
+    homeSeasonTeamRef: populatedMatchTeam(db, match.homeSeasonTeamRef) ?? match.homeSeasonTeamRef,
+    awaySeasonTeamRef: populatedMatchTeam(db, match.awaySeasonTeamRef) ?? match.awaySeasonTeamRef,
+    winnerSeasonTeamRef: match.winnerSeasonTeamRef
+      ? populatedMatchTeam(db, match.winnerSeasonTeamRef) ?? match.winnerSeasonTeamRef
+      : null,
+    goals: match.goals.map((goal) => {
+      const scorer = goal.scorerPlayerRef ? playerById(db, goal.scorerPlayerRef) : null;
+      return {
+        ...goal,
+        scoringSeasonTeamRef: populatedMatchTeam(db, goal.scoringSeasonTeamRef) ?? goal.scoringSeasonTeamRef,
+        scorerPlayerRef: scorer ? { _id: scorer._id, name: scorer.name, profilePic: scorer.profilePic } : null,
+        playerSeasonTeamRef: goal.playerSeasonTeamRef
+          ? populatedMatchTeam(db, goal.playerSeasonTeamRef) ?? goal.playerSeasonTeamRef
+          : null,
+      };
+    }),
+    penaltyShootout: match.penaltyShootout ? {
+      ...match.penaltyShootout,
+      kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })),
+    } : null,
+  } as SeasonMatch;
+}
 function teamRecord(db: SeasonMockDatabase, seasonId: string, seasonTeamId: string, groupOnly = false) {
   const relevant = db.matches.filter((m) => m.seasonRef === seasonId && m.status === "completed" && (!groupOnly || m.stage === "group") && (m.homeSeasonTeamRef === seasonTeamId || m.awaySeasonTeamRef === seasonTeamId));
   const rules = seasonById(db, seasonId).pointsRules;
@@ -156,6 +193,96 @@ function groupStandings(db: SeasonMockDatabase, season: MockSeason) {
 }
 
 export const seasonPreviewRepository = {
+  async getSeasonGroups(seasonId: string) {
+    const db = readSeasonDb();
+    seasonById(db, seasonId);
+    const groups = db.groups
+      .filter((group) => group.seasonRef === seasonId)
+      .sort((a, b) => a.displayOrder - b.displayOrder || a.groupName.localeCompare(b.groupName));
+    return ok("Season groups loaded", groups as SeasonGroup[]);
+  },
+  async getSeasonMatches(seasonId: string, query: SeasonMatchQuery = {}) {
+    const db = readSeasonDb();
+    seasonById(db, seasonId);
+    let items = db.matches.filter((match) => match.seasonRef === seasonId);
+    if (query.stage) items = items.filter((match) => match.stage === query.stage);
+    if (query.groupRef) items = items.filter((match) => match.groupRef === query.groupRef);
+    if (query.status) items = items.filter((match) => match.status === query.status);
+    if (query.search?.trim()) {
+      const needle = query.search.trim().toLowerCase();
+      const numberNeedle = Array.from(needle).filter((character) => character >= "0" && character <= "9").join("");
+      items = items.filter((match) => {
+        const home = db.seasonTeams.find((team) => team._id === match.homeSeasonTeamRef)?.displayName ?? "";
+        const away = db.seasonTeams.find((team) => team._id === match.awaySeasonTeamRef)?.displayName ?? "";
+        return (numberNeedle && String(match.matchNumber).includes(numberNeedle))
+          || home.toLowerCase().includes(needle)
+          || away.toLowerCase().includes(needle);
+      });
+    }
+    items.sort((a, b) => a.kickoffAt.localeCompare(b.kickoffAt) || a.matchNumber - b.matchNumber);
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.max(1, query.limit ?? 8);
+    const total = items.length;
+    const data = items.slice((page - 1) * limit, page * limit).map((match) => populatedSeasonMatch(db, match));
+    return {
+      success: true,
+      message: "Season fixtures loaded",
+      data,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  },
+  async getSeasonMatch(seasonId: string, matchId: string) {
+    const db = readSeasonDb();
+    seasonById(db, seasonId);
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    return ok("Season fixture loaded", populatedSeasonMatch(db, match));
+  },
+  async createSeasonMatch(seasonId: string, input: SeasonMatchWrite) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Season is closed for fixture creation");
+    if (db.matches.some((match) => match.seasonRef === seasonId && match.matchNumber === input.matchNumber)) {
+      fail(409, "Match number already exists in this season");
+    }
+    if (input.homeSeasonTeamRef === input.awaySeasonTeamRef) fail(422, "A team cannot play itself");
+    const home = db.seasonTeams.find((team) => team._id === input.homeSeasonTeamRef && team.seasonRef === seasonId);
+    const away = db.seasonTeams.find((team) => team._id === input.awaySeasonTeamRef && team.seasonRef === seasonId);
+    if (!home || !away || ["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
+      fail(422, "Both teams must be participating in this season");
+    }
+    if (input.stage === "group") {
+      const group = input.groupRef ? db.groups.find((item) => item._id === input.groupRef && item.seasonRef === seasonId) : null;
+      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) fail(422, "Both teams must belong to the selected group");
+    }
+    const kickoff = new Date(input.kickoffAt);
+    if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
+    const status = input.status ?? "scheduled";
+    if (status === "completed") fail(422, "Create fixtures as scheduled, then record goals and complete the match");
+    const date = now();
+    const match: MockSeasonMatch = {
+      _id: newId(),
+      seasonRef: seasonId,
+      matchNumber: input.matchNumber,
+      stage: input.stage,
+      groupRef: input.stage === "group" ? input.groupRef ?? null : null,
+      kickoffAt: kickoff.toISOString(),
+      venue: input.venue ?? null,
+      homeSeasonTeamRef: home._id,
+      awaySeasonTeamRef: away._id,
+      status,
+      goals: [],
+      penaltyShootout: null,
+      winnerSeasonTeamRef: null,
+      notes: input.notes ?? null,
+      createdAt: date,
+      updatedAt: date,
+    };
+    db.matches.push(match);
+    commitSeasonDb(db);
+    return ok("Season fixture created", populatedSeasonMatch(db, match));
+  },
   async getSeasons() {
     const db = readSeasonDb();
     return ok("Seasons loaded", [...db.seasons].sort((a, b) => b.seasonNumber - a.seasonNumber) as unknown as Season[]);
