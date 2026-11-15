@@ -506,7 +506,7 @@ function SeasonsBody() {
                 <div><p className="text-muted">SeasonTeams</p><p className="font-semibold text-fg">{registeredTeams.length}</p></div>
                 <div><p className="text-muted">Groups</p><p className="font-semibold text-fg">{seasonGroups.length}</p></div>
                 <div><p className="text-muted">AuctionLots</p><p className="font-semibold text-fg">{seasonLots.length}</p></div>
-                <div><p className="text-muted">Fixtures</p><p className="font-semibold text-fg">{seasonFixtures.length}</p></div>
+                <div><p className="text-muted">Fixtures</p><p className="font-semibold text-fg">{fixtureCount}</p></div>
               </div>
               <p className="mt-3 text-xs text-muted">Auction rules lock on the first AuctionLot. Points, tiebreakers, match rules and group format lock on the first fixture. Completed and Archived seasons are read-only; Archived seasons are never deletable.</p>
             </GlassCard>

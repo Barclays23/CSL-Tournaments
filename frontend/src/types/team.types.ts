@@ -17,7 +17,6 @@ export interface Team {
   description: string | null;
   logo: Asset | null;
   poster: Asset | null;
-  groupName: string | null;
   status: TeamStatus;
   createdAt: string;
   updatedAt: string;
