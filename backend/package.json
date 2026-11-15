@@ -9,7 +9,9 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
-    "seed:admin": "tsx src/scripts/seedAdmin.ts"
+    "seed:admin": "tsx src/scripts/seedAdmin.ts",
+    "migrate:team-groups": "tsx src/scripts/migrateLegacyTeamGroupName.ts",
+    "migrate:season-dates": "tsx src/scripts/migrateSeasonDateFields.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

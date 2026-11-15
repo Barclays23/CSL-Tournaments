@@ -296,10 +296,7 @@ function applyMatch(db: Database, input: MatchWrite, existing?: StoredMatch): St
   let groupName = input.groupName?.trim() || null;
   if (input.stage === "group") {
     if (!groupName) fail(422, "Group fixtures need a group name", { groupName: "Enter the group" });
-    if (team1.groupName !== groupName || team2.groupName !== groupName) {
-      fail(422, "Both teams must belong to this group", { groupName: "The selected teams are not both in this group" });
-    }
-  } else {
+      } else {
     groupName = null;
   }
   const next: StoredMatch = {
