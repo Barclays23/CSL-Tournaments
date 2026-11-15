@@ -111,9 +111,10 @@ function SeasonsBody() {
   const seasonFixtures = fixtures.data?.data ?? [];
   const seasonLots = lots.data?.data ?? [];
   const registeredTeamIds = useMemo(() => new Set(registeredTeams.map((item) => item.teamRef)), [registeredTeams]);
-  const dependenciesExist = registeredTeams.length + seasonGroups.length + seasonLots.length + seasonFixtures.length > 0;
+  const fixtureCount = fixtures.data?.pagination?.total ?? seasonFixtures.length;
+  const dependenciesExist = registeredTeams.length + seasonGroups.length + seasonLots.length + fixtureCount > 0;
   const hasAuctionHistory = seasonLots.length > 0;
-  const hasFixtures = seasonFixtures.length > 0;
+  const hasFixtures = fixtureCount > 0;
   const preActivation = selected ? ["draft", "upcoming"].includes(selected.status) : false;
   const editable = preActivation && selected?.status !== "completed" && selected?.status !== "archived";
   const identityLocked = !selected || selected.status !== "draft" || dependenciesExist;
@@ -167,9 +168,9 @@ function SeasonsBody() {
     if (editForm.endDate && editForm.startDate && editForm.endDate < editForm.startDate) { toast.error("End date must be on or after start date"); return; }
     setSaving(true);
     const patch: SeasonPatch = {
-      name: editForm.name.trim(), year: editForm.year, startDate: editForm.startDate || null, endDate: editForm.endDate || null,
-      groupStageEnabled: editForm.groupStageEnabled,
-      ...(identityLocked ? {} : { seasonNumber: editForm.seasonNumber }),
+      name: editForm.name.trim(), startDate: editForm.startDate || null, endDate: editForm.endDate || null,
+      ...(identityLocked ? {} : { seasonNumber: editForm.seasonNumber, year: editForm.year }),
+      ...(!matchRulesLocked ? { groupStageEnabled: editForm.groupStageEnabled } : {}),
       ...(!auctionRulesLocked ? { auctionSettings: payload(editForm, []).auctionSettings } : {}),
       ...(!matchRulesLocked ? {
         pointsRules: { win: editForm.win, draw: editForm.draw, loss: editForm.loss },
@@ -270,7 +271,7 @@ function SeasonsBody() {
       title: action === "remove" ? "Remove unused registration?" : "Withdraw this team?",
       description: action === "remove"
         ? "This permanently removes only the unused SeasonTeam registration. Teams with auction or fixture history cannot be deleted."
-        : "Withdrawal preserves auction and match history. The backend will reject a live match and cancel unresolved future fixtures with an audit note.",
+        : "Withdrawal preserves auction and match history. Reschedule or explicitly cancel all scheduled/postponed fixtures before withdrawal; a live match blocks this action.",
       confirmLabel: action === "remove" ? "Remove registration" : "Withdraw team", danger: true,
     });
     if (!yes) return;
@@ -318,6 +319,7 @@ function SeasonsBody() {
                 <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{statusLabel(season.status)}</span>
               </div>
               <p className="mt-1 text-xs text-muted">Edition {season.seasonNumber} · {season.year}</p>
+              <p className="mt-1 text-xs text-muted">{season.startDate ? toDateInput(season.startDate) : "Start date not set"} – {season.endDate ? toDateInput(season.endDate) : "End date not set"}</p>
             </button>
           ))}
           {!filteredSeasons.length ? <p className="text-sm text-muted">No seasons match the selected filters.</p> : null}
@@ -416,6 +418,21 @@ function SeasonsBody() {
                   <label className="text-sm text-fg">Draw points<Input className="mt-1" type="number" min="0" value={editForm.draw} disabled={matchRulesLocked} onChange={(e) => setEdit("draw", Number(e.target.value))} /></label>
                   <label className="text-sm text-fg">Loss points<Input className="mt-1" type="number" min="0" value={editForm.loss} disabled={matchRulesLocked} onChange={(e) => setEdit("loss", Number(e.target.value))} /></label>
                 </div>
+                <div className="grid gap-2 rounded-xl border border-line p-3">
+                  <p className="text-sm font-semibold text-fg">Standings tiebreaker order</p>
+                  {([
+                    ["points", "Points"], ["goalDifference", "Goal difference"], ["goalsScored", "Goals scored"], ["teamNameAsc", "Team name (A–Z)"],
+                  ] as const).map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 text-sm text-fg">
+                      <input type="checkbox" checked={editForm.standingsTieBreakers.includes(key)} disabled={matchRulesLocked}
+                        onChange={(event) => setEdit("standingsTieBreakers", event.target.checked
+                          ? [...editForm.standingsTieBreakers, key]
+                          : editForm.standingsTieBreakers.filter((value) => value !== key))} />
+                      {label}
+                    </label>
+                  ))}
+                  <p className="text-xs text-muted">Choose the rules used to rank teams when points are tied. At least one rule is required and each rule can appear once.</p>
+                </div>
                 <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.groupStageDrawAllowed} disabled={matchRulesLocked} onChange={(e) => setEdit("groupStageDrawAllowed", e.target.checked)} /> Allow group-stage draws</label>
                 <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.knockoutDrawRequiresShootout} disabled={matchRulesLocked} onChange={(e) => setEdit("knockoutDrawRequiresShootout", e.target.checked)} /> Require knockout shootout</label>
                 <Button type="submit" disabled={saving || !editable}>Save configuration</Button>
@@ -441,6 +458,7 @@ function SeasonsBody() {
                         <option value="">Unassigned group</option>{seasonGroups.map((group) => <option key={group._id} value={group._id}>{group.groupName}</option>)}
                       </Select>
                       {preActivation && team.status !== "withdrawn" ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team,"remove")}>Remove</Button> : null}
+                      {preActivation && linked ? <span className="text-xs text-muted">Has auction/fixture history; use withdrawal only after activation</span> : null}
                       {selected.status === "active" && team.status !== "withdrawn" ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team,"withdraw")}>Withdraw</Button> : null}
                     </div>
                   </div>;

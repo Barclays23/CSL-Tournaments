@@ -18,6 +18,12 @@ async function migrate(): Promise<void> {
         { endDateTime: { $exists: true } },
       ],
     });
+    const localDateOnly = (value: unknown): Date => {
+      const date = new Date(value as string | Date);
+      if (Number.isNaN(date.getTime())) throw new Error("Invalid stored season date: " + String(value));
+      const localDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(date);
+      return new Date(localDay + "T00:00:00.000Z");
+    };
     let migrated = 0;
     const conflicts: string[] = [];
     for await (const season of cursor) {
@@ -30,12 +36,13 @@ async function migrate(): Promise<void> {
           continue;
         }
         const currentValue = season[current];
+        const migratedValue = localDateOnly(oldValue);
         if (currentValue !== undefined && currentValue !== null &&
-            new Date(currentValue as Date).getTime() !== new Date(oldValue as Date).getTime()) {
+            localDateOnly(currentValue).getTime() !== migratedValue.getTime()) {
           conflicts.push(String(season._id));
           continue;
         }
-        if (currentValue === undefined || currentValue === null) updates[current] = oldValue;
+        if (currentValue === undefined || currentValue === null) updates[current] = migratedValue;
         unset[legacy] = "";
       }
       if (Object.keys(updates).length || Object.keys(unset).length) {

@@ -1,5 +1,5 @@
 import type { ApiResponse } from "@/types/api.types";
-import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, SeasonWrite, UpdateAuctionLotInput } from "@/types/season.types";
+import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, SeasonWrite, SeasonPatch, UpdateAuctionLotInput } from "@/types/season.types";
 import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
 import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
@@ -320,7 +320,7 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Draft season created", season as unknown as Season);
   },
-  async updateSeason(id: string, input: Partial<SeasonWrite>) {
+  async updateSeason(id: string, input: SeasonPatch) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, id);
@@ -351,8 +351,7 @@ export const seasonPreviewRepository = {
         fail(409, "Season dates cannot exclude existing fixtures");
       }
     }
-    const patch: Partial<SeasonWrite> = { ...input };
-    delete patch.teamIds;
+    const patch: SeasonPatch = { ...input };
     if (input.name !== undefined) patch.name = input.name.trim();
     if (input.auctionSettings) patch.auctionSettings = { ...season.auctionSettings, ...input.auctionSettings };
     if (input.pointsRules) patch.pointsRules = { ...season.pointsRules, ...input.pointsRules };
@@ -492,9 +491,8 @@ export const seasonPreviewRepository = {
     if (team.status === "withdrawn") fail(409, "SeasonTeam has already withdrawn");
     const teamMatches = db.matches.filter((match) => match.seasonRef === seasonId && (match.homeSeasonTeamRef === id || match.awaySeasonTeamRef === id));
     if (teamMatches.some((match) => match.status === "live")) fail(409, "A team cannot withdraw during a live match");
-    const reason = "Fixture cancelled after SeasonTeam withdrawal";
-    for (const match of teamMatches.filter((item) => ["scheduled", "postponed"].includes(item.status))) {
-      match.status = "cancelled"; match.notes = match.notes ? match.notes + " | " + reason : reason; match.updatedAt = now();
+    if (teamMatches.some((match) => ["scheduled", "postponed"].includes(match.status))) {
+      fail(409, "Reschedule or explicitly cancel all scheduled/postponed fixtures before withdrawing this team");
     }
     team.status = "withdrawn"; team.updatedAt = now();
     commitSeasonDb(db); return ok("SeasonTeam withdrawn; history preserved", populatedSeasonTeam(db, team));
@@ -525,12 +523,16 @@ export const seasonPreviewRepository = {
   },
   async deleteSeasonGroup(seasonId: string, groupId: string) {
     requireAdmin();
-    const db = readSeasonDb(); seasonById(db, seasonId);
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (!["draft", "upcoming"].includes(season.status)) fail(409, "Groups can only be deleted before activation");
+    if (db.matches.some((match) => match.seasonRef === seasonId)) fail(409, "Groups cannot be deleted after fixtures exist");
     const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
     if (!group) fail(404, "Group not found");
-    if (db.seasonTeams.some((st) => st.seasonRef === seasonId && st.groupRef === groupId)
-      || db.matches.some((match) => match.seasonRef === seasonId && match.groupRef === groupId)) fail(409, "Group is referenced by a SeasonTeam or fixture");
-    db.groups = db.groups.filter((item) => item._id !== groupId); commitSeasonDb(db); return ok("Unused group deleted", null);
+    if (db.seasonTeams.some((st) => st.seasonRef === seasonId && st.groupRef === groupId)) fail(409, "Remove all SeasonTeam assignments before deleting this group");
+    db.groups = db.groups.filter((item) => item._id !== groupId);
+    commitSeasonDb(db);
+    return ok("Unused group deleted", null);
   },
   async getAuctionSummary(id: string) {
     const db = readSeasonDb();

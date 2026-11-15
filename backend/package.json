@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
     "migrate:team-groups": "tsx src/scripts/migrateLegacyTeamGroupName.ts",
-    "migrate:season-dates": "tsx src/scripts/migrateSeasonDateFields.ts"
+    "migrate:season-dates": "tsx src/scripts/migrateSeasonDateFields.ts",
+    "migrate:season-identities": "tsx src/scripts/migrateSeasonIdentityFields.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

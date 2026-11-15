@@ -33,7 +33,7 @@ export interface Season {
     shootoutCountsForMatchScore: false;
     shootoutCountsForPlayerGoals: false;
   } | null;
-  auctionSettings: SeasonAuctionSettings;
+  auctionSettings: SeasonAuctionSettings | null;
   createdAt: string;
   updatedAt: string;
 }
