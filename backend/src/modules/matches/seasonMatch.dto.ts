@@ -1,7 +1,7 @@
 import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, ShootoutStatus, ShootoutKickResult } from "./seasonMatch.types.js";
 export interface CreateSeasonMatchDto { matchNumber: number; stage: SeasonMatchStage; groupRef?: string | null; kickoffAt: Date; venue?: string | null; homeSeasonTeamRef: string; awaySeasonTeamRef: string; status?: SeasonMatchStatus; notes?: string | null; penaltyShootout?: { status: ShootoutStatus; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }> } | null; }
 export type UpdateSeasonMatchDto = Partial<CreateSeasonMatchDto>;
-export interface SeasonMatchQueryDto { page: number; limit: number; stage?: SeasonMatchStage; groupRef?: string | null; status?: SeasonMatchStatus; dateFrom?: Date; dateTo?: Date; seasonTeamRef?: string; }
+export interface SeasonMatchQueryDto { page: number; limit: number; stage?: SeasonMatchStage; groupRef?: string | null; status?: SeasonMatchStatus; dateFrom?: Date; dateTo?: Date; seasonTeamRef?: string; search?: string; }
 export interface SeasonGoalDto { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: SeasonGoalType; }
 export interface SeasonMatchTeamDto { _id: string; displayName: string; logoSnapshot: unknown; team: { _id: string; name: string; shortName: string | null; logo: unknown } | null; }
 export interface SeasonMatchPlayerDto { _id: string; name: string; profilePic: unknown; }
