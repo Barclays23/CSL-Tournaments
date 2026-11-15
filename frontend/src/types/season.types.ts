@@ -23,6 +23,16 @@ export interface Season {
   endDate: string | null;
   timeZone: "Asia/Kolkata";
   status: SeasonStatus;
+  groupStageEnabled?: boolean;
+  historyCompleteness?: "not_applicable" | "metadata_only" | "partial" | "full";
+  pointsRules?: { win: number; draw: number; loss: number } | null;
+  standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc"> | null;
+  matchRules?: {
+    groupStageDrawAllowed: boolean;
+    knockoutDrawRequiresShootout: boolean;
+    shootoutCountsForMatchScore: false;
+    shootoutCountsForPlayerGoals: false;
+  } | null;
   auctionSettings: SeasonAuctionSettings;
   createdAt: string;
   updatedAt: string;
@@ -35,7 +45,7 @@ export interface SeasonWrite {
   startDate?: string | null;
   endDate?: string | null;
   timeZone?: "Asia/Kolkata";
-  status?: SeasonStatus;
+  groupStageEnabled?: boolean;
   auctionSettings: SeasonAuctionSettings;
   pointsRules?: { win: number; draw: number; loss: number };
   standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;
@@ -47,6 +57,11 @@ export interface SeasonWrite {
   };
   teamIds: string[];
 }
+
+export type SeasonPatch = Partial<Omit<SeasonWrite, "teamIds">> & {
+  auctionSettings?: Partial<SeasonAuctionSettings>;
+  pointsRules?: Partial<{ win: number; draw: number; loss: number }>;
+};
 
 export interface AuctionTeamRef {
   _id: string;

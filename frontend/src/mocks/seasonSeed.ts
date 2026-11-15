@@ -6,7 +6,7 @@ const asset = (url: string, publicId: string): Asset => ({ url, publicId });
 
 export interface MockSeason {
   _id: string; seasonNumber: number; name: string; year: number;
-  startDate: string | null; endDate: string | null; timeZone: "Asia/Kolkata";
+  startDate: string | null; endDate: string | null; timeZone: "Asia/Kolkata"; groupStageEnabled?: boolean;
   status: "draft" | "upcoming" | "active" | "completed" | "archived";
   auctionSettings: { currency: "INR"; budgetPerTeam: number; playersCount: number; seasonTeamCount: number; teamSquadSize: number; iconPlayerLimit: number; goalkeeperLimit: number };
   pointsRules: { win: number; draw: number; loss: number };

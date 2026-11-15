@@ -12,6 +12,25 @@ export function getSeasonGroups(seasonId: string) {
   );
 }
 
+export function createSeasonGroup(seasonId: string, data: { groupName: string; displayOrder?: number }) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.createSeasonGroup(seasonId, data)
+    : api.post<ApiResponse<SeasonGroup>>(`/seasons/${seasonId}/groups`, data).then((response) => response.data),
+  );
+}
+export function updateSeasonGroup(seasonId: string, groupId: string, data: { groupName?: string; displayOrder?: number }) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.updateSeasonGroup(seasonId, groupId, data)
+    : api.patch<ApiResponse<SeasonGroup>>(`/seasons/${seasonId}/groups/${groupId}`, data).then((response) => response.data),
+  );
+}
+export function deleteSeasonGroup(seasonId: string, groupId: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.deleteSeasonGroup(seasonId, groupId)
+    : api.delete<ApiResponse<null>>(`/seasons/${seasonId}/groups/${groupId}`).then((response) => response.data),
+  );
+}
+
 export function getSeasonMatches(seasonId: string, params: SeasonMatchQuery = {}) {
   return run(async () => {
     if (USE_MOCK_API) return seasonPreviewRepository.getSeasonMatches(seasonId, params);

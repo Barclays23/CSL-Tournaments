@@ -294,53 +294,134 @@ export const seasonPreviewRepository = {
   async createSeason(input: SeasonWrite) {
     requireAdmin();
     const db = readSeasonDb();
+    const normalizedName = input.name.trim().replace(/\\s+/g, " ").toLowerCase();
     if (db.seasons.some((s) => s.seasonNumber === input.seasonNumber)) fail(409, "Season number already exists");
-    if (input.status === "active" && db.seasons.some((s) => s.status === "active")) fail(409, "Another season is already active");
-    if (new Set(input.teamIds).size !== input.teamIds.length) fail(409, "A team can only be registered once in a season");
+    if (db.seasons.some((s) => s.name.trim().replace(/\\s+/g, " ").toLowerCase() === normalizedName)) fail(409, "Season name already exists");
+    if (input.teamIds.length !== new Set(input.teamIds).size) fail(409, "A team can only be registered once in a season");
     if (input.teamIds.length > input.auctionSettings.seasonTeamCount) fail(422, "Selected teams exceed the season team limit");
+    if (input.startDate && input.endDate && input.endDate < input.startDate) fail(422, "End date must be on or after start date");
     const date = now();
     const season: MockSeason = {
-      _id: newId(), seasonNumber: input.seasonNumber, name: input.name, year: input.year,
+      _id: newId(), seasonNumber: input.seasonNumber, name: input.name.trim(), year: input.year,
       startDate: input.startDate ?? null, endDate: input.endDate ?? null, timeZone: input.timeZone ?? "Asia/Kolkata",
-      status: input.status ?? "draft", auctionSettings: input.auctionSettings,
+      groupStageEnabled: input.groupStageEnabled ?? true, status: "draft", auctionSettings: input.auctionSettings,
       pointsRules: input.pointsRules ?? { win: 3, draw: 1, loss: 0 },
       standingsTieBreakers: input.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
       matchRules: input.matchRules ?? { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false },
       auctionRevision: 0, createdAt: date, updatedAt: date,
     };
-    db.seasons.push(season);
-    for (const teamId of input.teamIds) {
+    const initialTeams = input.teamIds.map((teamId) => {
       const team = teamById(db, teamId);
       if (team.status !== "active") fail(422, "All selected teams must be active");
-      db.seasonTeams.push({ _id: newId(), seasonRef: season._id, teamRef: team._id, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered", createdAt: date, updatedAt: date });
-    }
+      return { _id: newId(), seasonRef: season._id, teamRef: team._id, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered" as const, createdAt: date, updatedAt: date };
+    });
+    db.seasons.push(season);
+    db.seasonTeams.push(...initialTeams);
     commitSeasonDb(db);
-    return ok("Season created", season as unknown as Season);
+    return ok("Draft season created", season as unknown as Season);
   },
   async updateSeason(id: string, input: Partial<SeasonWrite>) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, id);
-    if (input.status === "active" && db.seasons.some((s) => s._id !== id && s.status === "active")) fail(409, "Another season is already active");
-    if (input.auctionSettings && db.auctionLots.some((lot) => lot.seasonRef === id) && JSON.stringify(input.auctionSettings) !== JSON.stringify(season.auctionSettings)) fail(409, "Auction settings cannot be changed after player nominations");
-    if (input.auctionSettings && input.auctionSettings.seasonTeamCount < db.seasonTeams.filter((st) => st.seasonRef === id).length) fail(409, "Team limit cannot be lower than registered teams");
+    if (season.status === "completed" || season.status === "archived") fail(409, "Completed and archived seasons are read-only");
+    if (season.status === "active") fail(409, "Active-season configuration requires an audited correction workflow");
+    const teams = db.seasonTeams.filter((st) => st.seasonRef === id);
+    const lots = db.auctionLots.filter((lot) => lot.seasonRef === id);
+    const matches = db.matches.filter((match) => match.seasonRef === id);
+    if ((input.seasonNumber !== undefined || input.year !== undefined) && (season.status !== "draft" || teams.length || lots.length || matches.length || db.groups.some((g) => g.seasonRef === id))) {
+      fail(409, "Season number and year are locked after dependent setup records exist");
+    }
+    if (input.seasonNumber !== undefined && db.seasons.some((s) => s._id !== id && s.seasonNumber === input.seasonNumber)) fail(409, "Season number already exists");
+    if (input.name !== undefined) {
+      const normalized = input.name.trim().replace(/\\s+/g, " ").toLowerCase();
+      if (db.seasons.some((s) => s._id !== id && s.name.trim().replace(/\\s+/g, " ").toLowerCase() === normalized)) fail(409, "Season name already exists");
+    }
+    if (input.auctionSettings && lots.length) fail(409, "Auction settings are locked after the first AuctionLot is created");
+    if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined) && matches.length) {
+      fail(409, "Points, tiebreaker, match and group-stage rules are locked after the first fixture");
+    }
+    if (input.auctionSettings && input.auctionSettings.seasonTeamCount < teams.length) fail(409, "Team limit cannot be lower than registered teams");
+    const nextStart = input.startDate === undefined ? season.startDate : input.startDate;
+    const nextEnd = input.endDate === undefined ? season.endDate : input.endDate;
+    if (nextStart && nextEnd && nextEnd < nextStart) fail(422, "End date must be on or after start date");
+    if (input.startDate !== undefined || input.endDate !== undefined) {
+      const localDate = (date: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(date));
+      if (matches.some((match) => (nextStart && localDate(match.kickoffAt) < nextStart) || (nextEnd && localDate(match.kickoffAt) > nextEnd))) {
+        fail(409, "Season dates cannot exclude existing fixtures");
+      }
+    }
     const patch: Partial<SeasonWrite> = { ...input };
     delete patch.teamIds;
+    if (input.name !== undefined) patch.name = input.name.trim();
+    if (input.auctionSettings) patch.auctionSettings = { ...season.auctionSettings, ...input.auctionSettings };
+    if (input.pointsRules) patch.pointsRules = { ...season.pointsRules, ...input.pointsRules };
     Object.assign(season, patch, { updatedAt: now() });
     commitSeasonDb(db);
     return ok("Season updated", season as unknown as Season);
   },
+  async transitionSeason(id: string, next: "draft" | "upcoming" | "active") {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, id);
+    const allowed = (season.status === "draft" && next === "upcoming") || (season.status === "upcoming" && (next === "draft" || next === "active"));
+    if (!allowed) fail(409, "This season lifecycle transition is not allowed");
+    if (next === "draft" && (db.auctionLots.some((lot) => lot.seasonRef === id) || db.matches.some((match) => match.seasonRef === id))) fail(409, "An Upcoming season can only return to Draft before auction or fixture activity");
+    if (next === "upcoming" || next === "active") {
+      const participants = db.seasonTeams.filter((st) => st.seasonRef === id && !["withdrawn", "eliminated", "completed"].includes(st.status));
+      if (participants.length < 2) fail(422, "At least two participating teams are required");
+      if (participants.length > season.auctionSettings.seasonTeamCount) fail(422, "Registered teams exceed the configured limit");
+      if (season.groupStageEnabled !== false) {
+        const groups = db.groups.filter((g) => g.seasonRef === id);
+        const counts = new Map(groups.map((g) => [g._id, 0]));
+        for (const team of participants) {
+          if (!team.groupRef || !counts.has(team.groupRef)) fail(422, "Every participating team must be assigned to a valid season group");
+          counts.set(team.groupRef, (counts.get(team.groupRef) ?? 0) + 1);
+        }
+        if (!groups.length || [...counts.values()].some((count) => count < 2)) fail(422, "Every group must contain at least two participating teams");
+      }
+    }
+    if (next === "active" && db.seasons.some((s) => s._id !== id && s.status === "active")) fail(409, "Another season is already Active");
+    season.status = next;
+    season.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Season status updated", season as unknown as Season);
+  },
+  async completeSeason(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, id);
+    if (season.status !== "active") fail(409, "Only an Active season can be completed");
+    const matches = db.matches.filter((match) => match.seasonRef === id);
+    const blockers = matches.filter((match) => match.status !== "completed");
+    if (blockers.length) fail(422, blockers.map((match) => "Match " + match.matchNumber + " is " + match.status).join("; "));
+    const finalMatch = matches.filter((match) => match.stage === "final").sort((a, b) => b.matchNumber - a.matchNumber)[0];
+    if (!finalMatch || !finalMatch.winnerSeasonTeamRef) fail(422, "The final must be completed with a determinable winner");
+    if (db.auctionLots.some((lot) => lot.seasonRef === id && lot.auctionStatus === "pending")) fail(422, "Pending auction lots must be resolved before completion");
+    season.status = "completed"; season.updatedAt = now(); commitSeasonDb(db);
+    return ok("Season completed", season as unknown as Season);
+  },
+  async archiveSeason(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, id);
+    if (season.status !== "completed") fail(409, "Only a Completed season can be archived");
+    season.status = "archived"; season.updatedAt = now(); commitSeasonDb(db);
+    return ok("Season archived", season as unknown as Season);
+  },
   async deleteSeason(id: string) {
     requireAdmin();
     const db = readSeasonDb();
-    seasonById(db, id);
-    db.matches = db.matches.filter((match) => match.seasonRef !== id);
-    db.auctionLots = db.auctionLots.filter((lot) => lot.seasonRef !== id);
-    db.seasonTeams = db.seasonTeams.filter((team) => team.seasonRef !== id);
-    db.groups = db.groups.filter((group) => group.seasonRef !== id);
-    db.seasons = db.seasons.filter((season) => season._id !== id);
+    const season = seasonById(db, id);
+    if (season.status !== "draft") fail(409, "Only an empty Draft season can be deleted");
+    const hasDependencies = db.seasonTeams.some((st) => st.seasonRef === id)
+      || db.groups.some((group) => group.seasonRef === id)
+      || db.auctionLots.some((lot) => lot.seasonRef === id)
+      || db.matches.some((match) => match.seasonRef === id);
+    if (hasDependencies) fail(409, "This season has dependent records. No historical or dependent data will be deleted.");
+    db.seasons = db.seasons.filter((item) => item._id !== id);
     commitSeasonDb(db);
-    return ok("Season and its preview records deleted", null);
+    return ok("Empty Draft season deleted", null);
   },
   async getSeasonTeams(id: string) {
     const db = readSeasonDb();
@@ -351,20 +432,105 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, id);
-    if (season.status === "completed" || season.status === "archived") fail(409, "Teams cannot be registered in a completed or archived season");
+    if (!["draft", "upcoming"].includes(season.status)) fail(409, "SeasonTeam registration is frozen after activation");
     const existing = db.seasonTeams.filter((st) => st.seasonRef === id);
     if (new Set(teamIds).size !== teamIds.length) fail(409, "A team can only be registered once in a season");
     const known = new Set(existing.map((st) => st.teamRef));
     if (teamIds.some((teamId) => known.has(teamId))) fail(409, "One or more teams are already registered in this season");
     if (existing.length + teamIds.length > season.auctionSettings.seasonTeamCount) fail(422, "Season team limit exceeded");
-    const date = now();
-    for (const teamId of teamIds) {
+    const additions = teamIds.map((teamId) => {
       const team = teamById(db, teamId);
       if (team.status !== "active") fail(422, "Selected team is not active");
-      db.seasonTeams.push({ _id: newId(), seasonRef: id, teamRef: teamId, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered", createdAt: date, updatedAt: date });
-    }
+      return { _id: newId(), seasonRef: id, teamRef: teamId, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered" as const, createdAt: now(), updatedAt: now() };
+    });
+    db.seasonTeams.push(...additions);
     commitSeasonDb(db);
-    return ok("Season teams registered", db.seasonTeams.filter((st) => st.seasonRef === id && teamIds.includes(st.teamRef)).map((st) => populatedSeasonTeam(db, st)));
+    return ok("Season teams registered", additions.map((st) => populatedSeasonTeam(db, st)));
+  },
+  async updateSeasonTeam(id: string, input: { groupId?: string | null; managerIds?: string[] }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const team = db.seasonTeams.find((st) => st._id === id);
+    if (!team) fail(404, "SeasonTeam not found");
+    const season = seasonById(db, team.seasonRef);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Closed season participation is read-only");
+    if (input.groupId !== undefined) {
+      if (!["draft", "upcoming"].includes(season.status)) fail(409, "Group assignment is frozen after activation");
+      if (db.matches.some((match) => match.seasonRef === season._id)) fail(409, "Group assignment is locked after fixtures exist");
+      if (input.groupId && !db.groups.some((group) => group._id === input.groupId && group.seasonRef === season._id)) fail(422, "Group must belong to the same season");
+      team.groupRef = input.groupId ?? null;
+    }
+    if (input.managerIds) {
+      const valid = input.managerIds.every((managerId) => db.managers.some((manager) => manager._id === managerId && manager.status === "active"));
+      if (!valid || new Set(input.managerIds).size !== input.managerIds.length) fail(422, "Assign only unique active managers");
+      team.managerRefs = [...input.managerIds];
+    }
+    team.updatedAt = now(); commitSeasonDb(db);
+    return ok("SeasonTeam updated", populatedSeasonTeam(db, team));
+  },
+  async removeSeasonTeam(seasonId: string, id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (!["draft", "upcoming"].includes(season.status)) fail(409, "SeasonTeam registrations can only be removed before activation");
+    const team = db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonId);
+    if (!team) fail(404, "SeasonTeam not found");
+    if (db.auctionLots.some((lot) => lot.seasonRef === seasonId && lot.seasonTeamRef === id)
+      || db.matches.some((match) => match.seasonRef === seasonId && (match.homeSeasonTeamRef === id || match.awaySeasonTeamRef === id))) {
+      fail(409, "This SeasonTeam has auction or fixture history and cannot be hard-deleted");
+    }
+    db.seasonTeams = db.seasonTeams.filter((st) => st._id !== id);
+    commitSeasonDb(db); return ok("Unused registration removed", null);
+  },
+  async withdrawSeasonTeam(seasonId: string, id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (season.status !== "active") fail(409, "Controlled withdrawal is available only during an Active season");
+    const team = db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonId);
+    if (!team) fail(404, "SeasonTeam not found");
+    if (team.status === "withdrawn") fail(409, "SeasonTeam has already withdrawn");
+    const teamMatches = db.matches.filter((match) => match.seasonRef === seasonId && (match.homeSeasonTeamRef === id || match.awaySeasonTeamRef === id));
+    if (teamMatches.some((match) => match.status === "live")) fail(409, "A team cannot withdraw during a live match");
+    const reason = "Fixture cancelled after SeasonTeam withdrawal";
+    for (const match of teamMatches.filter((item) => ["scheduled", "postponed"].includes(item.status))) {
+      match.status = "cancelled"; match.notes = match.notes ? match.notes + " | " + reason : reason; match.updatedAt = now();
+    }
+    team.status = "withdrawn"; team.updatedAt = now();
+    commitSeasonDb(db); return ok("SeasonTeam withdrawn; history preserved", populatedSeasonTeam(db, team));
+  },
+  async createSeasonGroup(seasonId: string, input: { groupName: string; displayOrder?: number }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (!["draft", "upcoming"].includes(season.status) || db.matches.some((match) => match.seasonRef === seasonId)) fail(409, "Groups can only be created before fixtures exist");
+    const normalized = input.groupName.trim().replace(/\\s+/g, " ").toLowerCase();
+    if (db.groups.some((group) => group.seasonRef === seasonId && group.groupName.trim().replace(/\\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
+    const group = { _id: newId(), seasonRef: seasonId, groupName: input.groupName.trim(), displayOrder: input.displayOrder ?? 0, createdAt: now(), updatedAt: now() };
+    db.groups.push(group); commitSeasonDb(db); return ok("Season group created", group);
+  },
+  async updateSeasonGroup(seasonId: string, groupId: string, input: { groupName?: string; displayOrder?: number }) {
+    requireAdmin();
+    const db = readSeasonDb(); const season = seasonById(db, seasonId);
+    if (!["draft", "upcoming"].includes(season.status) || db.matches.some((match) => match.seasonRef === seasonId)) fail(409, "Groups are locked after fixtures exist");
+    const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
+    if (!group) fail(404, "Group not found");
+    if (input.groupName !== undefined) {
+      const normalized = input.groupName.trim().replace(/\\s+/g, " ").toLowerCase();
+      if (db.groups.some((item) => item._id !== groupId && item.seasonRef === seasonId && item.groupName.trim().replace(/\\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
+      group.groupName = input.groupName.trim();
+    }
+    if (input.displayOrder !== undefined) group.displayOrder = input.displayOrder;
+    group.updatedAt = now(); commitSeasonDb(db); return ok("Group updated", group);
+  },
+  async deleteSeasonGroup(seasonId: string, groupId: string) {
+    requireAdmin();
+    const db = readSeasonDb(); seasonById(db, seasonId);
+    const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
+    if (!group) fail(404, "Group not found");
+    if (db.seasonTeams.some((st) => st.seasonRef === seasonId && st.groupRef === groupId)
+      || db.matches.some((match) => match.seasonRef === seasonId && match.groupRef === groupId)) fail(409, "Group is referenced by a SeasonTeam or fixture");
+    db.groups = db.groups.filter((item) => item._id !== groupId); commitSeasonDb(db); return ok("Unused group deleted", null);
   },
   async getAuctionSummary(id: string) {
     const db = readSeasonDb();
