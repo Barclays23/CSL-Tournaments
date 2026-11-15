@@ -249,12 +249,16 @@ export const seasonPreviewRepository = {
     if (input.homeSeasonTeamRef === input.awaySeasonTeamRef) fail(422, "A team cannot play itself");
     const home = db.seasonTeams.find((team) => team._id === input.homeSeasonTeamRef && team.seasonRef === seasonId);
     const away = db.seasonTeams.find((team) => team._id === input.awaySeasonTeamRef && team.seasonRef === seasonId);
-    if (!home || !away || ["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
-      fail(422, "Both teams must be participating in this season");
+    if (!home || !away) return fail(422, "Both teams must be participating in this season");
+    if (["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
+      return fail(422, "Both teams must be participating in this season");
     }
     if (input.stage === "group") {
       const group = input.groupRef ? db.groups.find((item) => item._id === input.groupRef && item.seasonRef === seasonId) : null;
-      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) fail(422, "Both teams must belong to the selected group");
+      if (!group) return fail(422, "Both teams must belong to the selected group");
+      if (home.groupRef !== group._id || away.groupRef !== group._id) {
+        return fail(422, "Both teams must belong to the selected group");
+      }
     }
     const kickoff = new Date(input.kickoffAt);
     if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
