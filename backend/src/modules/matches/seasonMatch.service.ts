@@ -9,15 +9,31 @@ import type {SeasonMatchFields,SeasonMatchEntity,PopulatedSeasonMatch,PopulatedS
 export class SeasonMatchService implements ISeasonMatchService{
  constructor(private readonly repo:SeasonMatchRepository){}
  async list(seasonId:string,query:SeasonMatchQueryDto):Promise<PaginatedResult<SeasonMatchResponseDto>>{
-  this.id(seasonId,"season");const filter:import("./seasonMatch.types.js").SeasonMatchListFilter={seasonRef:new Types.ObjectId(seasonId)};
-  if(query.stage)filter.stage=query.stage;if(query.groupRef!==undefined)filter.groupRef=query.groupRef?new Types.ObjectId(query.groupRef):null;
+  this.id(seasonId,"season");
+  const filter:import("./seasonMatch.types.js").SeasonMatchListFilter={seasonRef:new Types.ObjectId(seasonId)};
+  if(query.stage)filter.stage=query.stage;
+  if(query.groupRef!==undefined)filter.groupRef=query.groupRef?new Types.ObjectId(query.groupRef):null;
   if(query.status)filter.status=query.status;
-  
   if(query.dateFrom||query.dateTo)filter.kickoffAt={...(query.dateFrom?{$gte:query.dateFrom}:{}),...(query.dateTo?{$lte:query.dateTo}:{})};
+
+  const clauses:Array<{ $or:Array<Partial<import("./seasonMatch.types.js").SeasonMatchListFilter>> }>=[];
   if(query.seasonTeamRef){
-   const result=await this.repo.find({...filter,$or:[{homeSeasonTeamRef:new Types.ObjectId(query.seasonTeamRef)},{awaySeasonTeamRef:new Types.ObjectId(query.seasonTeamRef)}]},query.page,query.limit);
-   return {items:result.items.map(m=>this.map(m)),pagination:{page:query.page,limit:query.limit,total:result.total,totalPages:Math.ceil(result.total/query.limit)}};
+   const teamId=new Types.ObjectId(query.seasonTeamRef);
+   clauses.push({$or:[{homeSeasonTeamRef:teamId},{awaySeasonTeamRef:teamId}]});
   }
+  if(query.search){
+   const search=query.search.trim();
+   const conditions:Array<Partial<import("./seasonMatch.types.js").SeasonMatchListFilter>>=[];
+   const numberMatch=search.match(/\d+/)?.[0];
+   if(numberMatch)conditions.push({matchNumber:Number(numberMatch)});
+   const matchingTeams=await this.repo.findSeasonTeamIdsByName(seasonId,search);
+   if(matchingTeams.length)conditions.push({homeSeasonTeamRef:{$in:matchingTeams}},{awaySeasonTeamRef:{$in:matchingTeams}});
+   if(!conditions.length)return {items:[],pagination:{page:query.page,limit:query.limit,total:0,totalPages:0}};
+   clauses.push({$or:conditions});
+  }
+  if(clauses.length===1)filter.$or=clauses[0].$or;
+  else if(clauses.length>1)filter.$and=clauses;
+
   const result=await this.repo.find(filter,query.page,query.limit);
   return {items:result.items.map(m=>this.map(m)),pagination:{page:query.page,limit:query.limit,total:result.total,totalPages:Math.ceil(result.total/query.limit)}};
  }
