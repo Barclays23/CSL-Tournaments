@@ -407,7 +407,6 @@ export class PlayerService implements IPlayerService {
         name: populatedTeam.name,
         shortName: populatedTeam.shortName,
         logo: populatedTeam.logo,
-        groupName: populatedTeam.groupName,
       } : null,
       jerseyNo: player.jerseyNo,
       auctionPrice: player.auctionPrice,

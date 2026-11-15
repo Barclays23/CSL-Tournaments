@@ -53,7 +53,6 @@ function DashboardBody() {
             <Link to="/admin/seasons"><Button size="sm" variant="surface">Seasons</Button></Link>
             <Link to="/admin/users"><Button size="sm" variant="surface">Users</Button></Link>
             <Link to="/admin/organizers"><Button size="sm" variant="surface">Organizers</Button></Link>
-            <Link to="/admin/settings"><Button size="sm" variant="gold">Settings</Button></Link>
           </div>
           {data.alerts.length ? (
             <GlassCard className="mt-6 p-4">

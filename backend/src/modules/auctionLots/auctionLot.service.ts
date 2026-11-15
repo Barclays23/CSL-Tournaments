@@ -38,9 +38,9 @@ export class AuctionLotService implements IAuctionLotService{
   try{
    await session.withTransaction(async()=>{
     const season=await SeasonModel.findById(input.seasonId).session(session).lean().exec();
-    if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
+    if(!season||!["upcoming","active"].includes(season.status))throw new AppError("Auction nominations are available only for Upcoming or Active seasons",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
-    const lock=await SeasonModel.updateOne({_id:season._id,status:{$nin:["completed","archived"]}},{$inc:{auctionRevision:1}},{session}).exec();
+    const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]}},{$inc:{auctionRevision:1}},{session}).exec();
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
     const count=await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId)},session);
     if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
@@ -60,6 +60,7 @@ export class AuctionLotService implements IAuctionLotService{
   try{await session.withTransaction(async()=>{
    const lot=await AuctionLotModel.findById(id).session(session).exec();if(!lot||lot.auctionStatus!=="pending")throw new AppError("Only pending lots can be sold",409,"LOT_NOT_PENDING");
    const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();const team=await SeasonTeamModel.findById(input.seasonTeamId).session(session).exec();
+   if(!season||!["upcoming","active"].includes(season.status))throw new AppError("Auction sales are available only for Upcoming or Active seasons",409,"SEASON_NOT_AUCTION_READY");
    if(!season||!team||String(team.seasonRef)!==String(lot.seasonRef)||["withdrawn","eliminated","completed"].includes(team.status))throw new AppError("Winning team must participate in the same season",422,"INVALID_SEASON_TEAM");
    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
    const [soldCount,spent,icons,gks,player,jerseyCount]=await Promise.all([
@@ -93,7 +94,7 @@ export class AuctionLotService implements IAuctionLotService{
     const lot=await AuctionLotModel.findById(id).session(session).exec();
     if(!lot)throw new AppError("Auction lot not found",404,"LOT_NOT_FOUND");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
-    if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is closed",409,"SEASON_CLOSED");
+    if(!season||!["upcoming","active"].includes(season.status))throw new AppError("Auction lots can only be changed for Upcoming or Active seasons",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
 
     const nextStatus=input.auctionStatus;

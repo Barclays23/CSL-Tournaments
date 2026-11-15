@@ -332,7 +332,6 @@ export class MatchService implements IMatchService {
       name: reference.name,
       shortName: reference.shortName,
       logo: reference.logo,
-      groupName: reference.groupName,
     };
     return team;
   }

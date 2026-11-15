@@ -4,6 +4,7 @@ import type { TeamRecord } from "./team.model.js";
 import { PlayerModel } from "../players/player.model.js";
 import { ManagerModel } from "../managers/manager.model.js";
 import { MatchModel } from "../matches/match.model.js";
+import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import type { ITeamRepository } from "./team.interfaces.js";
 import type { TeamCreateDTO, TeamEntity, TeamFields, TeamListFilter, TeamReferenceCounts, TeamUpdateDTO } from "./team.types.js";
 
@@ -42,12 +43,13 @@ export class TeamRepository implements ITeamRepository {
 
   async findTeamReferenceCounts(teamId: string): Promise<TeamReferenceCounts> {
     const objectId = new Types.ObjectId(teamId);
-    const [players, managers, matches] = await Promise.all([
+    const [players, managers, matches, seasonTeams] = await Promise.all([
       PlayerModel.countDocuments({ teamRef: objectId }).exec(),
       ManagerModel.countDocuments({ teamRef: objectId }).exec(),
       MatchModel.countDocuments({ $or: [{ team1Ref: objectId }, { team2Ref: objectId }] }).exec(),
+      SeasonTeamModel.countDocuments({ teamRef: objectId }).exec(),
     ]);
-    return { players, managers, matches };
+    return { players, managers, matches, seasonTeams };
   }
 
   async createTeam(data: TeamCreateDTO): Promise<TeamEntity> {
@@ -57,7 +59,6 @@ export class TeamRepository implements ITeamRepository {
       description: data.description?.trim() || null,
       logo: data.logo ?? null,
       poster: data.poster ?? null,
-      groupName: data.groupName?.trim() || null,
       status: data.status,
     };
     const createdTeam = await TeamModel.create(fields);
@@ -73,7 +74,6 @@ export class TeamRepository implements ITeamRepository {
     if (data.description !== undefined) updateFields.description = data.description?.trim() || null;
     if (data.logo !== undefined) updateFields.logo = data.logo;
     if (data.poster !== undefined) updateFields.poster = data.poster;
-    if (data.groupName !== undefined) updateFields.groupName = data.groupName?.trim() || null;
     if (data.status !== undefined) updateFields.status = data.status;
     return TeamModel.findByIdAndUpdate(teamId, { $set: updateFields }, {
       returnDocument: "after",

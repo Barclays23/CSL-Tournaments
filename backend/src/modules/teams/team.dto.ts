@@ -7,7 +7,6 @@ export interface CreateTeamDto {
   description?: string | null;
   logo?: Asset | null;
   poster?: Asset | null;
-  groupName?: string | null;
   status: TeamStatus;
 }
 export type UpdateTeamDto = Partial<CreateTeamDto>;
@@ -16,7 +15,6 @@ export interface TeamQueryDto {
   limit: number;
   search?: string;
   status?: TeamStatus;
-  groupName?: string;
 }
 export type TeamCreateInput = CreateTeamDto;
 export type TeamUpdateInput = UpdateTeamDto;
@@ -33,7 +31,6 @@ export interface TeamBriefDTO {
   name: string;
   shortName: string | null;
   logo: Asset | null;
-  groupName: string | null;
 }
 
 export interface TeamDTO extends TeamFields {

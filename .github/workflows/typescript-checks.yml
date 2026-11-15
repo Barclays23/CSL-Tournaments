@@ -7,6 +7,7 @@ on:
       - refactor/module-dto-schema-types
       - feature/updated-csl-project-plan
       - feature/season-based-mock-data
+      - feature/season-management-complete
   pull_request:
     branches:
       - main
@@ -33,6 +34,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install backend dependencies
         run: npm ci
+      - name: Run backend tests
+        run: npm test
       - name: Typecheck backend
         run: npm run typecheck
       - name: Build backend
@@ -55,5 +58,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
-      - name: Build frontend
+      - name: Lint frontend
+        run: npx eslint src/pages/admin/SeasonsPage.tsx src/components/forms/TeamForm.tsx src/types/team.types.ts src/types/season.types.ts src/services/seasonService.ts src/services/seasonMatchService.ts src/mocks/seasonRepository.ts src/mocks/seasonSeed.ts
+      - name: Typecheck and build frontend
         run: npm run build

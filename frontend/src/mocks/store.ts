@@ -62,11 +62,11 @@ export interface StoredMatch {
   _id: string;
   matchNo: string;
   stage: MatchStage;
-  groupName: string | null;
   kickoffAt: string;
   venue: string | null;
   team1Ref: string;
   team2Ref: string;
+  groupName: string | null;
   status: MatchStatus;
   goals: StoredGoal[];
   penaltyShootout: PenaltyShootout | null;
@@ -81,7 +81,6 @@ export interface StoredTeam {
   shortName: string | null;
   logo: Asset | null;
   poster: Asset | null;
-  groupName: string | null;
   description: string | null;
   status: TeamStatus;
   createdAt: string;

@@ -1,6 +1,6 @@
 import type {Asset} from "../../shared/types/common.types.js";
 import type {SeasonTeamStatus} from "./seasonTeam.types.js";
-export interface UpdateSeasonTeamDto{managerIds?:string[];groupId?:string|null;status?:SeasonTeamStatus;}
+export interface UpdateSeasonTeamDto{managerIds?:string[];groupId?:string|null;}
 export interface SeasonTeamResponseDto{
  _id:string;seasonRef:string;teamRef:string;displayName:string;logoSnapshot:Asset|null;groupRef:string|null;
  managerRefs:string[];status:SeasonTeamStatus;team:{_id:string;name:string;shortName:string|null;logo:Asset|null}|null;

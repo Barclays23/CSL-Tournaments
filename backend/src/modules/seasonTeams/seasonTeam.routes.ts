@@ -5,3 +5,6 @@ import { seasonTeamController } from "../../container/dependencies.js";
 export const seasonTeamRouter = Router({ mergeParams: true });
 seasonTeamRouter.get("/", seasonTeamController.list);
 seasonTeamRouter.patch("/:id", authenticate, requireAdmin, seasonTeamController.update);
+
+seasonTeamRouter.delete("/:id", authenticate, requireAdmin, seasonTeamController.remove);
+seasonTeamRouter.post("/:id/withdraw", authenticate, requireAdmin, seasonTeamController.withdraw);

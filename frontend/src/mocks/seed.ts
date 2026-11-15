@@ -10,7 +10,7 @@ export function createSeed(): Database {
   const seasonTeams = source.seasonTeams.filter((item) => item.seasonRef === activeSeason._id);
   const teams: StoredTeam[] = source.teams.map((team) => ({
     _id: team._id, name: team.name, shortName: team.shortName, description: team.description,
-    logo: team.logo, poster: team.poster, groupName: team.groupName, status: team.status,
+    logo: team.logo, poster: team.poster, status: team.status,
     createdAt: team.createdAt, updatedAt: team.updatedAt,
   }));
   const players: StoredPlayer[] = source.players.map((player) => {

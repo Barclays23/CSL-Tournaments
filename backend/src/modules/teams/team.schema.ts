@@ -8,7 +8,6 @@ export const teamCreateSchema = z.object({
   description: z.string().trim().max(1000).nullable().optional(),
   logo: assetSchema.optional(),
   poster: assetSchema.optional(),
-  groupName: z.string().trim().max(40).nullable().optional(),
   status: z.enum(["active", "inactive"]).default("active"),
 }).strict();
 
@@ -19,5 +18,4 @@ export const teamQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(50),
   search: z.string().trim().optional(),
   status: z.enum(["active", "inactive"]).optional(),
-  groupName: z.string().optional(),
 }).strict();

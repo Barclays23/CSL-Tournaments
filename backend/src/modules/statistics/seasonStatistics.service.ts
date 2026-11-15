@@ -100,7 +100,18 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
  private fixture(m:PopulatedSeasonMatch):SeasonFixtureDto{const home=this.teamBrief(m.homeSeasonTeamRef as any),away=this.teamBrief(m.awaySeasonTeamRef as any);return {_id:String(m._id),matchNumber:m.matchNumber,stage:m.stage,kickoffAt:m.kickoffAt.toISOString(),status:m.status,home,away,homeScore:this.score(m,String((m.homeSeasonTeamRef as any)._id)),awayScore:this.score(m,String((m.awaySeasonTeamRef as any)._id)),winnerSeasonTeamRef:m.winnerSeasonTeamRef?this.refId(m.winnerSeasonTeamRef):null,penaltyShootout:m.penaltyShootout?{homeTeamScore:m.penaltyShootout.homeTeamScore,awayTeamScore:m.penaltyShootout.awayTeamScore,status:m.penaltyShootout.status}:null};}
  private teamBrief(st:PopulatedSeasonTeam|any):SeasonTeamBriefDto{return {_id:String(st._id),teamId:String(st.teamRef?._id??st.teamRef),displayName:st.displayName,shortName:st.teamRef?.shortName??null,logo:st.logoSnapshot??st.teamRef?.logo??null,groupRef:st.groupRef?String(st.groupRef._id??st.groupRef):null,groupName:st.groupRef?.groupName??null};}
  private seasonBrief(s:any):SeasonBriefDto{return {_id:String(s._id),name:s.name,seasonNumber:s.seasonNumber,year:s.year,status:s.status};}
- private async requireSeason(id:string){const s=await this.repo.findSeason(id);if(!s)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!s.pointsRules||!s.standingsTieBreakers)throw new AppError("Standings rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");return s;}
+ private async requireSeason(id:string):Promise<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>> & {
+  pointsRules: NonNullable<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>>["pointsRules"]>;
+  standingsTieBreakers: NonNullable<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>>["standingsTieBreakers"]>;
+ }>{
+  const s=await this.repo.findSeason(id);
+  if(!s)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+  if(!s.pointsRules||!s.standingsTieBreakers)throw new AppError("Standings rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
+  return s as NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>> & {
+   pointsRules: NonNullable<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>>["pointsRules"]>;
+   standingsTieBreakers: NonNullable<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>>["standingsTieBreakers"]>;
+  };
+ }
  private refId(ref:any):string{return String(ref?._id??ref);}
  private id(value:string,label:string){if(!Types.ObjectId.isValid(value))throw new AppError("Invalid "+label+" ID",400,"INVALID_ID");}
 }

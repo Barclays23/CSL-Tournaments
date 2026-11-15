@@ -12,7 +12,6 @@ export interface TeamFields {
   description: string | null;
   logo: Asset | null;
   poster: Asset | null;
-  groupName: string | null;
   status: TeamStatus;
 }
 
@@ -27,7 +26,6 @@ export interface TeamBriefEntity {
   name: string;
   shortName: string | null;
   logo: Asset | null;
-  groupName: string | null;
 }
 
 
@@ -40,7 +38,6 @@ export interface TeamBriefEntity {
 
 export interface TeamListFilter {
   status?: TeamStatus;
-  groupName?: string;
   name?: { $regex: string; $options: "i" };
 }
 
@@ -48,6 +45,7 @@ export interface TeamReferenceCounts {
   players: number;
   matches: number;
   managers: number;
+  seasonTeams: number;
 }
 
 export interface TeamAuctionStats {

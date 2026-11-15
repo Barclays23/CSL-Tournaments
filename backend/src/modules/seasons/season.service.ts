@@ -1,5 +1,6 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
+import { isAllowedSeasonTransition, normalizeSeasonName } from "./season.rules.js";
 import type { ITeamRepository } from "../teams/team.interfaces.js";
 import { SeasonTeamRepository } from "../seasonTeams/seasonTeam.repository.js";
 import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
@@ -50,6 +51,9 @@ export class SeasonService implements ISeasonService {
       return this.map(created);
     } catch (error) {
       if ((error as { code?: number }).code === 11000) this.throwDuplicateKey(error);
+      if (error instanceof Error && error.message === "SEASON_TEAM_INACTIVE") {
+        throw new AppError("A selected permanent Team became inactive before registration completed", 409, "INVALID_SEASON_TEAM");
+      }
       throw error;
     }
   }
@@ -100,10 +104,30 @@ export class SeasonService implements ISeasonService {
       });
     }
 
+    const effectiveTimeZone = input.timeZone ?? current.timeZone;
+    if (input.timeZone !== undefined && input.timeZone !== current.timeZone && matchCount > 0) {
+      throw new AppError("Season timezone cannot change after fixtures exist", 409, "SEASON_TIMEZONE_LOCKED", {
+        timeZone: "Existing fixture timestamps already use the season timezone",
+      });
+    }
     const nextStart = input.startDate === undefined ? current.startDate : input.startDate;
     const nextEnd = input.endDate === undefined ? current.endDate : input.endDate;
     if (nextStart && nextEnd && nextEnd < nextStart) {
       throw new AppError("End date must be on or after start date", 422, "INVALID_SEASON_DATES", { endDate: "End date must be on or after start date" });
+    }
+    if (input.startDate !== undefined || input.endDate !== undefined) {
+      const fixtures = await this.repo.getMatches(id);
+      const startDay = dateOnly(nextStart);
+      const endDay = dateOnly(nextEnd);
+      const outOfRange = fixtures.filter((fixture) => {
+        const fixtureDay = new Intl.DateTimeFormat("en-CA", { timeZone: effectiveTimeZone }).format(fixture.kickoffAt);
+        return (startDay !== null && fixtureDay < startDay) || (endDay !== null && fixtureDay > endDay);
+      });
+      if (outOfRange.length) {
+        throw new AppError("Season dates cannot exclude existing fixtures", 409, "SEASON_DATE_RANGE_LOCKED", {
+          fixtures: outOfRange.map((fixture) => "Match " + fixture.matchNumber + " is outside the proposed season date range").join("; "),
+        });
+      }
     }
     const nextName = input.name === undefined ? current.name : input.name.trim();
     const normalizedName = normalizeName(nextName);
@@ -144,8 +168,7 @@ export class SeasonService implements ISeasonService {
     const current = await this.repo.findById(id);
     if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     const next = input.status;
-    const allowed = (current.status === "draft" && next === "upcoming")
-      || (current.status === "upcoming" && (next === "active" || next === "draft"));
+    const allowed = isAllowedSeasonTransition(current.status, next);
     if (!allowed) throw new AppError("This season lifecycle transition is not allowed", 409, "INVALID_SEASON_TRANSITION", {
       status: current.status + " cannot transition to " + next,
     });
@@ -214,7 +237,7 @@ export class SeasonService implements ISeasonService {
         throw new AppError("Only an empty Draft season can be deleted", 409, "SEASON_DELETE_BLOCKED");
       }
       if (error instanceof Error && error.message === "SEASON_HAS_DEPENDENCIES") {
-        throw new AppError("This season has registrations, groups, auction lots, fixtures or sponsor records. Remove only unused setup records first; historical dependencies are never cascade-deleted.", 409, "SEASON_HAS_DEPENDENCIES");
+        throw new AppError("This season has registrations, groups, auction lots or fixtures. Remove only unused setup records first; historical dependencies are never cascade-deleted.", 409, "SEASON_HAS_DEPENDENCIES");
       }
       throw error;
     }
@@ -250,6 +273,7 @@ export class SeasonService implements ISeasonService {
     } catch (error) {
       if ((error as { code?: number }).code === 11000) throw new AppError("One or more teams are already registered in this season", 409, "DUPLICATE_SEASON_TEAM");
       if (error instanceof Error && error.message === "SEASON_TEAM_LIMIT") throw new AppError("Season team limit exceeded", 422, "SEASON_TEAM_LIMIT");
+      if (error instanceof Error && error.message === "SEASON_TEAM_INACTIVE") throw new AppError("A selected permanent Team is no longer active", 409, "INVALID_SEASON_TEAM");
       if (error instanceof Error && error.message === "SEASON_REGISTRATION_FROZEN") throw new AppError("Team registration is frozen after the season becomes Active", 409, "SEASON_REGISTRATION_FROZEN");
       throw error;
     }

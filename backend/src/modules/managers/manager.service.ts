@@ -138,7 +138,6 @@ export class ManagerService implements IManagerService {
         name: populatedTeam.name,
         shortName: populatedTeam.shortName,
         logo: populatedTeam.logo,
-        groupName: populatedTeam.groupName,
       } : null,
       role: manager.role,
       profilePic: manager.profilePic,

@@ -63,14 +63,18 @@ export class StatisticsService implements IStatisticsService {
       });
     }
 
+    const groupNameByTeamId = new Map<string, string>();
     for (const match of completedGroupMatches) {
+      const groupName = match.groupName?.trim() || "Ungrouped";
+      groupNameByTeamId.set(String(match.team1Ref), groupName);
+      groupNameByTeamId.set(String(match.team2Ref), groupName);
       this.applyMatchToGroupStandings(match, standingByTeamId, settings.pointsRule);
     }
 
     const groupRows = new Map<string, MutableStanding[]>();
     for (const row of standingByTeamId.values()) {
       row.goalDifference = row.goalsFor - row.goalsAgainst;
-      const groupName = row.team.groupName ?? "Ungrouped";
+      const groupName = groupNameByTeamId.get(row.team._id) ?? "Ungrouped";
       const rows = groupRows.get(groupName) ?? [];
       rows.push(row);
       groupRows.set(groupName, rows);
@@ -348,7 +352,6 @@ export class StatisticsService implements IStatisticsService {
       name: team.name,
       shortName: team.shortName,
       logo: team.logo,
-      groupName: team.groupName,
     };
   }
 
@@ -402,7 +405,6 @@ export class StatisticsService implements IStatisticsService {
       name: reference.name,
       shortName: reference.shortName,
       logo: reference.logo,
-      groupName: reference.groupName,
     };
   }
 
