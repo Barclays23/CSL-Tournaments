@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, "Invalid team ID");
 
-const auctionSettings = z.object({
+const auctionSettingsBase = z.object({
   currency: z.literal("INR").default("INR"),
   budgetPerTeam: z.coerce.number().finite().min(0).max(100000000),
   playersCount: z.coerce.number().int().min(1).max(500),
@@ -10,7 +10,9 @@ const auctionSettings = z.object({
   teamSquadSize: z.coerce.number().int().min(1).max(40),
   iconPlayerLimit: z.coerce.number().int().min(0).max(40),
   goalkeeperLimit: z.coerce.number().int().min(0).max(40),
-}).strict().superRefine((value, context) => {
+}).strict();
+
+const auctionSettings = auctionSettingsBase.superRefine((value, context) => {
   if (value.iconPlayerLimit > value.teamSquadSize) context.addIssue({ code: "custom", path: ["iconPlayerLimit"], message: "Icon limit cannot exceed squad size" });
   if (value.goalkeeperLimit > value.teamSquadSize) context.addIssue({ code: "custom", path: ["goalkeeperLimit"], message: "Goalkeeper limit cannot exceed squad size" });
 });
@@ -66,7 +68,7 @@ export const seasonUpdateSchema = z.object({
   endDate: dateValue,
   timeZone: z.literal("Asia/Kolkata").optional(),
   groupStageEnabled: z.boolean().optional(),
-  auctionSettings: auctionSettings.partial().optional(),
+  auctionSettings: auctionSettingsBase.partial().optional(),
   pointsRules: pointsRules.partial().optional(),
   standingsTieBreakers: tieBreakers.optional(),
   matchRules: matchRules.partial().optional(),

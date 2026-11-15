@@ -80,12 +80,16 @@ function SeasonsBody() {
     const list = seasons.data?.data ?? [];
     if (!selectedSeasonId && list.length) {
       const chosen = list.find((season) => season.status === "active") ?? list[0];
+      // The selected season is derived from asynchronously loaded server data.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedSeasonId(chosen._id);
     }
   }, [selectedSeasonId, seasons.data]);
 
   const selected = seasons.data?.data.find((season) => season._id === selectedSeasonId) ?? null;
   useEffect(() => {
+    // Reset the edit draft when the server record changes or another season is selected.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (selected) setEditForm(fromSeason(selected));
   }, [selected?._id, selected?.updatedAt]);
 
