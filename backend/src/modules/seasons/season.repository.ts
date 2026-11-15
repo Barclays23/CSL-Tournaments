@@ -6,6 +6,7 @@ import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import { GroupModel } from "../groups/group.model.js";
 import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
 import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
+import { TeamModel } from "../teams/team.model.js";
 import type { CreateSeasonDto } from "./season.dto.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 import type { SeasonMatchEntity } from "../matches/seasonMatch.types.js";
@@ -62,6 +63,11 @@ export class SeasonRepository implements ISeasonRepository {
           },
         }], { session });
         if (teams.length) {
+          const activeCount = await TeamModel.countDocuments({
+            _id: { $in: teams.map((team) => team._id) },
+            status: "active",
+          }).session(session).exec();
+          if (activeCount !== teams.length) throw new Error("SEASON_TEAM_INACTIVE");
           await SeasonTeamModel.insertMany(teams.map((team) => ({
             seasonRef: season._id,
             teamRef: team._id,
@@ -165,6 +171,11 @@ export class SeasonRepository implements ISeasonRepository {
           { session },
         ).exec();
         if (lock.matchedCount !== 1) throw new Error("SEASON_REGISTRATION_FROZEN");
+        const activeCount = await TeamModel.countDocuments({
+          _id: { $in: records.map((record) => record.teamRef) },
+          status: "active",
+        }).session(session).exec();
+        if (activeCount !== records.length) throw new Error("SEASON_TEAM_INACTIVE");
         const currentCount = await SeasonTeamModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId) }).session(session).exec();
         if (currentCount + records.length > limit) throw new Error("SEASON_TEAM_LIMIT");
         const docs = await SeasonTeamModel.insertMany(records, { session, ordered: true });
@@ -184,14 +195,13 @@ export class SeasonRepository implements ISeasonRepository {
         const id = new Types.ObjectId(seasonId);
         const season = await SeasonModel.findOne({ _id: id, status: "draft" }).session(session).lean().exec();
         if (!season) throw new Error("SEASON_NOT_EMPTY_DRAFT");
-        const [teams, groups, lots, matches, sponsors] = await Promise.all([
+        const [teams, groups, lots, matches] = await Promise.all([
           SeasonTeamModel.countDocuments({ seasonRef: id }).session(session).exec(),
           GroupModel.countDocuments({ seasonRef: id }).session(session).exec(),
           AuctionLotModel.countDocuments({ seasonRef: id }).session(session).exec(),
           SeasonMatchModel.countDocuments({ seasonRef: id }).session(session).exec(),
-          Promise.resolve(0),
         ]);
-        if (teams + groups + lots + matches + sponsors > 0) throw new Error("SEASON_HAS_DEPENDENCIES");
+        if (teams + groups + lots + matches > 0) throw new Error("SEASON_HAS_DEPENDENCIES");
         const result = await SeasonModel.deleteOne({ _id: id, status: "draft" }).session(session).exec();
         deleted = result.deletedCount === 1;
       });

@@ -74,8 +74,8 @@ export class TeamService implements ITeamService {
 
     if (input.status === "inactive") {
       const references = await this._teamRepository.findTeamReferenceCounts(teamId);
-      if (references.players > 0 || references.managers > 0 || references.matches > 0) {
-        throw new AppError("Resolve this team's players, managers and fixtures before deactivating it", 409, "TEAM_REFERENCED");
+      if (references.players > 0 || references.managers > 0 || references.matches > 0 || references.seasonTeams > 0) {
+        throw new AppError("This Team is referenced by players, managers, fixtures or SeasonTeam history", 409, "TEAM_REFERENCED");
       }
     }
 
@@ -88,7 +88,7 @@ export class TeamService implements ITeamService {
     this.ensureValidTeamId(teamId);
     const references = await this._teamRepository.findTeamReferenceCounts(teamId);
     if (references.players > 0 || references.managers > 0 || references.matches > 0) {
-      throw new AppError("Team has player, manager or match references", 409, "TEAM_REFERENCED");
+      throw new AppError("Team has player, manager, match or SeasonTeam references", 409, "TEAM_REFERENCED");
     }
     const deleted = await this._teamRepository.deleteTeam(teamId);
     if (!deleted) throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");

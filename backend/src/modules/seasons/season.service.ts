@@ -51,6 +51,9 @@ export class SeasonService implements ISeasonService {
       return this.map(created);
     } catch (error) {
       if ((error as { code?: number }).code === 11000) this.throwDuplicateKey(error);
+      if (error instanceof Error && error.message === "SEASON_TEAM_INACTIVE") {
+        throw new AppError("A selected permanent Team became inactive before registration completed", 409, "INVALID_SEASON_TEAM");
+      }
       throw error;
     }
   }
@@ -234,7 +237,7 @@ export class SeasonService implements ISeasonService {
         throw new AppError("Only an empty Draft season can be deleted", 409, "SEASON_DELETE_BLOCKED");
       }
       if (error instanceof Error && error.message === "SEASON_HAS_DEPENDENCIES") {
-        throw new AppError("This season has registrations, groups, auction lots, fixtures or sponsor records. Remove only unused setup records first; historical dependencies are never cascade-deleted.", 409, "SEASON_HAS_DEPENDENCIES");
+        throw new AppError("This season has registrations, groups, auction lots or fixtures. Remove only unused setup records first; historical dependencies are never cascade-deleted.", 409, "SEASON_HAS_DEPENDENCIES");
       }
       throw error;
     }
@@ -270,6 +273,7 @@ export class SeasonService implements ISeasonService {
     } catch (error) {
       if ((error as { code?: number }).code === 11000) throw new AppError("One or more teams are already registered in this season", 409, "DUPLICATE_SEASON_TEAM");
       if (error instanceof Error && error.message === "SEASON_TEAM_LIMIT") throw new AppError("Season team limit exceeded", 422, "SEASON_TEAM_LIMIT");
+      if (error instanceof Error && error.message === "SEASON_TEAM_INACTIVE") throw new AppError("A selected permanent Team is no longer active", 409, "INVALID_SEASON_TEAM");
       if (error instanceof Error && error.message === "SEASON_REGISTRATION_FROZEN") throw new AppError("Team registration is frozen after the season becomes Active", 409, "SEASON_REGISTRATION_FROZEN");
       throw error;
     }

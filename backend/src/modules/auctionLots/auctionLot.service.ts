@@ -94,7 +94,7 @@ export class AuctionLotService implements IAuctionLotService{
     const lot=await AuctionLotModel.findById(id).session(session).exec();
     if(!lot)throw new AppError("Auction lot not found",404,"LOT_NOT_FOUND");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
-    if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is closed",409,"SEASON_CLOSED");
+    if(!season||!["upcoming","active"].includes(season.status))throw new AppError("Auction lots can only be changed for Upcoming or Active seasons",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
 
     const nextStatus=input.auctionStatus;

@@ -26,7 +26,6 @@ export interface TeamBriefEntity {
   name: string;
   shortName: string | null;
   logo: Asset | null;
-  groupName: string | null;
 }
 
 
@@ -46,6 +45,7 @@ export interface TeamReferenceCounts {
   players: number;
   matches: number;
   managers: number;
+  seasonTeams: number;
 }
 
 export interface TeamAuctionStats {
