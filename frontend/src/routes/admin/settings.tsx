@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
+/** Legacy URL compatibility: all tournament configuration now belongs to a selected Season. */
 export const Route = createFileRoute("/admin/settings")({
-  component: SettingsPage,
+  component: () => <Navigate to="/admin/seasons" replace />,
 });
