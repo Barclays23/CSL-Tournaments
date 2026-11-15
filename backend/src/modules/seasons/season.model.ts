@@ -1,6 +1,8 @@
 import { Schema, model } from "mongoose";
 import type { SeasonFields } from "./season.types.js";
 
+
+
 const auctionSettingsSchema = new Schema({
   currency: { type: String, enum: ["INR"], default: "INR", required: true },
   budgetPerTeam: { type: Number, required: true, min: 0 },
@@ -26,10 +28,10 @@ const matchRulesSchema = new Schema({
 
 const seasonSchema = new Schema<SeasonFields>({
   seasonNumber: { type: Number, required: true, unique: true, min: 1 },
-  name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
+  name: { type: String, required: true, trim: true, minlength: 5, maxlength: 30 },
   year: { type: Number, required: true, min: 2000, max: 2200 },
-  startDate: { type: Date, default: null },
-  endDate: { type: Date, default: null },
+  startDateTime: { type: Date, default: null },
+  endDateTime: { type: Date, default: null },
   timeZone: { type: String, enum: ["Asia/Kolkata"], default: "Asia/Kolkata", required: true },
   status: { type: String, enum: ["draft", "upcoming", "active", "completed", "archived"], default: "draft" },
   auctionSettings: { type: auctionSettingsSchema, required: true },

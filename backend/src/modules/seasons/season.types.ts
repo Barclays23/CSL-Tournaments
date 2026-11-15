@@ -1,5 +1,5 @@
 import type { Types } from "mongoose";
-import type { Asset } from "../../shared/types/common.types.js";
+
 
 export type SeasonStatus = "draft" | "upcoming" | "active" | "completed" | "archived";
 export type SeasonPlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
@@ -27,8 +27,8 @@ export interface SeasonFields {
   seasonNumber: number;
   name: string;
   year: number;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDateTime: Date | null;
+  endDateTime: Date | null;
   timeZone: "Asia/Kolkata";
   status: SeasonStatus;
   auctionSettings: SeasonAuctionSettings;
