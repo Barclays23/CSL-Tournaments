@@ -7,20 +7,47 @@ export interface CreateSeasonDto {
   startDate?: Date | null;
   endDate?: Date | null;
   timeZone?: "Asia/Kolkata";
-  status?: SeasonStatus;
+  groupStageEnabled?: boolean;
   auctionSettings: SeasonAuctionSettings;
   pointsRules?: SeasonPointsRules;
   standingsTieBreakers?: SeasonTieBreaker[];
   matchRules?: SeasonMatchRules;
   teamIds: string[];
 }
-export type UpdateSeasonDto = Partial<Omit<CreateSeasonDto, "teamIds">>;
+
+export interface UpdateSeasonDto {
+  seasonNumber?: number;
+  name?: string;
+  year?: number;
+  startDate?: Date | null;
+  endDate?: Date | null;
+  timeZone?: "Asia/Kolkata";
+  groupStageEnabled?: boolean;
+  auctionSettings?: Partial<SeasonAuctionSettings>;
+  pointsRules?: Partial<SeasonPointsRules>;
+  standingsTieBreakers?: SeasonTieBreaker[];
+  matchRules?: Partial<SeasonMatchRules>;
+}
+
 export interface RegisterSeasonTeamsDto { teamIds: string[]; }
 export interface SeasonQueryDto { year?: number; status?: SeasonStatus; }
-export interface SeasonResponseDto extends Omit<import("./season.types.js").SeasonEntity, "_id" | "startDate" | "endDate" | "createdAt" | "updatedAt"> {
+export interface SeasonLifecycleDto { status: "draft" | "upcoming" | "active"; }
+
+export interface SeasonResponseDto {
   _id: string;
+  seasonNumber: number;
+  name: string;
+  year: number;
   startDate: string | null;
   endDate: string | null;
+  timeZone: "Asia/Kolkata";
+  groupStageEnabled: boolean;
+  status: SeasonStatus;
+  historyCompleteness: import("./season.types.js").SeasonHistoryCompleteness;
+  auctionSettings: SeasonAuctionSettings | null;
+  pointsRules: SeasonPointsRules | null;
+  standingsTieBreakers: SeasonTieBreaker[] | null;
+  matchRules: SeasonMatchRules | null;
   createdAt: string;
   updatedAt: string;
 }

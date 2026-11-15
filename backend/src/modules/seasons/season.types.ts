@@ -1,7 +1,7 @@
 import type { Types } from "mongoose";
 
-
 export type SeasonStatus = "draft" | "upcoming" | "active" | "completed" | "archived";
+export type SeasonHistoryCompleteness = "not_applicable" | "metadata_only" | "partial" | "full";
 export type SeasonPlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
 export type SeasonTieBreaker = "points" | "goalDifference" | "goalsScored" | "teamNameAsc";
 
@@ -26,15 +26,18 @@ export interface SeasonMatchRules {
 export interface SeasonFields {
   seasonNumber: number;
   name: string;
+  normalizedName: string;
   year: number;
-  startDateTime: Date | null;
-  endDateTime: Date | null;
+  startDate: Date | null;
+  endDate: Date | null;
   timeZone: "Asia/Kolkata";
+  groupStageEnabled: boolean;
   status: SeasonStatus;
-  auctionSettings: SeasonAuctionSettings;
-  pointsRules: SeasonPointsRules;
-  standingsTieBreakers: SeasonTieBreaker[];
-  matchRules: SeasonMatchRules;
+  historyCompleteness: SeasonHistoryCompleteness;
+  auctionSettings: SeasonAuctionSettings | null;
+  pointsRules: SeasonPointsRules | null;
+  standingsTieBreakers: SeasonTieBreaker[] | null;
+  matchRules: SeasonMatchRules | null;
   auctionRevision: number;
 }
 
@@ -50,4 +53,4 @@ export interface SeasonListFilter {
 }
 
 export type { ISeasonRepository, ISeasonService, ISeasonController } from "./season.interfaces.js";
-export type { CreateSeasonDto, UpdateSeasonDto, SeasonQueryDto, SeasonResponseDto } from "./season.dto.js";
+export type { CreateSeasonDto, UpdateSeasonDto, SeasonQueryDto, SeasonResponseDto, SeasonLifecycleDto } from "./season.dto.js";

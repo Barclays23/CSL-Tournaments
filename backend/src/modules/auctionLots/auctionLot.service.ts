@@ -13,6 +13,7 @@ export class AuctionLotService implements IAuctionLotService{
  constructor(private readonly lots:AuctionLotRepository){}
  async summary(seasonId:string):Promise<AuctionSummaryDto>{
   this.id(seasonId);const season=await SeasonModel.findById(seasonId).lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+  if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const [teams,lots]=await Promise.all([SeasonTeamModel.find({seasonRef:season._id}).populate({path:"teamRef",select:"name"}).lean().exec(),this.lots.find({seasonRef:new Types.ObjectId(seasonId)})]);
   const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&l.auctionStatus==="sold");const spent=teamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.displayName,logoSnapshot:st.logoSnapshot,status:st.status,budget:season.auctionSettings.budgetPerTeam,playersSigned:teamLots.length,remainingSlots:season.auctionSettings.teamSquadSize-teamLots.length,totalSpent:spent,balance:season.auctionSettings.budgetPerTeam-spent,averagePrice:teamLots.length?spent/teamLots.length:0,iconCount:teamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:teamLots.filter(l=>l.playerPosition==="goalkeeper").length,lots:teamLots.map(l=>this.map(l))};});
   return {season:{_id:String(season._id),name:season.name,year:season.year,status:season.status,auctionSettings:season.auctionSettings},totals:{participatingTeams:teams.length,lots:lots.length,sold:lots.filter(l=>l.auctionStatus==="sold").length,pending:lots.filter(l=>l.auctionStatus==="pending").length,unsold:lots.filter(l=>l.auctionStatus==="unsold").length,withdrawn:lots.filter(l=>l.auctionStatus==="withdrawn").length,totalSoldValue:lots.filter(l=>l.auctionStatus==="sold").reduce((s,l)=>s+(l.purchasePrice??0),0)},teams:summaries,lots:lots.map(l=>this.map(l))};
@@ -38,6 +39,7 @@ export class AuctionLotService implements IAuctionLotService{
    await session.withTransaction(async()=>{
     const season=await SeasonModel.findById(input.seasonId).session(session).lean().exec();
     if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
+    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
     const lock=await SeasonModel.updateOne({_id:season._id,status:{$nin:["completed","archived"]}},{$inc:{auctionRevision:1}},{session}).exec();
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
     const count=await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId)},session);
@@ -59,6 +61,7 @@ export class AuctionLotService implements IAuctionLotService{
    const lot=await AuctionLotModel.findById(id).session(session).exec();if(!lot||lot.auctionStatus!=="pending")throw new AppError("Only pending lots can be sold",409,"LOT_NOT_PENDING");
    const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();const team=await SeasonTeamModel.findById(input.seasonTeamId).session(session).exec();
    if(!season||!team||String(team.seasonRef)!==String(lot.seasonRef)||["withdrawn","eliminated","completed"].includes(team.status))throw new AppError("Winning team must participate in the same season",422,"INVALID_SEASON_TEAM");
+   if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
    const [soldCount,spent,icons,gks,player,jerseyCount]=await Promise.all([
     AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold"}).session(session),
     AuctionLotModel.aggregate([{$match:{seasonTeamRef:team._id,auctionStatus:"sold"}},{$group:{_id:null,total:{$sum:"$purchasePrice"}}}]).session(session),
@@ -91,6 +94,7 @@ export class AuctionLotService implements IAuctionLotService{
     if(!lot)throw new AppError("Auction lot not found",404,"LOT_NOT_FOUND");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
     if(!season||["completed","archived"].includes(season.status))throw new AppError("Season is closed",409,"SEASON_CLOSED");
+    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
 
     const nextStatus=input.auctionStatus;
     const nextPosition=input.playerPosition??lot.playerPosition;
