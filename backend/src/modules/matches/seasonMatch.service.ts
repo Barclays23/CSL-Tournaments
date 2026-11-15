@@ -3,21 +3,37 @@ import {AppError} from "../../shared/errors/appError.js";
 import type {PaginatedResult} from "../../shared/types/common.types.js";
 import type {SeasonMatchRepository} from "./seasonMatch.repository.js";
 import type {ISeasonMatchService} from "./seasonMatch.interfaces.js";
-import type {CreateSeasonMatchDto,UpdateSeasonMatchDto,SeasonMatchQueryDto,SeasonGoalDto,SeasonMatchResponseDto,SeasonGoalResponseDto} from "./seasonMatch.dto.js";
+import type {CreateSeasonMatchDto,UpdateSeasonMatchDto,SeasonMatchQueryDto,SeasonGoalDto,SeasonMatchResponseDto,SeasonGoalResponseDto,SeasonMatchTeamDto,SeasonMatchPlayerDto} from "./seasonMatch.dto.js";
 import type {SeasonMatchFields,SeasonMatchEntity,PopulatedSeasonMatch,PopulatedSeasonGoal} from "./seasonMatch.types.js";
 
 export class SeasonMatchService implements ISeasonMatchService{
  constructor(private readonly repo:SeasonMatchRepository){}
  async list(seasonId:string,query:SeasonMatchQueryDto):Promise<PaginatedResult<SeasonMatchResponseDto>>{
-  this.id(seasonId,"season");const filter:import("./seasonMatch.types.js").SeasonMatchListFilter={seasonRef:new Types.ObjectId(seasonId)};
-  if(query.stage)filter.stage=query.stage;if(query.groupRef!==undefined)filter.groupRef=query.groupRef?new Types.ObjectId(query.groupRef):null;
+  this.id(seasonId,"season");
+  const filter:import("./seasonMatch.types.js").SeasonMatchListFilter={seasonRef:new Types.ObjectId(seasonId)};
+  if(query.stage)filter.stage=query.stage;
+  if(query.groupRef!==undefined)filter.groupRef=query.groupRef?new Types.ObjectId(query.groupRef):null;
   if(query.status)filter.status=query.status;
-  
   if(query.dateFrom||query.dateTo)filter.kickoffAt={...(query.dateFrom?{$gte:query.dateFrom}:{}),...(query.dateTo?{$lte:query.dateTo}:{})};
+
+  const clauses:Array<{ $or:Array<Partial<import("./seasonMatch.types.js").SeasonMatchListFilter>> }>=[];
   if(query.seasonTeamRef){
-   const result=await this.repo.find({...filter,$or:[{homeSeasonTeamRef:new Types.ObjectId(query.seasonTeamRef)},{awaySeasonTeamRef:new Types.ObjectId(query.seasonTeamRef)}]},query.page,query.limit);
-   return {items:result.items.map(m=>this.map(m)),pagination:{page:query.page,limit:query.limit,total:result.total,totalPages:Math.ceil(result.total/query.limit)}};
+   const teamId=new Types.ObjectId(query.seasonTeamRef);
+   clauses.push({$or:[{homeSeasonTeamRef:teamId},{awaySeasonTeamRef:teamId}]});
   }
+  if(query.search){
+   const search=query.search.trim();
+   const conditions:Array<Partial<import("./seasonMatch.types.js").SeasonMatchListFilter>>=[];
+   const numberMatch=search.match(/\d+/)?.[0];
+   if(numberMatch)conditions.push({matchNumber:Number(numberMatch)});
+   const matchingTeams=await this.repo.findSeasonTeamIdsByName(seasonId,search);
+   if(matchingTeams.length)conditions.push({homeSeasonTeamRef:{$in:matchingTeams}},{awaySeasonTeamRef:{$in:matchingTeams}});
+   if(!conditions.length)return {items:[],pagination:{page:query.page,limit:query.limit,total:0,totalPages:0}};
+   clauses.push({$or:conditions});
+  }
+  if(clauses.length===1)filter.$or=clauses[0].$or;
+  else if(clauses.length>1)filter.$and=clauses;
+
   const result=await this.repo.find(filter,query.page,query.limit);
   return {items:result.items.map(m=>this.map(m)),pagination:{page:query.page,limit:query.limit,total:result.total,totalPages:Math.ceil(result.total/query.limit)}};
  }
@@ -48,9 +64,9 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated fixture could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);
  }
  async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const season=await this.repo.findSeason(String(existing.seasonRef));if(season&&["completed","archived"].includes(season.status))throw new AppError("Completed season fixtures cannot be deleted",409,"SEASON_CLOSED");if(!(await this.repo.delete(id)))throw new AppError("Match not found",404,"MATCH_NOT_FOUND");}
- async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules);const saved=await this.repo.appendGoal(id,goal);if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");await this.repo.update(id,{winnerSeasonTeamRef:winner});const populated=await this.repo.findPopulatedById(id);return this.map(populated??saved);}
- async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.updateGoal(id,goalId,goal);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");await this.repo.update(id,{winnerSeasonTeamRef:winner});const populated=await this.repo.findPopulatedById(id);return this.map(populated??saved);}
- async deleteGoal(id:string,goalId:string):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");const goals=match.goals.filter(g=>String(g._id)!==goalId);if(goals.length===match.goals.length)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.removeGoal(id,goalId);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");await this.repo.update(id,{winnerSeasonTeamRef:winner});const populated=await this.repo.findPopulatedById(id);return this.map(populated??saved);}
+ async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules);const saved=await this.repo.appendGoal(id,goal);if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");await this.repo.update(id,{winnerSeasonTeamRef:winner});const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
+ async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.updateGoal(id,goalId,goal);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");await this.repo.update(id,{winnerSeasonTeamRef:winner});const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
+ async deleteGoal(id:string,goalId:string):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");const goals=match.goals.filter(g=>String(g._id)!==goalId);if(goals.length===match.goals.length)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.removeGoal(id,goalId);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");await this.repo.update(id,{winnerSeasonTeamRef:winner});const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  private async getExisting(id:string):Promise<SeasonMatchEntity>{this.id(id,"match");const match=await this.repo.findById(id);if(!match)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(season&&["completed","archived"].includes(season.status))throw new AppError("Completed or archived season matches are read-only",409,"SEASON_CLOSED");return match;}
  private async validateSeasonTeams(seasonId:string,homeId:string,awayId:string,stage:SeasonMatchFields["stage"],groupId:string|null):Promise<void>{
   if(homeId===awayId)throw new AppError("A team cannot play itself",422,"SAME_TEAMS");

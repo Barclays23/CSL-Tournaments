@@ -442,8 +442,13 @@ function topScorers(db: Database): TopScorer[] {
       const player = db.players.find((item) => item._id === playerId);
       if (!player) return null;
       const team = player.teamRef ? db.teams.find((item) => item._id === player.teamRef) : null;
+      const presentedPlayer = presentPlayer(db, player, false) as PublicPlayer;
       return {
-        player: presentPlayer(db, player, false) as PublicPlayer,
+        player: {
+          _id: presentedPlayer._id,
+          name: presentedPlayer.name,
+          profilePic: presentedPlayer.profilePic,
+        },
         team: team ? briefTeam(team) : null,
         goals,
       };
