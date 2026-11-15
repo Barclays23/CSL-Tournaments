@@ -1,0 +1,11 @@
+import {Router} from "express";
+import {authenticate} from "../../middlewares/authenticate.middleware.js";
+import {requireAdmin} from "../../middlewares/authorizeAdmin.middleware.js";
+import {auctionLotController} from "../../container/dependencies.js";
+export const auctionsRouter=Router();
+auctionsRouter.get("/",auctionLotController.list);
+auctionsRouter.get("/summary",auctionLotController.summary);
+auctionsRouter.post("/lots",authenticate,requireAdmin,auctionLotController.nominate);
+auctionsRouter.patch("/lots/:id/sell",authenticate,requireAdmin,auctionLotController.sell);
+auctionsRouter.patch("/lots/:id",authenticate,requireAdmin,auctionLotController.update);
+auctionsRouter.patch("/lots/:id/status",authenticate,requireAdmin,auctionLotController.updateStatus);
