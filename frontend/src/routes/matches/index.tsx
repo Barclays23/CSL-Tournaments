@@ -2,5 +2,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { MatchesPage } from "@/pages/matches/MatchesPage";
 
 export const Route = createFileRoute("/matches/")({
-  component: MatchesPage,
+  validateSearch: (search: Record<string, unknown>): { seasonId?: string } => ({
+    seasonId: typeof search.seasonId === "string" ? search.seasonId : undefined,
+  }),
+  component: function MatchesRoute() {
+    const { seasonId } = Route.useSearch();
+    return <MatchesPage initialSeasonId={seasonId} />;
+  },
 });
