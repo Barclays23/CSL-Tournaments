@@ -1,4 +1,4 @@
-import {Types} from "mongoose";
+import mongoose,{Types} from "mongoose";
 import {AppError} from "../../shared/errors/appError.js";
 import {ManagerModel} from "../managers/manager.model.js";
 import {SeasonModel} from "../seasons/season.model.js";
@@ -8,7 +8,6 @@ import {AuctionLotModel} from "../auctionLots/auctionLot.model.js";
 import {SeasonMatchModel} from "../matches/seasonMatch.model.js";
 import type {ISeasonTeamService} from "./seasonTeam.interfaces.js";
 import type {SeasonTeamResponseDto,UpdateSeasonTeamDto} from "./seasonTeam.dto.js";
-import type {SeasonTeamStatus} from "./seasonTeam.types.js";
 export class SeasonTeamService implements ISeasonTeamService{
  async list(seasonId:string):Promise<SeasonTeamResponseDto[]>{
   this.id(seasonId);const season=await SeasonModel.findById(seasonId).select("_id").lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
@@ -36,7 +35,6 @@ export class SeasonTeamService implements ISeasonTeamService{
     current.groupRef=group._id;
    }
   }
-  if(input.status!==undefined)current.status=input.status as SeasonTeamStatus;
   await current.save();
   const updated=await SeasonTeamModel.findById(id).populate({path:"teamRef",select:"name shortName logo"}).populate({path:"groupRef",select:"groupName displayOrder"}).populate({path:"managerRefs",select:"name role profilePic"}).lean().exec();
   if(!updated)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");return this.map(updated as any);
@@ -58,25 +56,27 @@ export class SeasonTeamService implements ISeasonTeamService{
  }
  async withdraw(seasonId:string,id:string):Promise<SeasonTeamResponseDto>{
   this.id(seasonId);this.id(id);
-  const season=await SeasonModel.findById(seasonId).select("status").lean().exec();
-  if(!season||season.status!=="active")throw new AppError("Controlled withdrawal is available only during an Active season",409,"SEASON_WITHDRAWAL_NOT_ALLOWED");
-  const current=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).exec();
-  if(!current)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
-  if(current.status==="withdrawn")throw new AppError("This team has already withdrawn",409,"SEASON_TEAM_ALREADY_WITHDRAWN");
-  const now=new Date();
-  const matches=await SeasonMatchModel.find({seasonRef:seasonId,$or:[{homeSeasonTeamRef:id},{awaySeasonTeamRef:id}]}).exec();
-  const live=matches.filter(match=>match.status==="live");
-  if(live.length)throw new AppError("A team cannot withdraw while it has a live match",409,"WITHDRAWAL_LIVE_MATCH",{matches:live.map(m=>String(m._id)).join(", ")});
-  const future=matches.filter(match=>match.status==="scheduled"&&match.kickoffAt>=now);
-  for(const match of future){
-   match.status="cancelled";
-   const reason="Cancelled because a participating team withdrew on "+now.toISOString();
-   match.notes=match.notes?match.notes+" | "+reason:reason;
-   await match.save();
-  }
-  current.status="withdrawn";
-  await current.save();
-  const updated=await SeasonTeamModel.findById(id).populate({path:"teamRef",select:"name shortName logo"}).populate({path:"groupRef",select:"groupName displayOrder"}).populate({path:"managerRefs",select:"name role profilePic"}).lean().exec();
+  const session=await mongoose.startSession();
+  try{
+   await session.withTransaction(async()=>{
+    const season=await SeasonModel.findById(seasonId).select("status").session(session).lean().exec();
+    if(!season||season.status!=="active")throw new AppError("Controlled withdrawal is available only during an Active season",409,"SEASON_WITHDRAWAL_NOT_ALLOWED");
+    const current=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).session(session).exec();
+    if(!current)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
+    if(current.status==="withdrawn")throw new AppError("This team has already withdrawn",409,"SEASON_TEAM_ALREADY_WITHDRAWN");
+    const fixtures=await SeasonMatchModel.find({seasonRef:seasonId,$or:[{homeSeasonTeamRef:id},{awaySeasonTeamRef:id}],status:{$in:["live","scheduled","postponed"]}})
+     .select("matchNumber status kickoffAt").session(session).lean().exec();
+    const live=fixtures.filter(match=>match.status==="live");
+    if(live.length)throw new AppError("A team cannot withdraw while it has a live match",409,"WITHDRAWAL_LIVE_MATCH",
+     Object.fromEntries(live.map((match,index)=>["match."+(index+1),"Match "+match.matchNumber+" is live"])));
+    const unresolved=fixtures.filter(match=>match.status==="scheduled"||match.status==="postponed");
+    if(unresolved.length)throw new AppError("Reschedule or explicitly cancel all scheduled/postponed fixtures before withdrawing this team",409,"WITHDRAWAL_FIXTURES_UNRESOLVED",
+     Object.fromEntries(unresolved.map((match,index)=>["fixture."+(index+1),"Match "+match.matchNumber+" is "+match.status])));
+    current.status="withdrawn";
+    await current.save({session});
+   });
+  }finally{await session.endSession();}
+  const updated=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).populate({path:"teamRef",select:"name shortName logo"}).populate({path:"groupRef",select:"groupName displayOrder"}).populate({path:"managerRefs",select:"name role profilePic"}).lean().exec();
   if(!updated)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
   return this.map(updated as any);
  }

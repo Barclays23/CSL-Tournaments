@@ -100,10 +100,30 @@ export class SeasonService implements ISeasonService {
       });
     }
 
+    const effectiveTimeZone = input.timeZone ?? current.timeZone;
+    if (input.timeZone !== undefined && input.timeZone !== current.timeZone && matchCount > 0) {
+      throw new AppError("Season timezone cannot change after fixtures exist", 409, "SEASON_TIMEZONE_LOCKED", {
+        timeZone: "Existing fixture timestamps already use the season timezone",
+      });
+    }
     const nextStart = input.startDate === undefined ? current.startDate : input.startDate;
     const nextEnd = input.endDate === undefined ? current.endDate : input.endDate;
     if (nextStart && nextEnd && nextEnd < nextStart) {
       throw new AppError("End date must be on or after start date", 422, "INVALID_SEASON_DATES", { endDate: "End date must be on or after start date" });
+    }
+    if (input.startDate !== undefined || input.endDate !== undefined) {
+      const fixtures = await this.repo.getMatches(id);
+      const startDay = dateOnly(nextStart);
+      const endDay = dateOnly(nextEnd);
+      const outOfRange = fixtures.filter((fixture) => {
+        const fixtureDay = new Intl.DateTimeFormat("en-CA", { timeZone: effectiveTimeZone }).format(fixture.kickoffAt);
+        return (startDay !== null && fixtureDay < startDay) || (endDay !== null && fixtureDay > endDay);
+      });
+      if (outOfRange.length) {
+        throw new AppError("Season dates cannot exclude existing fixtures", 409, "SEASON_DATE_RANGE_LOCKED", {
+          fixtures: outOfRange.map((fixture) => "Match " + fixture.matchNumber + " is outside the proposed season date range").join("; "),
+        });
+      }
     }
     const nextName = input.name === undefined ? current.name : input.name.trim();
     const normalizedName = normalizeName(nextName);
