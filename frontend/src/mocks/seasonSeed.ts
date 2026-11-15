@@ -222,65 +222,151 @@ seasons.forEach((season, seasonIndex) => {
 
   const home = seasonTeamId(seasonIndex, 0);
   const away = seasonTeamId(seasonIndex, Math.min(1, participatingCount - 1));
-  const third = seasonTeamId(seasonIndex, Math.min(2, participatingCount - 1));
-  const fourth = seasonTeamId(seasonIndex, Math.min(3, participatingCount - 1));
-  const groupBHomeIndex = Math.ceil(participatingCount / 2);
-  const groupBAwayIndex = Math.min(groupBHomeIndex + 1, participatingCount - 1);
-  const groupBHome = seasonTeamId(seasonIndex, groupBHomeIndex);
-  const groupBAway = seasonTeamId(seasonIndex, groupBAwayIndex);
+  const fourthIndex = Math.min(3, participatingCount - 1);
+  const fourth = seasonTeamId(seasonIndex, fourthIndex);
   const playerFor = (teamIndex: number, slot: number) => {
-    const lot = auctionLots.find((item) => item.seasonRef === season._id && item.seasonTeamRef === seasonTeamId(seasonIndex, teamIndex) && item.auctionStatus === "sold" && item.lotNumber === teamIndex * 3 + slot + 1);
+    const lotNumber = teamIndex * 3 + slot + 1;
+    const lot = auctionLots.find((item) =>
+      item.seasonRef === season._id &&
+      item.seasonTeamRef === seasonTeamId(seasonIndex, teamIndex) &&
+      item.auctionStatus === "sold" &&
+      item.lotNumber === lotNumber
+    );
     return lot?.playerRef ?? null;
   };
-  const groupA = groupsInSeason[0]._id;
-  const groupB = groupsInSeason[1]._id;
-  const makeMatch = (matchNumber: number, stage: MockSeasonMatch["stage"], groupRef: string | null, homeRef: string, awayRef: string, status: MockSeasonMatch["status"], kickoff: string, goalSpecs: Array<{ scoring: string; scorer: string | null; playerTeam: string | null; type: "normal" | "own_goal" }>, shootout: MockSeasonMatch["penaltyShootout"] = null, winner: string | null = null): MockSeasonMatch => ({
-    _id: oid(2000 + seasonIndex * 100 + matchNumber), seasonRef: season._id, matchNumber, stage, groupRef,
-    kickoffAt: timestamp(kickoff), venue: "Cherukunnu Municipal Ground", homeSeasonTeamRef: homeRef,
-    awaySeasonTeamRef: awayRef, status,
-    goals: goalSpecs.map((g, index) => makeGoal(seasonIndex * 100 + matchNumber, index + 1, g.scoring, g.scorer, g.playerTeam, g.type, kickoff)),
-    penaltyShootout: shootout, winnerSeasonTeamRef: winner, notes: null,
-    createdAt: season.createdAt, updatedAt: now,
+  const makeMatch = (
+    matchNumber: number,
+    stage: MockSeasonMatch["stage"],
+    groupRef: string | null,
+    homeRef: string,
+    awayRef: string,
+    status: MockSeasonMatch["status"],
+    kickoff: string,
+    goalSpecs: Array<{ scoring: string; scorer: string | null; playerTeam: string | null; type: "normal" | "own_goal" }>,
+    shootout: MockSeasonMatch["penaltyShootout"] = null,
+    winner: string | null = null,
+  ): MockSeasonMatch => ({
+    _id: oid(2000 + seasonIndex * 100 + matchNumber),
+    seasonRef: season._id,
+    matchNumber,
+    stage,
+    groupRef,
+    kickoffAt: timestamp(kickoff),
+    venue: "Cherukunnu Municipal Ground",
+    homeSeasonTeamRef: homeRef,
+    awaySeasonTeamRef: awayRef,
+    status,
+    goals: goalSpecs.map((goal, index) =>
+      makeGoal(seasonIndex * 100 + matchNumber, index + 1, goal.scoring, goal.scorer, goal.playerTeam, goal.type, kickoff),
+    ),
+    penaltyShootout: shootout,
+    winnerSeasonTeamRef: winner,
+    notes: null,
+    createdAt: season.createdAt,
+    updatedAt: now,
   });
+
   const seasonYear = season.year;
-  matches.push(makeMatch(1, "group", groupA, home, away, "completed", `${seasonYear}-11-02T11:00:00.000Z`, [
-    { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
-    { scoring: home, scorer: playerFor(0, 2), playerTeam: home, type: "normal" },
-    { scoring: away, scorer: playerFor(1, 1), playerTeam: away, type: "normal" },
-  ]));
-  matches.push(makeMatch(2, "group", groupB, groupBHome, groupBAway, "completed", `${seasonYear}-11-04T11:00:00.000Z`, [
-    { scoring: groupBHome, scorer: playerFor(groupBHomeIndex, 1), playerTeam: groupBHome, type: "normal" },
-    { scoring: groupBAway, scorer: null, playerTeam: groupBHome, type: "own_goal" },
-  ]));
-  if (participatingCount >= 6) {
-    matches.push(makeMatch(3, "group", groupA, away, third, season.status === "active" ? "live" : "completed", `${seasonYear}-11-06T11:00:00.000Z`, [
-      { scoring: away, scorer: playerFor(1, 2), playerTeam: away, type: "normal" },
-    ]));
-  }
+  const groupFixtures: Array<{ groupRef: string; homeIndex: number; awayIndex: number; groupIndex: number; fixtureIndex: number }> = [];
+  groupsInSeason.forEach((group, groupIndex) => {
+    const groupTeamIndexes = teamsInSeason
+      .map((_, teamIndex) => teamIndex)
+      .filter((teamIndex) => seasonTeams.find((item) =>
+        item.seasonRef === season._id && item.teamRef === teamsInSeason[teamIndex]._id
+      )?.groupRef === group._id);
+    for (let homePosition = 0; homePosition < groupTeamIndexes.length; homePosition += 1) {
+      for (let awayPosition = homePosition + 1; awayPosition < groupTeamIndexes.length; awayPosition += 1) {
+        groupFixtures.push({
+          groupRef: group._id,
+          homeIndex: groupTeamIndexes[homePosition],
+          awayIndex: groupTeamIndexes[awayPosition],
+          groupIndex,
+          fixtureIndex: groupFixtures.filter((fixture) => fixture.groupIndex === groupIndex).length,
+        });
+      }
+    }
+  });
+
+  groupFixtures.forEach((fixture, index) => {
+    const homeRef = seasonTeamId(seasonIndex, fixture.homeIndex);
+    const awayRef = seasonTeamId(seasonIndex, fixture.awayIndex);
+    const matchNumber = index + 1;
+    const goalSpecs: Array<{ scoring: string; scorer: string | null; playerTeam: string | null; type: "normal" | "own_goal" }> = [];
+    const outcome = matchNumber % 3;
+    if (outcome === 1) {
+      goalSpecs.push({ scoring: homeRef, scorer: playerFor(fixture.homeIndex, 1), playerTeam: homeRef, type: "normal" });
+      goalSpecs.push({ scoring: awayRef, scorer: playerFor(fixture.awayIndex, 1), playerTeam: awayRef, type: "normal" });
+    } else if (outcome === 2) {
+      goalSpecs.push({ scoring: homeRef, scorer: playerFor(fixture.homeIndex, 1), playerTeam: homeRef, type: "normal" });
+      goalSpecs.push({ scoring: homeRef, scorer: playerFor(fixture.homeIndex, 2), playerTeam: homeRef, type: "normal" });
+      goalSpecs.push({ scoring: awayRef, scorer: playerFor(fixture.awayIndex, 1), playerTeam: awayRef, type: "normal" });
+    } else {
+      goalSpecs.push({ scoring: awayRef, scorer: playerFor(fixture.awayIndex, 1), playerTeam: awayRef, type: "normal" });
+    }
+    if (fixture.groupIndex === 1 && fixture.fixtureIndex === 0) {
+      goalSpecs.push({ scoring: awayRef, scorer: null, playerTeam: homeRef, type: "own_goal" });
+    }
+    const day = String(2 + (index * 2)).padStart(2, "0");
+    matches.push(makeMatch(
+      matchNumber,
+      "group",
+      fixture.groupRef,
+      homeRef,
+      awayRef,
+      "completed",
+      `${seasonYear}-11-${day}T11:00:00.000Z`,
+      goalSpecs,
+    ));
+  });
+
   if (seasonIndex === 1) {
-    matches.push(makeMatch(4, "semi_final", null, home, fourth, "completed", `${seasonYear}-11-12T13:00:00.000Z`, [
+    matches.push(makeMatch(7, "semi_final", null, home, fourth, "completed", `${seasonYear}-11-14T13:00:00.000Z`, [
       { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
-      { scoring: fourth, scorer: playerFor(Math.min(3, participatingCount - 1), 1), playerTeam: fourth, type: "normal" },
+      { scoring: fourth, scorer: playerFor(fourthIndex, 1), playerTeam: fourth, type: "normal" },
     ], { status: "completed", homeTeamScore: 4, awayTeamScore: 3, kicks: [
       { seasonTeamRef: home, playerRef: playerFor(0, 1), result: "scored" },
-      { seasonTeamRef: fourth, playerRef: playerFor(3, 1), result: "scored" },
+      { seasonTeamRef: fourth, playerRef: playerFor(fourthIndex, 1), result: "scored" },
       { seasonTeamRef: home, playerRef: playerFor(0, 2), result: "scored" },
-      { seasonTeamRef: fourth, playerRef: playerFor(3, 2), result: "scored" },
+      { seasonTeamRef: fourth, playerRef: playerFor(fourthIndex, 2), result: "scored" },
       { seasonTeamRef: home, playerRef: playerFor(0, 1), result: "scored" },
-      { seasonTeamRef: fourth, playerRef: playerFor(3, 1), result: "scored" },
+      { seasonTeamRef: fourth, playerRef: playerFor(fourthIndex, 1), result: "scored" },
       { seasonTeamRef: home, playerRef: playerFor(0, 2), result: "scored" },
-      { seasonTeamRef: fourth, playerRef: playerFor(3, 2), result: "missed" },
+      { seasonTeamRef: fourth, playerRef: playerFor(fourthIndex, 2), result: "missed" },
     ] }, home));
   } else {
-    matches.push(makeMatch(4, "semi_final", null, home, fourth, season.status === "active" ? "scheduled" : "completed", `${seasonYear}-11-13T13:00:00.000Z`, season.status === "active" ? [] : [
-      { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
-    ], null, season.status === "active" ? null : home));
+    matches.push(makeMatch(
+      7,
+      "semi_final",
+      null,
+      home,
+      fourth,
+      season.status === "active" ? "scheduled" : "completed",
+      `${seasonYear}-11-16T13:00:00.000Z`,
+      season.status === "active" ? [] : [
+        { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
+      ],
+      null,
+      season.status === "active" ? null : home,
+    ));
   }
-  matches.push(makeMatch(5, "final", null, home, away, season.status === "active" ? "scheduled" : "completed", `${seasonYear}-11-18T13:00:00.000Z`, season.status === "active" ? [] : [
-    { scoring: home, scorer: playerFor(0, 2), playerTeam: home, type: "normal" },
-    { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
-    { scoring: away, scorer: playerFor(1, 2), playerTeam: away, type: "normal" },
-  ], null, season.status === "active" ? null : home));
+
+  const finalDay = seasonIndex === 0 ? "17" : "18";
+  matches.push(makeMatch(
+    8,
+    "final",
+    null,
+    home,
+    away,
+    season.status === "active" ? "scheduled" : "completed",
+    `${seasonYear}-11-${finalDay}T13:00:00.000Z`,
+    season.status === "active" ? [] : [
+      { scoring: home, scorer: playerFor(0, 2), playerTeam: home, type: "normal" },
+      { scoring: home, scorer: playerFor(0, 1), playerTeam: home, type: "normal" },
+      { scoring: away, scorer: playerFor(1, 2), playerTeam: away, type: "normal" },
+    ],
+    null,
+    season.status === "active" ? null : home,
+  ));
 });
 
 function assertSeedIntegrity(db: SeasonMockDatabase): void {
@@ -314,6 +400,8 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
     assert(lot.seasonTeamRef === null || Boolean(seasonTeam(lot.seasonTeamRef, lot.seasonRef)), `AuctionLot ${lot._id} points to a team in another season`);
     assert(lot.auctionStatus !== "sold" || (lot.seasonTeamRef !== null && lot.purchasePrice !== null && lot.soldAt !== null), `sold AuctionLot ${lot._id} is incomplete`);
     assert(lot.auctionStatus === "sold" || lot.purchasePrice === null, `non-sold AuctionLot ${lot._id} has a purchase price`);
+    assert(lot.isGoalkeeper === (lot.playerPosition === "goalkeeper"), `AuctionLot ${lot._id} has inconsistent goalkeeper position metadata`);
+    assert(lot.auctionStatus === "sold" || (lot.seasonTeamRef === null && lot.jerseyNo === null && lot.soldAt === null), `non-sold AuctionLot ${lot._id} retains sale details`);
   }
   for (const match of db.matches) {
     assert(db.seasons.some((s) => s._id === match.seasonRef), `Match ${match._id} has no season`);
@@ -337,6 +425,10 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
       assert(Boolean(seasonTeam(goal.scoringSeasonTeamRef, match.seasonRef)), `Goal ${goal._id} scoring team is from another season`);
       assert(goal.playerSeasonTeamRef === null || Boolean(seasonTeam(goal.playerSeasonTeamRef, match.seasonRef)), `Goal ${goal._id} player team is from another season`);
       assert(goal.scorerPlayerRef === null || db.players.some((p) => p._id === goal.scorerPlayerRef), `Goal ${goal._id} scorer does not exist`);
+      if (goal.goalType === "normal" && goal.scorerPlayerRef) {
+        const soldLot = db.auctionLots.find((lot) => lot.seasonRef === match.seasonRef && lot.playerRef === goal.scorerPlayerRef && lot.auctionStatus === "sold");
+        assert(Boolean(soldLot && goal.playerSeasonTeamRef === soldLot.seasonTeamRef), `Goal ${goal._id} scorer is not assigned to its recorded season team`);
+      }
       if (goal.goalType === "own_goal") assert(goal.scorerPlayerRef === null && goal.playerSeasonTeamRef !== goal.scoringSeasonTeamRef, `own goal ${goal._id} has inconsistent team references`);
     }
     for (const kick of match.penaltyShootout?.kicks ?? []) {

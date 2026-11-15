@@ -2,7 +2,7 @@ import { USE_MOCK_API } from "@/config/env";
 import { seasonPreviewRepository } from "@/mocks/seasonRepository";
 import { api, run } from "@/services/api";
 import type { ApiResponse } from "@/types/api.types";
-import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, SeasonWrite } from "@/types/season.types";
+import type { AuctionLot, AuctionLotsQuery, AuctionLotStatus, AuctionSummary, NominatePlayerInput, Season, SeasonTeam, SeasonWrite, UpdateAuctionLotInput } from "@/types/season.types";
 
 export function getSeasons() {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.getSeasons() : api.get<ApiResponse<Season[]>>("/seasons").then((r) => r.data));
@@ -30,12 +30,18 @@ export function getAuctionSummary(seasonId: string) {
 export function getAuctionLots(query: AuctionLotsQuery) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.getAuctionLots(query) : api.get<ApiResponse<AuctionLot[]>>("/auctions", { params: query }).then((r) => r.data));
 }
-export function nominatePlayer(data: { seasonId: string; playerId: string; playerPosition: "goalkeeper" | "defender" | "midfielder" | "forward"; isIconPlayer: boolean; isGoalkeeper: boolean }) {
+export function nominatePlayer(data: NominatePlayerInput) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.nominatePlayer(data) : api.post<ApiResponse<AuctionLot>>("/auctions/lots", data).then((r) => r.data));
 }
 export function sellAuctionLot(id: string, data: { seasonTeamId: string; purchasePrice: number; jerseyNo?: number | null }) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.sellAuctionLot(id, data) : api.patch<ApiResponse<AuctionLot>>("/auctions/lots/" + id + "/sell", data).then((r) => r.data));
 }
-export function updateAuctionLotStatus(id: string, auctionStatus: "unsold" | "withdrawn") {
-  return run(() => USE_MOCK_API ? seasonPreviewRepository.updateAuctionLotStatus(id, auctionStatus) : api.patch<ApiResponse<AuctionLot>>("/auctions/lots/" + id + "/status", { auctionStatus }).then((r) => r.data));
+export function updateAuctionLot(id: string, data: UpdateAuctionLotInput) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.updateAuctionLot(id, data)
+    : api.patch<ApiResponse<AuctionLot>>("/auctions/lots/" + id, data).then((r) => r.data));
+}
+
+export function updateAuctionLotStatus(id: string, auctionStatus: AuctionLotStatus) {
+  return updateAuctionLot(id, { auctionStatus });
 }

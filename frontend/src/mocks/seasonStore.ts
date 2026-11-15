@@ -1,6 +1,6 @@
 import { createSeasonDatabase, type SeasonMockDatabase } from "@/mocks/seasonSeed";
 
-const DB_KEY = "csl-season-preview-db-v3";
+const DB_KEY = "csl-season-preview-db-v4";
 let memory: SeasonMockDatabase | null = null;
 
 function loadDatabase(): SeasonMockDatabase {

@@ -29,9 +29,33 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
  }
  async getTopScorers(seasonId:string):Promise<SeasonTopScorersDto>{
   this.id(seasonId,"season");const season=await this.requireSeason(seasonId);const [matches,lots]=await Promise.all([this.repo.findCompletedMatches(seasonId),this.repo.findSoldLots(seasonId)]);
-  const goalCounts=new Map<string,number>();for(const match of matches)for(const goal of match.goals){if(goal.goalType==="normal"&&goal.scorerPlayerRef){const id=this.refId(goal.scorerPlayerRef);goalCounts.set(id,(goalCounts.get(id)??0)+1);}}
-  const players=await this.repo.findPlayersByIds([...goalCounts.keys()]);const playerById=new Map(players.map(p=>[String(p._id),p]));const lotByPlayer=new Map(lots.map(l=>[this.refId(l.playerRef),l]));
-  const items:SeasonTopScorerDto[]=[...goalCounts.entries()].flatMap(([id,goals])=>{const player=playerById.get(id);if(!player)return [];const lot=lotByPlayer.get(id);const team=lot?.seasonTeamRef&&!(lot.seasonTeamRef instanceof Types.ObjectId)?this.teamBrief(lot.seasonTeamRef as PopulatedSeasonTeam):null;return [{rank:0,player:{_id:id,name:player.name,profilePic:player.profilePic},team,position:lot?.playerPosition??null,jerseyNo:lot?.jerseyNo??null,goals}];}).sort((a,b)=>b.goals-a.goals||a.player.name.localeCompare(b.player.name));
+  const goalCounts=new Map<string,number>();
+  const goalTeamByPlayer=new Map<string,SeasonTeamBriefDto>();
+  for(const match of matches)for(const goal of match.goals){
+   if(goal.goalType!=="normal"||!goal.scorerPlayerRef)continue;
+   const id=this.refId(goal.scorerPlayerRef);
+   goalCounts.set(id,(goalCounts.get(id)??0)+1);
+   const goalTeam=goal.playerSeasonTeamRef;
+   if(goalTeam&&!(goalTeam instanceof Types.ObjectId)){
+    const teamRef=goalTeam.teamRef;
+    const team=teamRef&&!(teamRef instanceof Types.ObjectId)?teamRef:null;
+    if(team)goalTeamByPlayer.set(id,{
+     _id:String(goalTeam._id),teamId:String(team._id),displayName:goalTeam.displayName,
+     shortName:team.shortName,logo:goalTeam.logoSnapshot,groupRef:null,groupName:null
+    });
+   }
+  }
+  const players=await this.repo.findPlayersByIds([...goalCounts.keys()]);
+  const playerById=new Map(players.map(p=>[String(p._id),p]));
+  const lotByPlayer=new Map(lots.map(l=>[this.refId(l.playerRef),l]));
+  const items:SeasonTopScorerDto[]=[...goalCounts.entries()].flatMap(([id,goals])=>{
+   const player=playerById.get(id);if(!player)return [];
+   const lot=lotByPlayer.get(id);
+   const lotTeam=lot?.seasonTeamRef&&!(lot.seasonTeamRef instanceof Types.ObjectId)
+    ?this.teamBrief(lot.seasonTeamRef as PopulatedSeasonTeam):null;
+   const team=goalTeamByPlayer.get(id)??lotTeam;
+   return [{rank:0,player:{_id:id,name:player.name,profilePic:player.profilePic},team,position:lot?.playerPosition??null,jerseyNo:lot?.jerseyNo??null,goals}];
+  }).sort((a,b)=>b.goals-a.goals||a.player.name.localeCompare(b.player.name));
   let previous=-1,rank=0;items.forEach((row,index)=>{if(row.goals!==previous){rank=index+1;previous=row.goals;}row.rank=rank;});
   return {season:this.seasonBrief(season),items};
  }
