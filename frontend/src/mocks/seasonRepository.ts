@@ -394,6 +394,11 @@ export const seasonPreviewRepository = {
     const matches = db.matches.filter((match) => match.seasonRef === id);
     const blockers = matches.filter((match) => match.status !== "completed");
     if (blockers.length) fail(422, blockers.map((match) => "Match " + match.matchNumber + " is " + match.status).join("; "));
+    const invalidKnockouts = matches.filter((match) => match.stage !== "group" && (
+      !match.winnerSeasonTeamRef
+      || (match.winnerSeasonTeamRef !== match.homeSeasonTeamRef && match.winnerSeasonTeamRef !== match.awaySeasonTeamRef)
+    ));
+    if (invalidKnockouts.length) fail(422, invalidKnockouts.map((match) => "Knockout match " + match.matchNumber + " has no valid winner among its participants").join("; "));
     const finalMatch = matches.filter((match) => match.stage === "final").sort((a, b) => b.matchNumber - a.matchNumber)[0];
     if (!finalMatch || !finalMatch.winnerSeasonTeamRef) fail(422, "The final must be completed with a determinable winner");
     if (db.auctionLots.some((lot) => lot.seasonRef === id && lot.auctionStatus === "pending")) fail(422, "Pending auction lots must be resolved before completion");

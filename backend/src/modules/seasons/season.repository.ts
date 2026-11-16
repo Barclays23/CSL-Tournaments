@@ -118,6 +118,13 @@ export class SeasonRepository implements ISeasonRepository {
     return SeasonTeamModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId) }).exec();
   }
 
+  async countEligibleSeasonTeams(seasonId: string): Promise<number> {
+    return SeasonTeamModel.countDocuments({
+      seasonRef: new Types.ObjectId(seasonId),
+      status: { $in: ["registered", "active"] },
+    }).exec();
+  }
+
   async countPendingLots(seasonId: string): Promise<number> {
     return AuctionLotModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId), auctionStatus: "pending" }).exec();
   }

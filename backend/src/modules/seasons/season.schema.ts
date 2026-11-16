@@ -42,7 +42,7 @@ const dateRules = (value: { startDate?: Date | null; endDate?: Date | null }, co
 };
 
 export const seasonCreateSchema = z.object({
-  seasonNumber: z.coerce.number().int().min(1).max(999),
+  seasonNumber: z.coerce.number().int().min(1),
   name: z.string().trim().min(2).max(100),
   year: z.coerce.number().int().min(2000).max(2200),
   startDate: dateValue,
@@ -61,7 +61,7 @@ export const seasonCreateSchema = z.object({
 });
 
 export const seasonUpdateSchema = z.object({
-  seasonNumber: z.coerce.number().int().min(1).max(999).optional(),
+  seasonNumber: z.coerce.number().int().min(1).optional(),
   name: z.string().trim().min(2).max(100).optional(),
   year: z.coerce.number().int().min(2000).max(2200).optional(),
   startDate: dateValue,

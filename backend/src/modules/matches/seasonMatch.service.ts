@@ -1,4 +1,5 @@
 import {Types} from "mongoose";
+import {isSeasonReadOnly} from "../seasons/season.rules.js";
 import {AppError} from "../../shared/errors/appError.js";
 import type {PaginatedResult} from "../../shared/types/common.types.js";
 import type {SeasonMatchRepository} from "./seasonMatch.repository.js";
@@ -148,6 +149,9 @@ export class SeasonMatchService implements ISeasonMatchService{
   this.id(id,"match");
   const match=await this.repo.findById(id);
   if(!match)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
+  const season=await this.repo.findSeason(String(match.seasonRef));
+  if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+  if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived season match history is read-only",409,"SEASON_CLOSED");
   return match;
  }
  private id(value:string,label:string){if(!Types.ObjectId.isValid(value))throw new AppError("Invalid "+label+" ID",400,"INVALID_ID");}

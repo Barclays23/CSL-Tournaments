@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isAllowedSeasonTransition, isKickoffWithinSeasonDateWindow, normalizeSeasonName } from "./season.rules.js";
+import { ELIGIBLE_SEASON_TEAM_STATUSES, isAllowedSeasonTransition, isEligibleSeasonTeamStatus, isKickoffWithinSeasonDateWindow, isSeasonReadOnly, isWinnerOfMatch, normalizeSeasonName } from "./season.rules.js";
 import { seasonCreateSchema, seasonUpdateSchema } from "./season.schema.js";
 
 test("season names normalize spaces and case for global uniqueness", () => {
@@ -55,6 +55,33 @@ test("Season creation rejects duplicate selected Team IDs and invalid date order
     teamIds: [],
   };
   assert.equal(seasonCreateSchema.safeParse(valid).success, true);
+  assert.equal(seasonCreateSchema.safeParse({ ...valid, seasonNumber: 1000 }).success, true);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, teamIds: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439011"] }).success, false);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, startDate: "2026-11-21", endDate: "2026-11-20" }).success, false);
+});
+
+
+test("only registered and active SeasonTeams qualify for lifecycle readiness", () => {
+  assert.deepEqual(ELIGIBLE_SEASON_TEAM_STATUSES, ["registered", "active"]);
+  assert.equal(isEligibleSeasonTeamStatus("registered"), true);
+  assert.equal(isEligibleSeasonTeamStatus("active"), true);
+  assert.equal(isEligibleSeasonTeamStatus("withdrawn"), false);
+  assert.equal(isEligibleSeasonTeamStatus("eliminated"), false);
+  assert.equal(isEligibleSeasonTeamStatus("completed"), false);
+});
+
+test("completed and archived seasons are read-only", () => {
+  assert.equal(isSeasonReadOnly("completed"), true);
+  assert.equal(isSeasonReadOnly("archived"), true);
+  assert.equal(isSeasonReadOnly("draft"), false);
+  assert.equal(isSeasonReadOnly("upcoming"), false);
+  assert.equal(isSeasonReadOnly("active"), false);
+});
+
+
+test("knockout winner must be one of the fixture participants", () => {
+  assert.equal(isWinnerOfMatch("home", "away", "home"), true);
+  assert.equal(isWinnerOfMatch("home", "away", "away"), true);
+  assert.equal(isWinnerOfMatch("home", "away", null), false);
+  assert.equal(isWinnerOfMatch("home", "away", "other"), false);
 });

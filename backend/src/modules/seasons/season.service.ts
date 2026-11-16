@@ -200,8 +200,12 @@ export class SeasonService implements ISeasonService {
     const blockers: string[] = [];
     const unresolved = matches.filter((match) => match.status !== "completed");
     unresolved.forEach((match) => blockers.push("Match " + match.matchNumber + " is " + match.status));
-    matches.filter((match) => match.stage !== "group" && match.status === "completed" && !match.winnerSeasonTeamRef)
-      .forEach((match) => blockers.push("Knockout match " + match.matchNumber + " has no valid winner"));
+    matches.filter((match) => {
+      if (match.stage === "group" || match.status !== "completed") return false;
+      const winnerId = match.winnerSeasonTeamRef ? String(match.winnerSeasonTeamRef) : null;
+      return !winnerId
+        || (winnerId !== String(match.homeSeasonTeamRef) && winnerId !== String(match.awaySeasonTeamRef));
+    }).forEach((match) => blockers.push("Knockout match " + match.matchNumber + " has no valid winner among its participants"));
     const finalMatch = matches.filter((match) => match.stage === "final").sort((a, b) => b.matchNumber - a.matchNumber)[0];
     if (!finalMatch) blockers.push("The tournament final has not been recorded");
     else if (finalMatch.status !== "completed" || !finalMatch.winnerSeasonTeamRef) blockers.push("The final must be completed with a determinable winner");
@@ -283,9 +287,18 @@ export class SeasonService implements ISeasonService {
     if (!season.auctionSettings || !season.pointsRules || !season.standingsTieBreakers?.length || !season.matchRules) {
       throw new AppError("Complete the Season rules before moving it to Upcoming or Active", 422, "SEASON_CONFIG_INCOMPLETE");
     }
-    const teamCount = await this.repo.countSeasonTeams(String(season._id));
-    if (teamCount < 2) throw new AppError("At least two participating teams are required", 422, "SEASON_TEAMS_REQUIRED", { teams: "Register at least two active Teams" });
-    if (teamCount > season.auctionSettings.seasonTeamCount) throw new AppError("Registered teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
+    const [teamCount, eligibleTeamCount] = await Promise.all([
+      this.repo.countSeasonTeams(String(season._id)),
+      this.repo.countEligibleSeasonTeams(String(season._id)),
+    ]);
+    if (eligibleTeamCount < 2) {
+      throw new AppError("At least two eligible participating teams are required", 422, "SEASON_TEAMS_REQUIRED", {
+        teams: "Register at least two teams that are not withdrawn, eliminated or completed",
+      });
+    }
+    if (teamCount > season.auctionSettings.seasonTeamCount) {
+      throw new AppError("Registered teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
+    }
     if (season.groupStageEnabled) {
       const readiness = await this.repo.getGroupReadiness(String(season._id));
       const errors: Record<string, string> = {};

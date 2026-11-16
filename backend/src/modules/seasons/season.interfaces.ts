@@ -23,6 +23,7 @@ export interface ISeasonRepository {
   countMatches(seasonId: string): Promise<number>;
   countGroups(seasonId: string): Promise<number>;
   countSeasonTeams(seasonId: string): Promise<number>;
+  countEligibleSeasonTeams(seasonId: string): Promise<number>;
   countPendingLots(seasonId: string): Promise<number>;
   getGroupReadiness(seasonId: string): Promise<SeasonGroupReadiness>;
   getMatches(seasonId: string): Promise<SeasonMatchEntity[]>;

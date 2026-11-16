@@ -28,3 +28,26 @@ export function isKickoffWithinSeasonDateWindow(kickoffAt: Date, window: SeasonD
   const end = window.endDate ? window.endDate.toISOString().slice(0, 10) : null;
   return (!start || day >= start) && (!end || day <= end);
 }
+
+
+export const ELIGIBLE_SEASON_TEAM_STATUSES = ["registered", "active"] as const;
+
+export function isEligibleSeasonTeamStatus(
+  status: "registered" | "active" | "withdrawn" | "eliminated" | "completed",
+): boolean {
+  return ELIGIBLE_SEASON_TEAM_STATUSES.includes(status as (typeof ELIGIBLE_SEASON_TEAM_STATUSES)[number]);
+}
+
+export function isSeasonReadOnly(status: SeasonLifecycleState): boolean {
+  return status === "completed" || status === "archived";
+}
+
+
+export function isWinnerOfMatch(
+  homeSeasonTeamRef: string,
+  awaySeasonTeamRef: string,
+  winnerSeasonTeamRef: string | null,
+): boolean {
+  return winnerSeasonTeamRef !== null
+    && (winnerSeasonTeamRef === homeSeasonTeamRef || winnerSeasonTeamRef === awaySeasonTeamRef);
+}
