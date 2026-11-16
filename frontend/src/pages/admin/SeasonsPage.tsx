@@ -25,6 +25,7 @@ import {
 import { errorMessage } from "@/utils/errorHandler";
 import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from "@/types/season.types";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
+import { Badge } from "@/components/ui/Badge";
 
 type SeasonFormState = {
   seasonNumber: number; name: string; year: number; startDate: string; endDate: string; groupStageEnabled: boolean;
@@ -494,7 +495,7 @@ function SeasonsBody() {
             <GlassCard className="p-5">
               <h3 className="mb-3 font-display text-xl text-fg">Participating teams</h3>
               <p className="mb-3 text-xs text-muted">Permanent Teams stay separate. Registration is available in Draft and Upcoming; it freezes when the season becomes Active.</p>
-              {seasonTeams.loading ? <Skeleton className="h-20" /> : null}\n              {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
+              {seasonTeams.loading ? <Skeleton className="h-20" /> : null}              {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
               {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
               <div className="space-y-2">
                 {registeredTeams.map((team) => {
