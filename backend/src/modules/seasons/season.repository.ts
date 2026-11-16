@@ -225,7 +225,7 @@ export class SeasonRepository implements ISeasonRepository {
       let deleted = false;
       await session.withTransaction(async () => {
         const id = new Types.ObjectId(seasonId);
-        const existing = await SeasonModel.findById(id).session(session).select("_id status auctionRevision").lean<{ _id: Types.ObjectId; status: SeasonStatus; auctionRevision?: number }>().exec();
+        const existing = await SeasonModel.findById(id).session(session).select("_id status").lean<{ _id: Types.ObjectId; status: SeasonStatus }>().exec();
         if (!existing) throw new Error("SEASON_NOT_FOUND");
         if (existing.status !== "draft") throw new Error("SEASON_NOT_EMPTY_DRAFT");
         const [teams, groups, lots, matches, awards] = await Promise.all([
