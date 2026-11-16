@@ -11,6 +11,7 @@ import type { SeasonEntity } from "../seasons/season.types.js";
 import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
 import type { PlayerEntity } from "../players/player.types.js";
 import type { AuctionLotEntity } from "../auctionLots/auctionLot.types.js";
+import { AppError } from "../../shared/errors/appError.js";
 
 const population = [
   { path: "homeSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
@@ -60,8 +61,8 @@ export class SeasonMatchRepository {
         ).exec();
         if (lock.matchedCount !== 1) {
           const exists = await SeasonModel.exists({ _id: new Types.ObjectId(seasonId) }).session(session);
-          if (!exists) throw new Error("SEASON_NOT_FOUND");
-          throw new Error("SEASON_WRITE_LOCKED");
+          if (!exists) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          throw new AppError("Fixtures cannot be changed after the season is completed or archived", 409, "SEASON_WRITE_LOCKED");
         }
         result = await work(session);
       });
