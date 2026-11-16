@@ -100,6 +100,42 @@ export class SeasonMatchRepository {
     });
   }
 
+
+  async appendGoalWithWinner(id: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
+      SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef },
+        { $push: { goals: goal }, $set: { winnerSeasonTeamRef } },
+        { session, returnDocument: "after", runValidators: true },
+      ).lean<SeasonMatchEntity>().exec(),
+    );
+  }
+
+  async updateGoalWithWinner(id: string, goalId: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
+      SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, "goals._id": new Types.ObjectId(goalId) },
+        { $set: { "goals.$": goal, winnerSeasonTeamRef } },
+        { session, returnDocument: "after", runValidators: true },
+      ).lean<SeasonMatchEntity>().exec(),
+    );
+  }
+
+  async removeGoalWithWinner(id: string, goalId: string, winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
+      SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef },
+        { $pull: { goals: { _id: new Types.ObjectId(goalId) } }, $set: { winnerSeasonTeamRef } },
+        { session, returnDocument: "after" },
+      ).lean<SeasonMatchEntity>().exec(),
+    );
+  }
   async appendGoal(id: string, goal: SeasonMatchFields["goals"][number]): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
