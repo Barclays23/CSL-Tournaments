@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ELIGIBLE_SEASON_TEAM_STATUSES, isAllowedSeasonTransition, isEligibleSeasonTeamStatus, isKickoffWithinSeasonDateWindow, isSeasonReadOnly, normalizeSeasonName } from "./season.rules.js";
+import { ELIGIBLE_SEASON_TEAM_STATUSES, isAllowedSeasonTransition, isEligibleSeasonTeamStatus, isKickoffWithinSeasonDateWindow, isSeasonReadOnly, isWinnerOfMatch, normalizeSeasonName } from "./season.rules.js";
 import { seasonCreateSchema, seasonUpdateSchema } from "./season.schema.js";
 
 test("season names normalize spaces and case for global uniqueness", () => {
@@ -76,4 +76,12 @@ test("completed and archived seasons are read-only", () => {
   assert.equal(isSeasonReadOnly("draft"), false);
   assert.equal(isSeasonReadOnly("upcoming"), false);
   assert.equal(isSeasonReadOnly("active"), false);
+});
+
+
+test("knockout winner must be one of the fixture participants", () => {
+  assert.equal(isWinnerOfMatch("home", "away", "home"), true);
+  assert.equal(isWinnerOfMatch("home", "away", "away"), true);
+  assert.equal(isWinnerOfMatch("home", "away", null), false);
+  assert.equal(isWinnerOfMatch("home", "away", "other"), false);
 });
