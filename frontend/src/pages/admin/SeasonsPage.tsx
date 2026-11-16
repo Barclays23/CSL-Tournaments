@@ -160,7 +160,7 @@ function SeasonsBody() {
       const result = await createSeason(payload(createForm, initialTeamIds));
       toast.success("Draft season created");
       setSelectedSeasonId(result.data._id); setInitialTeamIds([]);
-      setCreateForm(defaultForm((seasons.data?.data.reduce((max, season) => Math.max(max, season.seasonNumber), 0) ?? 0) + 2));
+      setCreateForm(defaultForm((seasons.data?.data.reduce((max, season) => Math.max(max, season.seasonNumber), 0) ?? 0) + 1));
       refreshSelected(); seasons.reload();
     } catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
@@ -335,7 +335,7 @@ function SeasonsBody() {
           <h2 className="mb-4 font-display text-2xl text-fg">Create a season</h2>
           <form className="grid gap-3" onSubmit={handleCreate}>
             <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm text-fg">Edition number<Input className="mt-1" type="number" min="1" max="999" required value={createForm.seasonNumber} onChange={(e) => setCreate("seasonNumber", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Edition number<Input className="mt-1" type="number" min="1" required value={createForm.seasonNumber} onChange={(e) => setCreate("seasonNumber", Number(e.target.value))} /></label>
               <label className="text-sm text-fg">Year<Input className="mt-1" type="number" min="2000" max="2200" required value={createForm.year} onChange={(e) => setCreate("year", Number(e.target.value))} /></label>
               <label className="text-sm text-fg">Season name<Input className="mt-1" required minLength={2} maxLength={100} value={createForm.name} onChange={(e) => setCreate("name", e.target.value)} /></label>
             </div>
@@ -397,7 +397,7 @@ function SeasonsBody() {
               <h3 className="mb-3 font-display text-xl text-fg">Edit season configuration</h3>
               <form className="grid gap-3" onSubmit={handleEdit}>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm text-fg">Season number<Input type="number" min="1" max="999" value={editForm.seasonNumber} disabled={identityLocked} onChange={(e) => setEdit("seasonNumber", Number(e.target.value))} /></label>
+                  <label className="text-sm text-fg">Season number<Input type="number" min="1" value={editForm.seasonNumber} disabled={identityLocked} onChange={(e) => setEdit("seasonNumber", Number(e.target.value))} /></label>
                   <label className="text-sm text-fg">Year<Input type="number" min="2000" max="2200" value={editForm.year} disabled={identityLocked} onChange={(e) => setEdit("year", Number(e.target.value))} /></label>
                 </div>
                 {identityLocked ? <p className="text-xs text-muted">Season number and year are locked after the season leaves Draft or dependent setup records exist.</p> : null}
