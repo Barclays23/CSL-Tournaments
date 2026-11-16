@@ -61,6 +61,12 @@ export class SeasonTeamService implements ISeasonTeamService{
    await session.withTransaction(async()=>{
     const season=await SeasonModel.findById(seasonId).select("status").session(session).lean().exec();
     if(!season||season.status!=="active")throw new AppError("Controlled withdrawal is available only during an Active season",409,"SEASON_WITHDRAWAL_NOT_ALLOWED");
+    const revision=await SeasonModel.updateOne(
+     {_id:new Types.ObjectId(seasonId),status:"active"},
+     {$inc:{auctionRevision:1}},
+     {session}
+    ).exec();
+    if(revision.matchedCount!==1)throw new AppError("Season state changed while withdrawing this team. Refresh and try again.",409,"SEASON_STATE_CONFLICT");
     const current=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).session(session).exec();
     if(!current)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
     if(current.status==="withdrawn")throw new AppError("This team has already withdrawn",409,"SEASON_TEAM_ALREADY_WITHDRAWN");
