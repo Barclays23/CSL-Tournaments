@@ -6,6 +6,7 @@ import { SeasonModel } from "../seasons/season.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import type { SeasonStatus } from "../seasons/season.types.js";
+import { AppError } from "../../shared/errors/appError.js";
 
 export function normalizeGroupName(name: string): string {
   return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
@@ -75,7 +76,11 @@ export class GroupRepository implements IGroupRepository {
           { $inc: { auctionRevision: 1 } },
           { session },
         ).exec();
-        if (lock.matchedCount !== 1) throw new Error("SEASON_GROUP_WRITE_LOCKED");
+        if (lock.matchedCount !== 1) {
+          const exists = await SeasonModel.exists({ _id: data.seasonRef }).session(session);
+          if (!exists) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          throw new AppError("Groups can only be created before season activation", 409, "GROUPS_LOCKED");
+        }
         const [record] = await GroupModel.create([{
           ...data,
           groupName: data.groupName.trim(),
