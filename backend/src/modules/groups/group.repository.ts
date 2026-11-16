@@ -1,4 +1,4 @@
-import { Types } from "mongoose";
+import mongoose, { Types } from "mongoose";
 import { GroupModel } from "./group.model.js";
 import type { GroupEntity, GroupFields } from "./group.types.js";
 import type { IGroupRepository } from "./group.interfaces.js";
@@ -64,12 +64,30 @@ export class GroupRepository implements IGroupRepository {
   }
 
   async create(data: GroupFields): Promise<GroupEntity> {
-    const record = await GroupModel.create({
-      ...data,
-      groupName: data.groupName.trim(),
-      normalizedGroupName: normalizeGroupName(data.groupName),
-    });
-    return record.toObject() as unknown as GroupEntity;
+    const session = await mongoose.startSession();
+    try {
+      let created: GroupEntity | null = null;
+      await session.withTransaction(async () => {
+        // Group creation participates in the season revision lock used by
+        // completion and empty-season deletion.
+        const lock = await SeasonModel.updateOne(
+          { _id: data.seasonRef, status: { $in: ["draft", "upcoming"] } },
+          { $inc: { auctionRevision: 1 } },
+          { session },
+        ).exec();
+        if (lock.matchedCount !== 1) throw new Error("SEASON_GROUP_WRITE_LOCKED");
+        const [record] = await GroupModel.create([{
+          ...data,
+          groupName: data.groupName.trim(),
+          normalizedGroupName: normalizeGroupName(data.groupName),
+        }], { session });
+        created = record.toObject() as unknown as GroupEntity;
+      });
+      if (!created) throw new Error("Group creation transaction returned no document");
+      return created;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async updateInSeason(
