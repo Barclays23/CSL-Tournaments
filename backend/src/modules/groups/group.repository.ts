@@ -1,12 +1,91 @@
-import {Types} from "mongoose";
-import {GroupModel} from "./group.model.js";
-import type {GroupEntity,GroupFields} from "./group.types.js";
-export const normalizeGroupName=(name:string):string=>name.trim().replace(/\s+/g," ").toLocaleLowerCase("en");
-export class GroupRepository{
- async findBySeason(seasonId:string):Promise<GroupEntity[]>{return GroupModel.find({seasonRef:new Types.ObjectId(seasonId)}).sort({displayOrder:1,groupName:1}).lean<GroupEntity[]>().exec();}
- async findById(id:string):Promise<GroupEntity|null>{return GroupModel.findById(id).lean<GroupEntity>().exec();}
- async findByName(seasonId:string,name:string):Promise<GroupEntity|null>{return GroupModel.findOne({seasonRef:new Types.ObjectId(seasonId),normalizedGroupName:normalizeGroupName(name)}).lean<GroupEntity>().exec();}
- async create(data:GroupFields):Promise<GroupEntity>{const record=await GroupModel.create({...data,groupName:data.groupName.trim(),normalizedGroupName:normalizeGroupName(data.groupName)});return record.toObject() as GroupEntity;}
- async update(id:string,data:Partial<Pick<GroupFields,"groupName"|"displayOrder">>):Promise<GroupEntity|null>{const patch={...data,...(data.groupName!==undefined?{groupName:data.groupName.trim(),normalizedGroupName:normalizeGroupName(data.groupName)}:{})};return GroupModel.findByIdAndUpdate(id,{$set:patch},{returnDocument:"after",runValidators:true}).lean<GroupEntity>().exec();}
- async delete(id:string):Promise<boolean>{return (await GroupModel.findByIdAndDelete(id).select("_id").lean().exec())!==null;}
+import { Types } from "mongoose";
+import { GroupModel } from "./group.model.js";
+import type { GroupEntity, GroupFields } from "./group.types.js";
+import type { IGroupRepository } from "./group.interfaces.js";
+import { SeasonModel } from "../seasons/season.model.js";
+import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
+import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
+import type { SeasonStatus } from "../seasons/season.types.js";
+
+export function normalizeGroupName(name: string): string {
+  return name.trim().replace(/\\s+/g, " ").toLocaleLowerCase("en");
+}
+
+export class GroupRepository implements IGroupRepository {
+  async findBySeason(seasonId: string): Promise<GroupEntity[]> {
+    return GroupModel.find({ seasonRef: new Types.ObjectId(seasonId) })
+      .sort({ displayOrder: 1, groupName: 1 })
+      .lean<GroupEntity[]>()
+      .exec();
+  }
+
+  async getSeasonStatus(seasonId: string): Promise<SeasonStatus | null> {
+    const season = await SeasonModel.findById(seasonId).select("status").lean().exec();
+    return season?.status ?? null;
+  }
+
+  async countSeasonTeams(seasonId: string): Promise<number> {
+    return SeasonTeamModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId) }).exec();
+  }
+
+  async countFixtures(seasonId: string): Promise<number> {
+    return SeasonMatchModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId) }).exec();
+  }
+
+  async findByName(seasonId: string, name: string): Promise<GroupEntity | null> {
+    return GroupModel.findOne({
+      seasonRef: new Types.ObjectId(seasonId),
+      normalizedGroupName: normalizeGroupName(name),
+    }).lean<GroupEntity>().exec();
+  }
+
+  async findInSeason(seasonId: string, groupId: string): Promise<GroupEntity | null> {
+    return GroupModel.findOne({
+      _id: new Types.ObjectId(groupId),
+      seasonRef: new Types.ObjectId(seasonId),
+    }).lean<GroupEntity>().exec();
+  }
+
+  async countAssignments(seasonId: string, groupId: string): Promise<number> {
+    const groupRef = new Types.ObjectId(groupId);
+    return SeasonTeamModel.countDocuments({
+      seasonRef: new Types.ObjectId(seasonId),
+      groupRef,
+    }).exec();
+  }
+
+  async create(data: GroupFields): Promise<GroupEntity> {
+    const record = await GroupModel.create({
+      ...data,
+      groupName: data.groupName.trim(),
+      normalizedGroupName: normalizeGroupName(data.groupName),
+    });
+    return record.toObject() as GroupEntity;
+  }
+
+  async updateInSeason(
+    seasonId: string,
+    groupId: string,
+    data: Partial<Pick<GroupFields, "groupName" | "displayOrder">>,
+  ): Promise<GroupEntity | null> {
+    const patch = {
+      ...data,
+      ...(data.groupName !== undefined
+        ? { groupName: data.groupName.trim(), normalizedGroupName: normalizeGroupName(data.groupName) }
+        : {}),
+    };
+    return GroupModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(groupId), seasonRef: new Types.ObjectId(seasonId) },
+      { $set: patch },
+      { returnDocument: "after", runValidators: true },
+    ).lean<GroupEntity>().exec();
+  }
+
+  async deleteInSeason(seasonId: string, groupId: string): Promise<boolean> {
+    const result = await GroupModel.deleteOne({
+      _id: new Types.ObjectId(groupId),
+      seasonRef: new Types.ObjectId(seasonId),
+    }).exec();
+    return result.deletedCount === 1;
+  }
 }
