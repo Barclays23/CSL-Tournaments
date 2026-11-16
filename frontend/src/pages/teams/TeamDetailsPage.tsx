@@ -11,9 +11,11 @@ import {useServiceQuery} from "@/hooks/useServiceQuery";
 import {getTeamById} from "@/services/teamService";
 import {getSeasons} from "@/services/seasonService";
 import {getSeasonTeamDashboard} from "@/services/seasonStatisticsService";
+import {getSeasonAwards} from "@/services/seasonAwardService";
 import {formatCurrency} from "@/utils/formatCurrency";
 import type {ApiResponse} from "@/types/api.types";
 import type {SeasonTeamDashboard} from "@/types/seasonStatistics.types";
+import type {SeasonAward} from "@/types/seasonAward.types";
 const EMPTY_DASHBOARD:ApiResponse<SeasonTeamDashboard>={success:true,message:"",data:null as unknown as SeasonTeamDashboard};
 const POSITION_LABEL:Record<string,string>={goalkeeper:"Goalkeeper",defender:"Defender",midfielder:"Midfielder",forward:"Forward"};
 export function TeamDetailsPage({teamId}:{teamId:string}){
@@ -22,7 +24,9 @@ export function TeamDetailsPage({teamId}:{teamId:string}){
  const [seasonId,setSeasonId]=useState("");
  useEffect(()=>{if(!seasonId&&seasons.data?.data.length){const active=seasons.data.data.find(s=>s.status==="active");setSeasonId(active?active._id:seasons.data.data[0]._id);}},[seasonId,seasons.data]);
  const dashboard=useServiceQuery(()=>seasonId?getSeasonTeamDashboard(teamId,seasonId):Promise.resolve(EMPTY_DASHBOARD),[teamId,seasonId]);
+ const awardsQuery=useServiceQuery(()=>seasonId?getSeasonAwards(seasonId):Promise.resolve({success:true,message:"",data:[]} as {success:boolean;message:string;data:SeasonAward[]}),[seasonId]);
  const record=team.data?.data;const data=dashboard.data?.data;
+ const teamAwards=(Array.isArray(awardsQuery.data?.data)?awardsQuery.data.data:[]).filter((award)=>award&&Array.isArray(award.recipients)&&award.recipients.some((recipient)=>recipient.seasonTeamRef===data?.seasonTeam?._id));
  if(team.loading)return <PageContainer><Skeleton className="h-64"/></PageContainer>;
  if(team.error||!record)return <PageContainer><ErrorState message={team.error||"Team not found"} onRetry={team.reload}/></PageContainer>;
  return <PageContainer>
@@ -33,6 +37,15 @@ export function TeamDetailsPage({teamId}:{teamId:string}){
   {data&&!data.participates?<GlassCard className="mt-4 p-5 text-sm text-muted">This permanent team did not participate in the selected season.</GlassCard>:null}
   {data?.participates?<>
    <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><StatCard label="Played" value={data.stats.played}/><StatCard label="Points" value={data.stats.points}/><StatCard label="Goal difference" value={data.stats.goalDifference}/><StatCard label="Clean sheets" value={data.stats.cleanSheets}/><StatCard label="Won" value={data.stats.won}/><StatCard label="Drawn" value={data.stats.drawn}/><StatCard label="Lost" value={data.stats.lost}/><StatCard label="Goals scored" value={data.stats.goalsScored}/></div>
+   <section className="mt-6">
+    <GlassCard className="p-5">
+     <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-accent">Club honours</p><h3 className="font-display text-2xl text-fg">Season achievements & awards</h3><p className="text-sm text-muted">Team achievements and individual awards earned while representing this team.</p></div><Badge>{teamAwards.length} award(s)</Badge></div>
+     {awardsQuery.loading?<Skeleton className="mt-4 h-20"/>:null}
+     {awardsQuery.error?<div className="mt-4"><ErrorState message={awardsQuery.error} onRetry={awardsQuery.reload}/></div>:null}
+     {!awardsQuery.loading&&!awardsQuery.error&&teamAwards.length?<div className="mt-4 grid gap-3 sm:grid-cols-2">{teamAwards.map((award)=><div key={award._id} className="rounded-xl border border-line p-3"><p className="font-semibold text-fg">{award.title}</p><p className="text-xs text-muted">{award.awardType.replaceAll("_"," ")}</p><div className="mt-3 flex flex-wrap gap-2">{award.recipients.filter((recipient)=>recipient.seasonTeamRef===data?.seasonTeam?._id).map((recipient)=><div key={recipient._id} className="flex items-center gap-2 rounded-lg bg-surface p-2"><img src={recipient.profileImageSnapshot?.url??recipient.teamLogoSnapshot?.url??"https://placehold.co/64x64?text=CSL"} alt="" className="h-9 w-9 rounded-full object-cover"/><div><p className="text-sm font-medium text-fg">{recipient.displayNameSnapshot}</p><p className="text-xs text-muted">{recipient.teamNameSnapshot}</p></div></div>)}</div></div>)}</div>:null}
+     {!awardsQuery.loading&&!awardsQuery.error&&!teamAwards.length?<p className="mt-4 rounded-xl bg-surface p-4 text-sm text-muted">No season achievements have been recorded for this team yet.</p>:null}
+    </GlassCard>
+   </section>
    <section className="mt-7 grid gap-4 lg:grid-cols-2"><GlassCard className="p-5"><h3 className="font-display text-2xl text-fg">Season squad</h3><p className="mb-3 text-sm text-muted">{data.squad.length} player(s) acquired through the season auction</p><div className="grid gap-2 sm:grid-cols-2">{data.squad.map(p=><div key={p.player._id} className="rounded-xl bg-surface p-3"><p className="font-semibold text-fg">{p.player.name}{p.jerseyNo?" · #"+p.jerseyNo:""}</p><p className="mt-1 text-xs text-muted">{POSITION_LABEL[p.position]}{p.isIconPlayer?" · Icon":""}{p.isGoalkeeper?" · Goalkeeper":""}</p><p className="mt-1 text-xs text-muted">{p.purchasePrice===null?"No price":formatCurrency(p.purchasePrice)}</p></div>)}</div>{!data.squad.length?<p className="text-sm text-muted">No players purchased yet.</p>:null}</GlassCard>
     <GlassCard className="p-5"><h3 className="font-display text-2xl text-fg">Managers</h3>{data.managers.length?<div className="mt-3 space-y-2">{data.managers.map(m=><div key={m._id} className="rounded-xl bg-surface p-3"><p className="font-semibold text-fg">{m.name}</p><p className="text-xs text-muted">{m.role??"Manager"}</p></div>)}</div>:<p className="mt-3 text-sm text-muted">No managers assigned to this season team.</p>}{data.stats.topScorer?<div className="mt-6 border-t border-line pt-4"><p className="text-xs text-muted">Team top scorer</p><p className="mt-1 font-semibold text-fg">{data.stats.topScorer.player.name}</p><p className="text-sm text-muted">{data.stats.topScorer.goals} normal-time goals</p></div>:null}</GlassCard></section>
    <section className="mt-8 grid gap-5 lg:grid-cols-2"><div><h3 className="mb-3 font-display text-2xl text-fg">Recent results</h3><div className="space-y-2">{data.recentFixtures.map(f=><div key={f._id} className="rounded-xl border border-line p-3"><div className="flex items-center justify-between text-xs text-muted"><span>Match {f.matchNumber} · {f.stage.replaceAll("_"," ")}</span><span>{new Date(f.kickoffAt).toLocaleDateString()}</span></div><div className="mt-2 flex items-center justify-between gap-2 text-sm"><span className="text-fg">{f.home.displayName}</span><strong className="text-fg">{f.homeScore} - {f.awayScore}</strong><span className="text-right text-fg">{f.away.displayName}</span></div></div>)}</div>{!data.recentFixtures.length?<p className="text-sm text-muted">No completed fixtures.</p>:null}</div>

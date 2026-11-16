@@ -18,7 +18,9 @@ import type { PlayerFormValues } from "@/schemas/player.schema";
 import { deactivatePlayer, deletePlayer, getPlayerById, updatePlayer } from "@/services/playerService";
 import { getTeams } from "@/services/teamService";
 import { getPlayerHistory } from "@/services/seasonStatisticsService";
+import { getSeasonAwards } from "@/services/seasonAwardService";
 import type { Asset } from "@/types/api.types";
+import type { SeasonAward } from "@/types/seasonAward.types";
 import { errorMessage } from "@/utils/errorHandler";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { isAdminRecord } from "@/utils/forms";
@@ -30,6 +32,11 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
   const [saving, setSaving] = useState(false);
   const player = useServiceQuery(() => getPlayerById(playerId), [playerId]);
   const history = useServiceQuery(() => getPlayerHistory(playerId), [playerId]);
+  const awardSeasonIds = Array.from(new Set(history.data?.data.auctionHistory.map((entry) => entry.season._id) ?? []));
+  const playerAwards = useServiceQuery(async () => {
+    const responses = await Promise.all(awardSeasonIds.map((seasonId) => getSeasonAwards(seasonId)));
+    return responses.flatMap((response) => Array.isArray(response.data) ? response.data : []).filter((award: SeasonAward) => award.recipients?.some((recipient) => recipient.playerRef === playerId));
+  }, [playerId, awardSeasonIds.join("|")]);
   const teams = useServiceQuery(() => getTeams(), []);
   const record = player.data?.data;
   const admin = record && isAdminRecord(record) ? record : null;
@@ -163,6 +170,13 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
                 <p className="text-sm text-muted">Own goals and penalty shootout kicks are excluded.</p>
               </GlassCard>
             </div>
+            <GlassCard className="mt-4 p-4">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-accent">Career honours</p><h3 className="font-display text-2xl text-fg">Season achievements & awards</h3></div><Badge>{playerAwards.data?.length ?? 0} award(s)</Badge></div>
+              {playerAwards.loading?<Skeleton className="mt-3 h-20"/>:null}
+              {playerAwards.error?<div className="mt-3"><ErrorState message={playerAwards.error} onRetry={playerAwards.reload}/></div>:null}
+              {!playerAwards.loading&&!playerAwards.error&&playerAwards.data?.length?<div className="mt-3 grid gap-3 sm:grid-cols-2">{playerAwards.data.map((award)=>{const recipient=award.recipients.find((item)=>item.playerRef===playerId);const season=history.data?.data.auctionHistory.find((entry)=>entry.season._id===award.seasonRef)?.season;return <div key={award._id} className="flex items-center gap-3 rounded-xl bg-surface p-3"><img src={recipient?.profileImageSnapshot?.url??"https://placehold.co/96x96?text=CSL"} alt="" className="h-12 w-12 rounded-full object-cover"/><div className="min-w-0"><p className="font-semibold text-fg">{award.title}</p><p className="text-xs text-muted">{season?season.name+" · "+season.year:"Season award"}</p><p className="text-xs text-muted">{recipient?.teamNameSnapshot??"Team snapshot unavailable"}</p></div></div>;})}</div>:null}
+              {!playerAwards.loading&&!playerAwards.error&&!playerAwards.data?.length?<p className="mt-3 text-sm text-muted">No individual season awards recorded for this player yet.</p>:null}
+            </GlassCard>
             <GlassCard className="mt-4 p-4">
               <h3 className="font-display text-2xl text-fg">Auction and team history</h3>
               {history.data.data.auctionHistory.length ? <div className="mt-3 space-y-2">{history.data.data.auctionHistory.map((entry,index)=><div key={entry.season._id + "-" + index} className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-surface p-3 text-sm"><div><p className="font-semibold text-fg">{entry.season.name} · {entry.season.year}</p><p className="text-xs text-muted">{entry.team?.displayName ?? "No team"} · {entry.position}{entry.isIconPlayer ? " · Icon" : ""}{entry.isGoalkeeper ? " · Goalkeeper" : ""}</p></div><div className="text-right"><p className="font-medium text-fg">{entry.status}</p><p className="text-xs text-muted">{entry.purchasePrice === null ? "—" : formatCurrency(entry.purchasePrice)}{entry.jerseyNo ? " · #" + entry.jerseyNo : ""}</p></div></div>)}</div> : <p className="mt-3 text-sm text-muted">No auction history recorded yet.</p>}
