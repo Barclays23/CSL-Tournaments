@@ -246,6 +246,9 @@ export class SeasonService implements ISeasonService {
       const deleted = await this.repo.deleteIfEmptyDraft(id);
       if (!deleted) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     } catch (error) {
+      if (error instanceof Error && error.message === "SEASON_NOT_FOUND") {
+        throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+      }
       if (error instanceof Error && error.message === "SEASON_NOT_EMPTY_DRAFT") {
         throw new AppError("Only an empty Draft season can be deleted", 409, "SEASON_DELETE_BLOCKED");
       }
