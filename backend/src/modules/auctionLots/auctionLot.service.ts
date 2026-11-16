@@ -149,7 +149,7 @@ export class AuctionLotService implements IAuctionLotService{
     lot.auctionStatus=nextStatus;
     await SeasonModel.updateOne({_id:season._id},{$inc:{auctionRevision:1}},{session}).exec();
     await lot.save({session});
-    saved=lot.toObject() as AuctionLotEntity;
+    saved=lot.toObject() as unknown as AuctionLotEntity;
    });
   }finally{
    await session.endSession();
