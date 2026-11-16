@@ -19,6 +19,7 @@ export interface ISeasonRepository {
   createWithTeams(data: CreateSeasonDto, normalizedName: string, teams: Array<{ _id: unknown; name: string; logo: SeasonTeamEntity["logoSnapshot"] }>): Promise<SeasonEntity>;
   update(id: string, data: Partial<SeasonEntity>): Promise<SeasonEntity | null>;
   updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null>;
+  completeIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;
   countLots(seasonId: string): Promise<number>;
   countMatches(seasonId: string): Promise<number>;
   countGroups(seasonId: string): Promise<number>;

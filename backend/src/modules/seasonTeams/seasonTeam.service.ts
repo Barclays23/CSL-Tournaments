@@ -14,8 +14,12 @@ export class SeasonTeamService implements ISeasonTeamService{
   const records=await SeasonTeamModel.find({seasonRef:season._id}).sort({displayName:1}).populate({path:"teamRef",select:"name shortName logo"}).populate({path:"groupRef",select:"groupName displayOrder"}).populate({path:"managerRefs",select:"name role profilePic"}).lean().exec();
   return records.map((r:any)=>this.map(r));
  }
- async update(id:string,input:UpdateSeasonTeamDto):Promise<SeasonTeamResponseDto>{
-  this.id(id);const current=await SeasonTeamModel.findById(id).exec();if(!current)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
+ async update(seasonId:string,id:string,input:UpdateSeasonTeamDto):Promise<SeasonTeamResponseDto>{
+  this.id(seasonId);this.id(id);const session=await mongoose.startSession();
+  try{await session.withTransaction(async()=>{
+  const lock=await SeasonModel.updateOne({_id:new Types.ObjectId(seasonId),status:{$in:["draft","upcoming","active"]}},{$inc:{auctionRevision:1}},{session}).exec();
+  if(lock.matchedCount!==1){const exists=await SeasonModel.exists({_id:seasonId}).session(session);if(!exists)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");throw new AppError("Season participation is read-only",409,"SEASON_CLOSED");}
+  const current=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).session(session).exec();if(!current)throw new AppError("Season team not found in this season",404,"SEASON_TEAM_NOT_FOUND");
   const season=await SeasonModel.findById(current.seasonRef).select("status").lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(["completed","archived"].includes(season.status))throw new AppError("Completed or archived season participation is read-only",409,"SEASON_CLOSED");
   if(input.managerIds){
@@ -35,8 +39,9 @@ export class SeasonTeamService implements ISeasonTeamService{
     current.groupRef=group._id;
    }
   }
-  await current.save();
-  const updated=await SeasonTeamModel.findById(id).populate({path:"teamRef",select:"name shortName logo"}).populate({path:"groupRef",select:"groupName displayOrder"}).populate({path:"managerRefs",select:"name role profilePic"}).lean().exec();
+  await current.save({session});
+  });}finally{await session.endSession();}
+  const updated=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).populate({path:"teamRef",select:"name shortName logo"}).populate({path:"groupRef",select:"groupName displayOrder"}).populate({path:"managerRefs",select:"name role profilePic"}).lean().exec();
   if(!updated)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");return this.map(updated as any);
  }
 
