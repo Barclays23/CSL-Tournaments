@@ -69,7 +69,7 @@ export class GroupRepository implements IGroupRepository {
       groupName: data.groupName.trim(),
       normalizedGroupName: normalizeGroupName(data.groupName),
     });
-    return record.toObject() as GroupEntity;
+    return record.toObject() as unknown as GroupEntity;
   }
 
   async updateInSeason(

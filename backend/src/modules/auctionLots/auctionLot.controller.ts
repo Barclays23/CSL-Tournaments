@@ -1,5 +1,6 @@
 import type {Request,Response,NextFunction} from "express";
 import {ApiResponse} from "../../utils/apiResponse.utils.js";
+import {getRequiredRouteParam} from "../../shared/utils/routeParams.js";
 import {nominatePlayerSchema,sellAuctionLotSchema,auctionLotStatusSchema,updateAuctionLotSchema,auctionQuerySchema} from "./auctionLot.schema.js";
 import type {IAuctionLotService} from "./auctionLot.interfaces.js";
 export class AuctionLotController{
