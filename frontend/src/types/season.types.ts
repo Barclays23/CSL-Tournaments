@@ -98,7 +98,6 @@ export interface AuctionLotsQuery {
   playerPosition?: SeasonPlayerPosition;
   auctionStatus?: AuctionLotStatus;
   isIconPlayer?: boolean;
-  /** Retained for API compatibility. UI filtering uses playerPosition instead. */
   isGoalkeeper?: boolean;
 }
 
@@ -109,6 +108,7 @@ export interface UpdateAuctionLotInput {
   jerseyNo?: number | null;
   playerPosition?: SeasonPlayerPosition;
   isIconPlayer?: boolean;
+  isGoalkeeper?: boolean;
 }
 
 export interface NominatePlayerInput {
@@ -116,6 +116,7 @@ export interface NominatePlayerInput {
   playerId: string;
   playerPosition: SeasonPlayerPosition;
   isIconPlayer: boolean;
+  isGoalkeeper: boolean;
 }
 
 export interface AuctionTeamSummary {
