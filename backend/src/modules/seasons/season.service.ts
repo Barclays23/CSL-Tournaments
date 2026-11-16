@@ -8,7 +8,6 @@ import type { ISeasonRepository, ISeasonService } from "./season.interfaces.js";
 import type { CreateSeasonDto, UpdateSeasonDto, SeasonQueryDto, SeasonResponseDto, RegisterSeasonTeamsDto, SeasonLifecycleDto } from "./season.dto.js";
 import type { SeasonEntity, SeasonFields, SeasonStatus } from "./season.types.js";
 
-const normalizeName = (value: string): string => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
 const dateOnly = (value: Date | null | undefined): string | null => value ? value.toISOString().slice(0, 10) : null;
 
 export class SeasonService implements ISeasonService {
@@ -30,7 +29,7 @@ export class SeasonService implements ISeasonService {
   }
 
   async create(input: CreateSeasonDto): Promise<SeasonResponseDto> {
-    const name = normalizeName(input.name);
+    const name = normalizeSeasonName(input.name);
     if (await this.repo.findByNumber(input.seasonNumber)) {
       throw new AppError("Season number already exists", 409, "DUPLICATE_SEASON_NUMBER", { seasonNumber: "Choose a unique edition number" });
     }
@@ -142,7 +141,7 @@ export class SeasonService implements ISeasonService {
       }
     }
     const nextName = input.name === undefined ? current.name : input.name.trim();
-    const normalizedName = normalizeName(nextName);
+    const normalizedName = normalizeSeasonName(nextName);
     if (input.name !== undefined && await this.repo.findByNormalizedName(normalizedName, id)) {
       throw new AppError("A season with this name already exists", 409, "DUPLICATE_SEASON_NAME", { name: "Season name must be unique" });
     }
