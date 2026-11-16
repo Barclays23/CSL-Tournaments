@@ -12,7 +12,34 @@ function loadDatabase(): SeasonMockDatabase {
   try {
     const raw = window.localStorage.getItem(DB_KEY);
     if (raw) {
-      memory = JSON.parse(raw) as SeasonMockDatabase;
+      const stored = JSON.parse(raw) as Partial<SeasonMockDatabase>;
+      const seeded = createSeasonDatabase();
+      const availableSeasons = Array.isArray(stored.seasons) ? stored.seasons : seeded.seasons;
+      const availableSeasonTeams = Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams;
+      const availablePlayers = Array.isArray(stored.players) ? stored.players : seeded.players;
+      // v4 previews created before awards were introduced have no "awards" key.
+      // Migrate in place and seed the sample historical awards without replacing
+      // any existing users, teams, registrations, fixtures or auction activity.
+      memory = {
+        ...seeded,
+        ...stored,
+        users: Array.isArray(stored.users) ? stored.users : seeded.users,
+        teams: Array.isArray(stored.teams) ? stored.teams : seeded.teams,
+        players: Array.isArray(stored.players) ? stored.players : seeded.players,
+        managers: Array.isArray(stored.managers) ? stored.managers : seeded.managers,
+        sponsors: Array.isArray(stored.sponsors) ? stored.sponsors : seeded.sponsors,
+        organizers: Array.isArray(stored.organizers) ? stored.organizers : seeded.organizers,
+        seasons: Array.isArray(stored.seasons) ? stored.seasons : seeded.seasons,
+        seasonTeams: Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams,
+        auctionLots: Array.isArray(stored.auctionLots) ? stored.auctionLots : seeded.auctionLots,
+        matches: Array.isArray(stored.matches) ? stored.matches : seeded.matches,
+        groups: Array.isArray(stored.groups) ? stored.groups : seeded.groups,
+        awards: Array.isArray(stored.awards) ? stored.awards : seeded.awards.filter((award) =>
+          availableSeasons.some((season) => season._id === award.seasonRef) &&
+          award.recipients.every((recipient) => availableSeasonTeams.some((team) => team._id === recipient.seasonTeamRef) && (!recipient.playerRef || availablePlayers.some((player) => player._id === recipient.playerRef))),
+        ),
+      };
+      window.localStorage.setItem(DB_KEY, JSON.stringify(memory));
       return memory;
     }
   } catch {
