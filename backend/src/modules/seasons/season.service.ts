@@ -283,9 +283,18 @@ export class SeasonService implements ISeasonService {
     if (!season.auctionSettings || !season.pointsRules || !season.standingsTieBreakers?.length || !season.matchRules) {
       throw new AppError("Complete the Season rules before moving it to Upcoming or Active", 422, "SEASON_CONFIG_INCOMPLETE");
     }
-    const teamCount = await this.repo.countSeasonTeams(String(season._id));
-    if (teamCount < 2) throw new AppError("At least two participating teams are required", 422, "SEASON_TEAMS_REQUIRED", { teams: "Register at least two active Teams" });
-    if (teamCount > season.auctionSettings.seasonTeamCount) throw new AppError("Registered teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
+    const [teamCount, eligibleTeamCount] = await Promise.all([
+      this.repo.countSeasonTeams(String(season._id)),
+      this.repo.countEligibleSeasonTeams(String(season._id)),
+    ]);
+    if (eligibleTeamCount < 2) {
+      throw new AppError("At least two eligible participating teams are required", 422, "SEASON_TEAMS_REQUIRED", {
+        teams: "Register at least two teams that are not withdrawn, eliminated or completed",
+      });
+    }
+    if (teamCount > season.auctionSettings.seasonTeamCount) {
+      throw new AppError("Registered teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
+    }
     if (season.groupStageEnabled) {
       const readiness = await this.repo.getGroupReadiness(String(season._id));
       const errors: Record<string, string> = {};
