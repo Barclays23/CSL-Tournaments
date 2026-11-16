@@ -252,6 +252,9 @@ export class SeasonService implements ISeasonService {
       if (error instanceof Error && error.message === "SEASON_NOT_EMPTY_DRAFT") {
         throw new AppError("Only an empty Draft season can be deleted", 409, "SEASON_DELETE_BLOCKED");
       }
+      if (error instanceof Error && error.message === "SEASON_DELETE_CONFLICT") {
+        throw new AppError("Season changed while deletion was in progress. Refresh and try again.", 409, "SEASON_DELETE_CONFLICT");
+      }
       if (error instanceof Error && error.message === "SEASON_HAS_DEPENDENCIES") {
         throw new AppError("This season has registrations, groups, auction lots or fixtures. Remove only unused setup records first; historical dependencies are never cascade-deleted.", 409, "SEASON_HAS_DEPENDENCIES");
       }
