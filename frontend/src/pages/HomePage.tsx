@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { CalendarRange, Shield, Sparkles, Swords, Trophy, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -16,6 +17,7 @@ import { getSponsors } from "@/services/sponsorService";
 import { getDashboardSummary } from "@/services/statisticsService";
 import { getSeasons } from "@/services/seasonService";
 import { getSeasonTopScorers } from "@/services/seasonStatisticsService";
+import { getSeasonAwards } from "@/services/seasonAwardService";
 import type { TopScorer } from "@/types/statistics.types";
 import { formatDateRange } from "@/utils/formatDate";
 
@@ -35,6 +37,10 @@ export function HomePage() {
         }),
     [activeSeasonId],
   );
+  const historicalSeasons = seasons.data?.data.filter((season) => ["completed","archived"].includes(season.status)).sort((a,b)=>b.seasonNumber-a.seasonNumber) ?? [];
+  const [historicalSeasonId, setHistoricalSeasonId] = useState("");
+  const historicalSeason = historicalSeasons.find((season) => season._id === historicalSeasonId) ?? historicalSeasons[0];
+  const historicalAwards = useServiceQuery(() => historicalSeason ? getSeasonAwards(historicalSeason._id) : Promise.resolve({success:true,message:"No completed season",data:[]} as Awaited<ReturnType<typeof getSeasonAwards>>), [historicalSeason?._id]);
   const sponsors = useServiceQuery(() => getSponsors({ limit: 8 }), []);
   const data = dashboard.data?.data;
   const topScorers: TopScorer[] = (scorers.data?.data.items ?? []).map((scorer) => ({
@@ -158,6 +164,22 @@ export function HomePage() {
             {!scorers.loading && !topScorers.length ? <p className="text-sm text-muted">No goals recorded for the current season yet.</p> : null}
           </div>
         </section>
+
+
+        {historicalSeason ? <section className="mt-10">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-accent">Season history</p><h2 className="font-display text-3xl text-fg">{historicalSeason.name} · Achievements</h2></div><select aria-label="Historical season" className="rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={historicalSeasonId || historicalSeason._id} onChange={(event)=>setHistoricalSeasonId(event.target.value)}>{historicalSeasons.map((season)=><option key={season._id} value={season._id}>{season.name} · {season.year}</option>)}</select></div>
+          {historicalAwards.loading ? <Skeleton className="h-24" /> : null}
+          {historicalAwards.error ? <ErrorState message={historicalAwards.error} onRetry={historicalAwards.reload} /> : null}
+          {historicalAwards.data?.data.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {historicalAwards.data.data.map((award) => <GlassCard key={award._id} className="p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">{award.title}</p>
+              <div className="mt-3 space-y-3">{award.recipients.map((recipient) => <div key={recipient._id} className="flex items-center gap-3">
+                <img src={recipient.profileImageSnapshot?.url ?? recipient.teamLogoSnapshot?.url ?? "https://placehold.co/96x96?text=CSL"} alt="" className="h-11 w-11 rounded-full object-cover" />
+                <div><p className="text-sm font-semibold text-fg">{recipient.displayNameSnapshot}</p><p className="text-xs text-muted">{recipient.teamNameSnapshot}</p></div>
+              </div>)}</div>
+            </GlassCard>)}
+          </div> : !historicalAwards.loading ? <p className="text-sm text-muted">No achievements recorded for this completed season yet.</p> : null}
+        </section> : null}
 
         <section className="mt-10">
           <h2 className="mb-4 font-display text-3xl text-fg">Sponsors</h2>

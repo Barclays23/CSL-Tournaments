@@ -13,7 +13,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getTeams } from "@/services/teamService";
 import { getManagers } from "@/services/managerService";
-import { getSeasonAwards, createSeasonAward, updateSeasonAward } from "@/services/seasonAwardService";
+import { getSeasonAwards, createSeasonAward, updateSeasonAward, deleteSeasonAward } from "@/services/seasonAwardService";
 import {
   archiveSeason, completeSeason, createSeason, deleteSeason, getAuctionLots,
   getSeasonTeams, getSeasons, registerSeasonTeams, removeSeasonTeam,
@@ -80,6 +80,8 @@ function SeasonsBody() {
   const [saving, setSaving] = useState(false);
   const [optionalAwardType, setOptionalAwardType] = useState<"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder">("golden_boot");
   const [optionalAwardLotId, setOptionalAwardLotId] = useState("");
+  const [optionalAwardLotIds, setOptionalAwardLotIds] = useState<string[]>([]);
+  const [completionBlockers, setCompletionBlockers] = useState<string[]>([]);
 
   useEffect(() => {
     const list = seasons.data?.data ?? [];
@@ -220,8 +222,11 @@ function SeasonsBody() {
       else if (action === "archive") await archiveSeason(selected._id);
       else await transitionSeason(selected._id, action);
       toast.success(labels[action] + " successful"); refreshSelected();
-    } catch (error) { toast.error(errorMessage(error)); }
-    finally { setSaving(false); }
+    } catch (error) {
+      toast.error(errorMessage(error));
+      const response = (error as { response?: { data?: { fieldErrors?: Record<string,string> } } }).response?.data;
+      setCompletionBlockers(Object.values(response?.fieldErrors ?? {}).filter((value): value is string => typeof value === "string"));
+    } finally { setSaving(false); }
   };
 
   const removeSelectedSeason = async () => {
@@ -261,16 +266,16 @@ function SeasonsBody() {
   };
 
   const assignOptionalAward = async () => {
-    if (!selected || !optionalAwardLotId) return;
-    const lot = seasonLots.find((item) => item._id === optionalAwardLotId);
-    if (!lot || typeof lot.playerRef !== "object" || !lot.seasonTeamRef || typeof lot.seasonTeamRef !== "object") { toast.error("Select a sold player lot with its SeasonTeam"); return; }
+    if (!selected || !optionalAwardLotIds.length) return;
+    const selectedLots = seasonLots.filter((lot) => optionalAwardLotIds.includes(lot._id));
+    if (!selectedLots.length || selectedLots.some((lot) => typeof lot.playerRef !== "object" || !lot.seasonTeamRef || typeof lot.seasonTeamRef !== "object")) { toast.error("Select sold player lots"); return; }
     const existing = seasonAwards.find((award) => award.awardType === optionalAwardType);
-    const recipients = [...(existing?.recipients.map((recipient) => ({ seasonTeamId: recipient.seasonTeamRef, playerId: recipient.playerRef })) ?? []), { seasonTeamId: lot.seasonTeamRef._id, playerId: lot.playerRef._id }];
+    const recipients = selectedLots.map((lot) => ({ seasonTeamId: (lot.seasonTeamRef as { _id:string })._id, playerId: (lot.playerRef as { _id:string })._id }));
     setSaving(true);
     try {
       if (existing) await updateSeasonAward(selected._id, existing._id, { recipients });
       else await createSeasonAward(selected._id, { awardType: optionalAwardType, recipients });
-      toast.success("Optional award recipient saved"); setOptionalAwardLotId(""); awardsQuery.reload();
+      toast.success("Optional award saved"); setOptionalAwardLotIds([]); setOptionalAwardLotId(""); awardsQuery.reload();
     } catch (error) { toast.error(errorMessage(error)); } finally { setSaving(false); }
   };
 
@@ -281,7 +286,7 @@ function SeasonsBody() {
       const payload = { awardType, recipients: [{ seasonTeamId }] };
       if (existing) await updateSeasonAward(selected._id, existing._id, { recipients: payload.recipients });
       else await createSeasonAward(selected._id, payload);
-      toast.success(awardType === "champions" ? "Champion saved" : "Runner-up saved"); awardsQuery.reload();
+      toast.success(awardType === "champions" ? "Champion saved" : "Runner-up saved"); setCompletionBlockers([]); awardsQuery.reload();
     } catch (error) { toast.error(errorMessage(error)); } finally { setSaving(false); }
   };
 
@@ -489,7 +494,7 @@ function SeasonsBody() {
             <GlassCard className="p-5">
               <h3 className="mb-3 font-display text-xl text-fg">Participating teams</h3>
               <p className="mb-3 text-xs text-muted">Permanent Teams stay separate. Registration is available in Draft and Upcoming; it freezes when the season becomes Active.</p>
-              {seasonTeams.loading ? <Skeleton className="h-20" /> : null}
+              {seasonTeams.loading ? <Skeleton className="h-20" /> : null}\n              {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
               {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
               <div className="space-y-2">
                 {registeredTeams.map((team) => {
@@ -518,6 +523,48 @@ function SeasonsBody() {
                 <div className="grid gap-2 sm:grid-cols-2">{permanentTeams.data?.data.filter((team) => team.status === "active" && !registeredTeamIds.has(team._id)).map((team) => <label key={team._id} className="flex items-center gap-2 rounded-xl border border-line p-2 text-sm text-fg"><input type="checkbox" checked={registrationIds.includes(team._id)} onChange={() => toggleTeam(team._id,registrationIds,setRegistrationIds)} />{team.name}</label>)}</div>
                 <Button className="mt-3" size="sm" disabled={saving || !registrationIds.length || registeredTeams.length + registrationIds.length > (selected.auctionSettings?.seasonTeamCount ?? 0)} onClick={() => void registerTeams()}>Register selected teams</Button>
               </div> : null}
+            </GlassCard>
+
+
+            <GlassCard className="p-5">
+              <h3 className="mb-2 font-display text-xl text-fg">Season achievements & awards</h3>
+              <p className="mb-4 text-xs text-muted">Champion and Runner-up are mandatory before completion. Individual awards are optional and can have tied winners.</p>
+              {awardsQuery.loading ? <Skeleton className="h-16" /> : null}
+              {awardsQuery.error ? <ErrorState message={awardsQuery.error} onRetry={awardsQuery.reload} /> : null}
+              {awardsQuery.data ? <div className="space-y-3">
+                {(["champions","runner_up"] as const).map((type) => {
+                  const award=seasonAwards.find((item)=>item.awardType===type);
+                  const chosen=award?.recipients[0]?.seasonTeamRef ?? "";
+                  return <label key={type} className="grid gap-2 text-sm text-fg sm:grid-cols-[8rem_1fr]">
+                    <span className="font-semibold">{type==="champions"?"Champion":"Runner-up"}</span>
+                    <select className="rounded-lg border border-line bg-surface p-2" value={chosen} disabled={saving||selected.status!=="active"} onChange={(event)=>void assignTeamAward(type,event.target.value)}>
+                      <option value="">Select participating team</option>
+                      {registeredTeams.filter((team)=>["registered","active"].includes(team.status)).map((team)=><option key={team._id} value={team._id}>{team.displayName}</option>)}
+                    </select>
+                  </label>;
+                })}
+                {selected.status==="active" ? <div className="grid gap-2 rounded-xl border border-line p-3">
+                  <label className="text-sm text-fg">Optional award category
+                    <select className="mt-1 w-full rounded-lg border border-line bg-surface p-2" value={optionalAwardType} onChange={(event)=>setOptionalAwardType(event.target.value as typeof optionalAwardType)}>
+                      <option value="golden_boot">Golden Boot / Top Scorer</option><option value="golden_glove">Golden Glove</option><option value="player_of_the_season">Player of the Season</option><option value="best_young_player">Best Young Player</option><option value="best_defender">Best Defender</option><option value="best_midfielder">Best Midfielder</option>
+                    </select>
+                  </label>
+                  <label className="text-sm text-fg">Winner(s) — select multiple for a tie
+                    <select multiple className="min-h-28 w-full rounded-lg border border-line bg-surface p-2" value={optionalAwardLotIds} onChange={(event)=>setOptionalAwardLotIds(Array.from(event.target.selectedOptions).map((option)=>option.value))}>
+                      {seasonLots.filter((lot)=>lot.auctionStatus==="sold"&&typeof lot.playerRef==="object"&&typeof lot.seasonTeamRef==="object").map((lot)=><option key={lot._id} value={lot._id}>{(lot.playerRef as {name:string}).name} · {(lot.seasonTeamRef as {displayName:string}).displayName}</option>)}
+                    </select>
+                  </label>
+                  <Button size="sm" disabled={saving||!optionalAwardLotIds.length} onClick={()=>void assignOptionalAward()}>{seasonAwards.some((award)=>award.awardType===optionalAwardType)?"Replace winner(s)":"Save award"}</Button>
+                </div> : null}
+                <div className="space-y-2">
+                  {seasonAwards.map((award)=><div key={award._id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface p-3">
+                    <div><p className="text-sm font-semibold text-fg">{award.title}</p><p className="text-xs text-muted">{award.recipients.map((r)=>r.displayNameSnapshot+" · "+r.teamNameSnapshot).join(", ")}</p></div>
+                    {selected.status==="active"&&!["champions","runner_up"].includes(award.awardType)?<Button size="sm" variant="danger" disabled={saving} onClick={async()=>{const yes=await confirm({title:"Remove optional award?",description:"This removes the optional award record for this active season.",confirmLabel:"Remove award",danger:true});if(!yes)return;setSaving(true);try{await deleteSeasonAward(selected._id,award._id);awardsQuery.reload();toast.success("Award removed");}catch(error){toast.error(errorMessage(error));}finally{setSaving(false);}}}>Remove</Button>:null}
+                  </div>)}
+                  {!seasonAwards.length?<p className="text-sm text-muted">No achievements recorded yet.</p>:null}
+                </div>
+              </div> : null}
+              {completionBlockers.length>0?<div role="alert" className="mt-3 rounded-lg border border-red-500/30 bg-red-500/5 p-3"><p className="text-sm font-semibold text-fg">Season cannot be completed yet</p><ul className="mt-2 list-disc pl-5 text-sm text-muted">{completionBlockers.map((item,index)=><li key={index}>{item}</li>)}</ul></div>:null}
             </GlassCard>
 
             <GlassCard className="p-5">
