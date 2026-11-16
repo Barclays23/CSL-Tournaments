@@ -147,3 +147,10 @@ import { SeasonStatisticsController } from "../modules/statistics/seasonStatisti
 const seasonStatisticsRepository = new SeasonStatisticsRepository();
 const seasonStatisticsService = new SeasonStatisticsService(seasonStatisticsRepository);
 export const seasonStatisticsController = new SeasonStatisticsController(seasonStatisticsService);
+
+import { SeasonAwardRepository } from "../modules/seasonAwards/seasonAward.repository.js";
+import { SeasonAwardService } from "../modules/seasonAwards/seasonAward.service.js";
+import { SeasonAwardController } from "../modules/seasonAwards/seasonAward.controller.js";
+const seasonAwardRepository = new SeasonAwardRepository();
+const seasonAwardService = new SeasonAwardService(seasonAwardRepository);
+export const seasonAwardController = new SeasonAwardController(seasonAwardService);

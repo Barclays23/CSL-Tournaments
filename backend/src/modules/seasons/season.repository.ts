@@ -7,6 +7,8 @@ import { GroupModel } from "../groups/group.model.js";
 import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
 import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { TeamModel } from "../teams/team.model.js";
+import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
+import { getSeasonCompletionBlockers } from "./season.completion.js";
 import type { CreateSeasonDto } from "./season.dto.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 import type { SeasonMatchEntity } from "../matches/seasonMatch.types.js";
@@ -100,6 +102,29 @@ export class SeasonRepository implements ISeasonRepository {
       { $set: { status: next } },
       { returnDocument: "after", runValidators: true },
     ).lean<SeasonEntity>().exec();
+  }
+
+  async completeIfReady(seasonId: string): Promise<{ season: SeasonEntity | null; blockers: string[] }> {
+    const session = await mongoose.startSession();
+    try {
+      let result: { season: SeasonEntity | null; blockers: string[] } = { season: null, blockers: [] };
+      await session.withTransaction(async () => {
+        const season = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: "active" }).session(session).lean<SeasonEntity>().exec();
+        if (!season) { result = { season: null, blockers: [] }; return; }
+        await SeasonModel.updateOne({ _id: season._id, status: "active" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
+        const [matches, seasonTeams, awards, pendingAuctionLots] = await Promise.all([
+          SeasonMatchModel.find({ seasonRef: season._id }).session(session).lean().exec(),
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status").session(session).lean().exec(),
+          SeasonAwardModel.find({ seasonRef: season._id }).session(session).lean().exec(),
+          AuctionLotModel.countDocuments({ seasonRef: season._id, auctionStatus: "pending" }).session(session).exec(),
+        ]);
+        const blockers = getSeasonCompletionBlockers({ matches, seasonTeams, awards, pendingAuctionLots });
+        if (blockers.length) { result = { season: null, blockers }; return; }
+        const completed = await SeasonModel.findOneAndUpdate({ _id: season._id, status: "active" }, { $set: { status: "completed" } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
+        result = { season: completed, blockers: [] };
+      });
+      return result;
+    } finally { await session.endSession(); }
   }
 
   async countLots(seasonId: string): Promise<number> {

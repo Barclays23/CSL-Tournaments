@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getTeams } from "@/services/teamService";
+import { getManagers } from "@/services/managerService";
+import { getSeasonAwards, createSeasonAward, updateSeasonAward } from "@/services/seasonAwardService";
 import {
   archiveSeason, completeSeason, createSeason, deleteSeason, getAuctionLots,
   getSeasonTeams, getSeasons, registerSeasonTeams, removeSeasonTeam,
@@ -63,6 +65,7 @@ function SeasonsBody() {
   const confirm = useConfirm();
   const seasons = useServiceQuery(() => getSeasons(), []);
   const permanentTeams = useServiceQuery(() => getTeams(), []);
+  const managersQuery = useServiceQuery(() => getManagers({page:1,limit:100,status:"active"}), []);
   const [selectedSeasonId, setSelectedSeasonId] = useState("");
   const [createForm, setCreateForm] = useState<SeasonFormState>(() => defaultForm());
   const [editForm, setEditForm] = useState<SeasonFormState>(() => defaultForm());
@@ -75,6 +78,8 @@ function SeasonsBody() {
   const [newGroupOrder, setNewGroupOrder] = useState(0);
   const [groupDrafts, setGroupDrafts] = useState<Record<string, { groupName: string; displayOrder: number }>>({});
   const [saving, setSaving] = useState(false);
+  const [optionalAwardType, setOptionalAwardType] = useState<"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder">("golden_boot");
+  const [optionalAwardLotId, setOptionalAwardLotId] = useState("");
 
   useEffect(() => {
     const list = seasons.data?.data ?? [];
@@ -110,6 +115,7 @@ function SeasonsBody() {
     } as Awaited<ReturnType<typeof getSeasonMatches>>),
     [selectedSeasonId],
   );
+  const awardsQuery = useServiceQuery(() => selectedSeasonId ? getSeasonAwards(selectedSeasonId) : Promise.resolve({success:true,message:"",data:[]} as Awaited<ReturnType<typeof getSeasonAwards>>), [selectedSeasonId]);
   const lots = useServiceQuery(
     () => selectedSeasonId ? getAuctionLots({ seasonId: selectedSeasonId }) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getAuctionLots>>),
     [selectedSeasonId],
@@ -119,6 +125,7 @@ function SeasonsBody() {
   const seasonGroups = groups.data?.data ?? [];
   const seasonFixtures = fixtures.data?.data ?? [];
   const seasonLots = lots.data?.data ?? [];
+  const seasonAwards = awardsQuery.data?.data ?? [];
   const registeredTeamIds = useMemo(() => new Set(registeredTeams.map((item) => item.teamRef)), [registeredTeams]);
   const fixtureCount = fixtures.data?.pagination?.total ?? seasonFixtures.length;
   const dependenciesExist = registeredTeams.length + seasonGroups.length + seasonLots.length + fixtureCount > 0;
@@ -129,7 +136,7 @@ function SeasonsBody() {
   const identityLocked = !selected || selected.status !== "draft" || dependenciesExist;
   const matchRulesLocked = hasFixtures || !editable;
   const auctionRulesLocked = hasAuctionHistory || !editable;
-  const refreshSelected = () => { seasons.reload(); seasonTeams.reload(); groups.reload(); fixtures.reload(); lots.reload(); };
+  const refreshSelected = () => { seasons.reload(); seasonTeams.reload(); groups.reload(); fixtures.reload(); lots.reload(); awardsQuery.reload(); };
   const setCreate = <K extends keyof SeasonFormState>(key: K, value: SeasonFormState[K]) => setCreateForm((current) => ({ ...current, [key]: value }));
   const setEdit = <K extends keyof SeasonFormState>(key: K, value: SeasonFormState[K]) => setEditForm((current) => ({ ...current, [key]: value }));
   const toggleTeam = (id: string, current: string[], setter: (next: string[]) => void) => setter(current.includes(id) ? current.filter((value) => value !== id) : [...current, id]);
@@ -202,7 +209,7 @@ function SeasonsBody() {
       upcoming: "The backend will validate the registered teams, groups and season rules before moving this Draft season to Upcoming.",
       draft: "Return this Upcoming season to Draft? This is only allowed before auction or fixture activity.",
       active: "Activate this season? Team registration and ordinary group changes will be frozen.",
-      complete: "Complete this season? The backend will verify all fixtures, the final winner and auction closure.",
+      complete: "Complete this season? The backend will verify all matches, knockout winners, auction closure, Champion and Runner-up. A Final fixture is not required.",
       archive: "Archive this completed season? It will remain available for historical viewing and become permanently read-only.",
     };
     const yes = await confirm({ title: labels[action], description: messages[action], confirmLabel: labels[action], danger: action === "complete" || action === "archive" });
@@ -245,6 +252,37 @@ function SeasonsBody() {
     try { await updateSeasonTeam(selected._id, team._id, { groupId: groupId || null }); toast.success("Group assignment updated"); refreshSelected(); }
     catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
+  };
+
+  const assignManagers = async (team: SeasonTeam, managerIds: string[]) => {
+    if (!selected) return; setSaving(true);
+    try { await updateSeasonTeam(selected._id, team._id, { managerIds }); toast.success("Managers updated"); seasonTeams.reload(); }
+    catch (error) { toast.error(errorMessage(error)); } finally { setSaving(false); }
+  };
+
+  const assignOptionalAward = async () => {
+    if (!selected || !optionalAwardLotId) return;
+    const lot = seasonLots.find((item) => item._id === optionalAwardLotId);
+    if (!lot || typeof lot.playerRef !== "object" || !lot.seasonTeamRef || typeof lot.seasonTeamRef !== "object") { toast.error("Select a sold player lot with its SeasonTeam"); return; }
+    const existing = seasonAwards.find((award) => award.awardType === optionalAwardType);
+    const recipients = [...(existing?.recipients.map((recipient) => ({ seasonTeamId: recipient.seasonTeamRef, playerId: recipient.playerRef })) ?? []), { seasonTeamId: lot.seasonTeamRef._id, playerId: lot.playerRef._id }];
+    setSaving(true);
+    try {
+      if (existing) await updateSeasonAward(selected._id, existing._id, { recipients });
+      else await createSeasonAward(selected._id, { awardType: optionalAwardType, recipients });
+      toast.success("Optional award recipient saved"); setOptionalAwardLotId(""); awardsQuery.reload();
+    } catch (error) { toast.error(errorMessage(error)); } finally { setSaving(false); }
+  };
+
+  const assignTeamAward = async (awardType: "champions" | "runner_up", seasonTeamId: string) => {
+    if (!selected || !seasonTeamId) return; setSaving(true);
+    try {
+      const existing = seasonAwards.find((award) => award.awardType === awardType);
+      const payload = { awardType, recipients: [{ seasonTeamId }] };
+      if (existing) await updateSeasonAward(selected._id, existing._id, { recipients: payload.recipients });
+      else await createSeasonAward(selected._id, payload);
+      toast.success(awardType === "champions" ? "Champion saved" : "Runner-up saved"); awardsQuery.reload();
+    } catch (error) { toast.error(errorMessage(error)); } finally { setSaving(false); }
   };
 
   const createGroup = async (event: FormEvent<HTMLFormElement>) => {
@@ -461,8 +499,9 @@ function SeasonsBody() {
                     return home === team._id || away === team._id;
                   });
                   return <div key={team._id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface p-3 text-sm">
-                    <div><p className="font-medium text-fg">{team.displayName}</p><p className="text-xs text-muted">{team.group?.groupName ?? "No group"} · {team.managers.length} manager(s) · {team.status}</p></div>
+                    <div className="min-w-40"><p className="font-medium text-fg">{team.displayName}</p><p className="text-xs text-muted">{team.group?.groupName ?? "No group"} · {team.managers.length} manager(s) · {team.status}</p><div className="mt-1 flex flex-wrap gap-1">{team.managers.map((manager) => <span key={manager._id} className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{manager.name}</span>)}</div></div>
                     <div className="flex items-center gap-2">
+                      <select aria-label={"Managers for "+team.displayName} multiple className="min-h-20 max-w-52 rounded-lg border border-line bg-surface p-2 text-xs text-fg" value={team.managerRefs} disabled={saving || !["draft","upcoming","active"].includes(selected.status)} onChange={(event) => void assignManagers(team, Array.from(event.target.selectedOptions).map((option) => option.value))}>{(managersQuery.data?.data ?? []).filter((manager) => manager.status === "active").map((manager) => <option key={manager._id} value={manager._id}>{manager.name}</option>)}</select>
                       <Select className="max-w-40" value={team.groupRef ?? ""} disabled={!preActivation || hasFixtures || team.status === "withdrawn"} onChange={(e) => void changeGroupAssignment(team, e.target.value)}>
                         <option value="">Unassigned group</option>{seasonGroups.map((group) => <option key={group._id} value={group._id}>{group.groupName}</option>)}
                       </Select>

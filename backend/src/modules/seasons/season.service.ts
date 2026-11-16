@@ -218,33 +218,16 @@ export class SeasonService implements ISeasonService {
 
   async complete(id: string): Promise<SeasonResponseDto> {
     this.ensureId(id);
-    const season = await this.repo.findById(id);
-    if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-    if (season.status !== "active") throw new AppError("Only the Active season can be completed", 409, "SEASON_NOT_ACTIVE");
-
-    const [matches, pendingLots] = await Promise.all([this.repo.getMatches(id), this.repo.countPendingLots(id)]);
-    const blockers: string[] = [];
-    const unresolved = matches.filter((match) => match.status !== "completed");
-    unresolved.forEach((match) => blockers.push("Match " + match.matchNumber + " is " + match.status));
-    matches.filter((match) => {
-      if (match.stage === "group" || match.status !== "completed") return false;
-      const winnerId = match.winnerSeasonTeamRef ? String(match.winnerSeasonTeamRef) : null;
-      return !winnerId
-        || (winnerId !== String(match.homeSeasonTeamRef) && winnerId !== String(match.awaySeasonTeamRef));
-    }).forEach((match) => blockers.push("Knockout match " + match.matchNumber + " has no valid winner among its participants"));
-    const finalMatch = matches.filter((match) => match.stage === "final").sort((a, b) => b.matchNumber - a.matchNumber)[0];
-    if (!finalMatch) blockers.push("The tournament final has not been recorded");
-    else if (finalMatch.status !== "completed" || !finalMatch.winnerSeasonTeamRef) blockers.push("The final must be completed with a determinable winner");
-    if (pendingLots > 0) blockers.push(pendingLots + " auction lot(s) are still pending");
-
-    if (blockers.length) {
+    const current = await this.repo.findById(id);
+    if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+    if (current.status !== "active") throw new AppError("Only the Active season can be completed", 409, "SEASON_NOT_ACTIVE");
+    const result = await this.repo.completeIfReady(id);
+    if (result.blockers.length) {
       throw new AppError("Season completion is blocked. Resolve the listed items first.", 422, "SEASON_COMPLETION_BLOCKED",
-        Object.fromEntries(blockers.map((message, index) => ["blocker." + (index + 1), message])));
+        Object.fromEntries(result.blockers.map((message, index) => ["blocker." + (index + 1), message])));
     }
-
-    const updated = await this.repo.updateStatus(id, "active", "completed");
-    if (!updated) throw new AppError("Season state changed concurrently. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
-    return this.map(updated);
+    if (!result.season) throw new AppError("Season state changed concurrently. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
+    return this.map(result.season);
   }
 
   async archive(id: string): Promise<SeasonResponseDto> {

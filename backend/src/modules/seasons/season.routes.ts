@@ -6,11 +6,13 @@ import { seasonTeamRouter } from "../seasonTeams/seasonTeam.routes.js";
 import { groupRouter } from "../groups/group.routes.js";
 import { seasonMatchRouter } from "../matches/seasonMatch.routes.js";
 import { seasonStatisticsRouter } from "../statistics/seasonStatistics.routes.js";
+import { seasonAwardRouter } from "../seasonAwards/seasonAward.routes.js";
 
 export const seasonRouter = Router();
 
 seasonRouter.use("/:seasonId/teams", seasonTeamRouter);
 seasonRouter.use("/:seasonId/groups", groupRouter);
+seasonRouter.use("/:seasonId/awards", seasonAwardRouter);
 seasonRouter.use("/:seasonId/matches", seasonMatchRouter);
 seasonRouter.use("/:seasonId", seasonStatisticsRouter);
 
