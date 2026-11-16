@@ -128,7 +128,7 @@ import { GroupRepository } from "../modules/groups/group.repository.js";
 import { GroupService } from "../modules/groups/group.service.js";
 import { GroupController } from "../modules/groups/group.controller.js";
 
-const seasonTeamService = new SeasonTeamService();
+const seasonTeamService = new SeasonTeamService(seasonTeamRepository);
 export const seasonTeamController = new SeasonTeamController(seasonTeamService);
 const groupRepository = new GroupRepository();
 const groupService = new GroupService(groupRepository);
