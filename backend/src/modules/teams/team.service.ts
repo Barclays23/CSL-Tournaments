@@ -39,11 +39,6 @@ export class TeamService implements ITeamService {
   }
 
   async createTeam(input: TeamCreateDTO): Promise<TeamDTO> {
-    const settings = await this._settingsService.getTournamentSettings();
-    if (input.status === "active" && await this._teamRepository.countActiveTeams() >= settings.maxActiveTeams) {
-      throw new AppError("Maximum active team limit reached", 422, "TEAM_LIMIT");
-    }
-
     const existingTeam = await this._teamRepository.findTeamByName(input.name);
     if (existingTeam) {
       throw new AppError("Team name already exists", 409, "DUPLICATE_TEAM", { name: "Team name already exists" });
@@ -65,13 +60,6 @@ export class TeamService implements ITeamService {
       }
     }
 
-    if (input.status === "active" && existingTeam.status !== "active") {
-      const settings = await this._settingsService.getTournamentSettings();
-      if (await this._teamRepository.countActiveTeams() >= settings.maxActiveTeams) {
-        throw new AppError("Maximum active team limit reached", 422, "TEAM_LIMIT");
-      }
-    }
-
     if (input.status === "inactive") {
       const references = await this._teamRepository.findTeamReferenceCounts(teamId);
       if (references.players > 0 || references.managers > 0 || references.matches > 0 || references.seasonTeams > 0) {
@@ -87,8 +75,8 @@ export class TeamService implements ITeamService {
   async deleteTeam(teamId: string): Promise<void> {
     this.ensureValidTeamId(teamId);
     const references = await this._teamRepository.findTeamReferenceCounts(teamId);
-    if (references.players > 0 || references.managers > 0 || references.matches > 0) {
-      throw new AppError("Team has player, manager, match or SeasonTeam references", 409, "TEAM_REFERENCED");
+    if (references.players > 0 || references.managers > 0 || references.matches > 0 || references.seasonTeams > 0) {
+      throw new AppError("This permanent Team is referenced by player, manager, fixture or SeasonTeam history and cannot be deleted", 409, "TEAM_REFERENCED");
     }
     const deleted = await this._teamRepository.deleteTeam(teamId);
     if (!deleted) throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");
@@ -166,7 +154,6 @@ export class TeamService implements ITeamService {
       name: team.name,
       shortName: team.shortName,
       logo: team.logo,
-      groupName: team.groupName,
     };
   }
 
