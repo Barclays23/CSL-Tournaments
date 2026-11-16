@@ -78,7 +78,7 @@ export class AuctionLotService implements IAuctionLotService{
    if(lot.isGoalkeeper&&gks>=season.auctionSettings.goalkeeperLimit)throw new AppError("Team Goalkeeper limit reached",422,"GOALKEEPER_LIMIT");
    if(jerseyCount)throw new AppError("Jersey number already exists in this season team",409,"DUPLICATE_JERSEY");
    await SeasonModel.updateOne({_id:season._id},{$inc:{auctionRevision:1}},{session});
-   lot.seasonTeamRef=team._id;lot.purchasePrice=input.purchasePrice;lot.jerseyNo=input.jerseyNo??null;lot.auctionStatus="sold";lot.isGoalkeeper=lot.isGoalkeeper;lot.soldAt=new Date();await lot.save({session});saved=lot.toObject() as AuctionLotEntity;
+   lot.seasonTeamRef=team._id;lot.purchasePrice=input.purchasePrice;lot.jerseyNo=input.jerseyNo??null;lot.auctionStatus="sold";lot.soldAt=new Date();await lot.save({session});saved=lot.toObject() as AuctionLotEntity;
   });}finally{await session.endSession();}
   if(!saved)throw new AppError("Auction sale failed",500,"AUCTION_SALE_FAILED");return this.map(saved);
  }
