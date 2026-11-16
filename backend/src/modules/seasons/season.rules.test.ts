@@ -90,7 +90,7 @@ test("knockout winner must be one of the fixture participants", () => {
 test("group names normalize repeated whitespace and case for season-scoped uniqueness", () => {
   assert.equal(normalizeGroupName("  Group   A  "), "group a");
   assert.equal(normalizeGroupName("GROUP A"), "group a");
-  assert.equal(normalizeGroupName("Group\\tA"), "group a");
+  assert.equal(normalizeGroupName("Group\tA"), "group a");
 });
 
 test("season identity is editable only for an empty Draft season", () => {
