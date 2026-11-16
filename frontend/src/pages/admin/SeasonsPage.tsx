@@ -222,8 +222,11 @@ function SeasonsBody() {
       else if (action === "archive") await archiveSeason(selected._id);
       else await transitionSeason(selected._id, action);
       toast.success(labels[action] + " successful"); refreshSelected();
-    } catch (error) { toast.error(errorMessage(error)); }
-    finally { setSaving(false); }
+    } catch (error) {
+      toast.error(errorMessage(error));
+      const response = (error as { response?: { data?: { fieldErrors?: Record<string,string> } } }).response?.data;
+      setCompletionBlockers(Object.values(response?.fieldErrors ?? {}).filter((value): value is string => typeof value === "string"));
+    } finally { setSaving(false); }
   };
 
   const removeSelectedSeason = async () => {
