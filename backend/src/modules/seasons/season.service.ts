@@ -91,9 +91,21 @@ export class SeasonService implements ISeasonService {
     if (input.auctionSettings) {
       const merged = { ...current.auctionSettings, ...input.auctionSettings };
       if (!merged) throw new AppError("Auction settings are required for an operational season", 422, "SEASON_CONFIG_REQUIRED");
-      if (merged.seasonTeamCount < teamCount) throw new AppError("Team limit cannot be lower than current registrations", 409, "SEASON_TEAM_LIMIT_LOCKED");
-      if (merged.playersCount < lotCount) throw new AppError("Nomination limit cannot be lower than existing auction lots", 409, "SEASON_PLAYER_LIMIT_LOCKED");
-      if (merged.teamSquadSize < maxSquad) throw new AppError("Squad size cannot be lower than an existing sold roster", 409, "SEASON_SQUAD_SIZE_LOCKED");
+      if (merged.seasonTeamCount < teamCount) throw new AppError("Team limit cannot be lower than current registrations", 409, "SEASON_TEAM_LIMIT_LOCKED", {
+        auctionSettings: "The new team limit is below the number of registered SeasonTeams",
+      });
+      if (merged.playersCount < lotCount) throw new AppError("Nomination limit cannot be lower than existing auction lots", 409, "SEASON_PLAYER_LIMIT_LOCKED", {
+        auctionSettings: "The new nomination limit is below the number of existing AuctionLots",
+      });
+      if (merged.teamSquadSize < maxSquad) throw new AppError("Squad size cannot be lower than an existing sold roster", 409, "SEASON_SQUAD_SIZE_LOCKED", {
+        auctionSettings: "The new squad size is below an existing sold roster",
+      });
+      if (merged.iconPlayerLimit > merged.teamSquadSize) throw new AppError("Icon Player limit cannot exceed the team squad size", 422, "INVALID_AUCTION_SETTINGS", {
+        "auctionSettings.iconPlayerLimit": "Reduce the Icon Player limit or increase the squad size",
+      });
+      if (merged.goalkeeperLimit > merged.teamSquadSize) throw new AppError("Goalkeeper limit cannot exceed the team squad size", 422, "INVALID_AUCTION_SETTINGS", {
+        "auctionSettings.goalkeeperLimit": "Reduce the Goalkeeper limit or increase the squad size",
+      });
     }
     if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined) && matchCount > 0) {
       throw new AppError("Points, tiebreaker, match and group-stage rules are locked after the first fixture is created", 409, "SEASON_MATCH_RULES_LOCKED", {
