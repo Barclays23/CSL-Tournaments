@@ -42,17 +42,28 @@ export class SeasonTeamService implements ISeasonTeamService{
 
  async remove(seasonId:string,id:string):Promise<void>{
   this.id(seasonId);this.id(id);
-  const season=await SeasonModel.findById(seasonId).select("status").lean().exec();
-  if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
-  if(!["draft","upcoming"].includes(season.status))throw new AppError("SeasonTeam registrations can only be removed before activation",409,"SEASON_REGISTRATION_FROZEN");
-  const record=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).lean().exec();
-  if(!record)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
-  const [lots,matches]=await Promise.all([
-   AuctionLotModel.countDocuments({seasonRef:seasonId,seasonTeamRef:id}).exec(),
-   SeasonMatchModel.countDocuments({seasonRef:seasonId,$or:[{homeSeasonTeamRef:id},{awaySeasonTeamRef:id}]}).exec()
-  ]);
-  if(lots||matches)throw new AppError("This registration has auction or fixture history and cannot be removed. Use controlled withdrawal instead.",409,"SEASON_TEAM_REFERENCED");
-  await SeasonTeamModel.deleteOne({_id:id,seasonRef:seasonId}).exec();
+  const session=await mongoose.startSession();
+  try{
+   await session.withTransaction(async()=>{
+    const season=await SeasonModel.findById(seasonId).select("status").session(session).lean().exec();
+    if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+    if(!["draft","upcoming"].includes(season.status))throw new AppError("SeasonTeam registrations can only be removed before activation",409,"SEASON_REGISTRATION_FROZEN");
+    const revision=await SeasonModel.updateOne(
+     {_id:new Types.ObjectId(seasonId),status:{$in:["draft","upcoming"]}},
+     {$inc:{auctionRevision:1}},
+     {session}
+    ).exec();
+    if(revision.matchedCount!==1)throw new AppError("Season state changed while removing this registration. Refresh and try again.",409,"SEASON_STATE_CONFLICT");
+    const record=await SeasonTeamModel.findOne({_id:id,seasonRef:seasonId}).session(session).lean().exec();
+    if(!record)throw new AppError("Season team not found",404,"SEASON_TEAM_NOT_FOUND");
+    const [lots,matches]=await Promise.all([
+     AuctionLotModel.countDocuments({seasonRef:seasonId,seasonTeamRef:id}).session(session).exec(),
+     SeasonMatchModel.countDocuments({seasonRef:seasonId,$or:[{homeSeasonTeamRef:id},{awaySeasonTeamRef:id}]}).session(session).exec()
+    ]);
+    if(lots||matches)throw new AppError("This registration has auction or fixture history and cannot be removed. Use controlled withdrawal instead.",409,"SEASON_TEAM_REFERENCED");
+    await SeasonTeamModel.deleteOne({_id:id,seasonRef:seasonId}).session(session).exec();
+   });
+  }finally{await session.endSession();}
  }
  async withdraw(seasonId:string,id:string):Promise<SeasonTeamResponseDto>{
   this.id(seasonId);this.id(id);
