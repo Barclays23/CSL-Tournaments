@@ -19,9 +19,11 @@ export class GroupRepository implements IGroupRepository {
       .exec();
   }
 
-  async getSeasonStatus(seasonId: string): Promise<SeasonStatus | null> {
-    const season = await SeasonModel.findById(seasonId).select("status").lean().exec();
-    return season?.status ?? null;
+  async getSeasonState(seasonId: string): Promise<{ status: SeasonStatus; groupStageEnabled: boolean } | null> {
+    return SeasonModel.findById(seasonId)
+      .select("status groupStageEnabled")
+      .lean<{ status: SeasonStatus; groupStageEnabled: boolean }>()
+      .exec();
   }
 
   async countSeasonTeams(seasonId: string): Promise<number> {
