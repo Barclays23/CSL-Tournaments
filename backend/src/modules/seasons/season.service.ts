@@ -8,7 +8,6 @@ import type { ISeasonRepository, ISeasonService } from "./season.interfaces.js";
 import type { CreateSeasonDto, UpdateSeasonDto, SeasonQueryDto, SeasonResponseDto, RegisterSeasonTeamsDto, SeasonLifecycleDto } from "./season.dto.js";
 import type { SeasonEntity, SeasonFields, SeasonStatus } from "./season.types.js";
 
-const normalizeName = (value: string): string => value.trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
 const dateOnly = (value: Date | null | undefined): string | null => value ? value.toISOString().slice(0, 10) : null;
 
 export class SeasonService implements ISeasonService {
@@ -30,7 +29,7 @@ export class SeasonService implements ISeasonService {
   }
 
   async create(input: CreateSeasonDto): Promise<SeasonResponseDto> {
-    const name = normalizeName(input.name);
+    const name = normalizeSeasonName(input.name);
     if (await this.repo.findByNumber(input.seasonNumber)) {
       throw new AppError("Season number already exists", 409, "DUPLICATE_SEASON_NUMBER", { seasonNumber: "Choose a unique edition number" });
     }
@@ -91,9 +90,21 @@ export class SeasonService implements ISeasonService {
     if (input.auctionSettings) {
       const merged = { ...current.auctionSettings, ...input.auctionSettings };
       if (!merged) throw new AppError("Auction settings are required for an operational season", 422, "SEASON_CONFIG_REQUIRED");
-      if (merged.seasonTeamCount < teamCount) throw new AppError("Team limit cannot be lower than current registrations", 409, "SEASON_TEAM_LIMIT_LOCKED");
-      if (merged.playersCount < lotCount) throw new AppError("Nomination limit cannot be lower than existing auction lots", 409, "SEASON_PLAYER_LIMIT_LOCKED");
-      if (merged.teamSquadSize < maxSquad) throw new AppError("Squad size cannot be lower than an existing sold roster", 409, "SEASON_SQUAD_SIZE_LOCKED");
+      if (merged.seasonTeamCount < teamCount) throw new AppError("Team limit cannot be lower than current registrations", 409, "SEASON_TEAM_LIMIT_LOCKED", {
+        auctionSettings: "The new team limit is below the number of registered SeasonTeams",
+      });
+      if (merged.playersCount < lotCount) throw new AppError("Nomination limit cannot be lower than existing auction lots", 409, "SEASON_PLAYER_LIMIT_LOCKED", {
+        auctionSettings: "The new nomination limit is below the number of existing AuctionLots",
+      });
+      if (merged.teamSquadSize < maxSquad) throw new AppError("Squad size cannot be lower than an existing sold roster", 409, "SEASON_SQUAD_SIZE_LOCKED", {
+        auctionSettings: "The new squad size is below an existing sold roster",
+      });
+      if (merged.iconPlayerLimit > merged.teamSquadSize) throw new AppError("Icon Player limit cannot exceed the team squad size", 422, "INVALID_AUCTION_SETTINGS", {
+        "auctionSettings.iconPlayerLimit": "Reduce the Icon Player limit or increase the squad size",
+      });
+      if (merged.goalkeeperLimit > merged.teamSquadSize) throw new AppError("Goalkeeper limit cannot exceed the team squad size", 422, "INVALID_AUCTION_SETTINGS", {
+        "auctionSettings.goalkeeperLimit": "Reduce the Goalkeeper limit or increase the squad size",
+      });
     }
     if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined) && matchCount > 0) {
       throw new AppError("Points, tiebreaker, match and group-stage rules are locked after the first fixture is created", 409, "SEASON_MATCH_RULES_LOCKED", {
@@ -130,7 +141,7 @@ export class SeasonService implements ISeasonService {
       }
     }
     const nextName = input.name === undefined ? current.name : input.name.trim();
-    const normalizedName = normalizeName(nextName);
+    const normalizedName = normalizeSeasonName(nextName);
     if (input.name !== undefined && await this.repo.findByNormalizedName(normalizedName, id)) {
       throw new AppError("A season with this name already exists", 409, "DUPLICATE_SEASON_NAME", { name: "Season name must be unique" });
     }

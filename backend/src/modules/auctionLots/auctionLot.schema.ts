@@ -10,7 +10,8 @@ export const updateAuctionLotSchema=z.object({
  purchasePrice:z.coerce.number().finite().min(0).nullable().optional(),
  jerseyNo:z.coerce.number().int().min(1).max(99).nullable().optional(),
  playerPosition:position.optional(),
- isIconPlayer:z.boolean().optional()
+ isIconPlayer:z.boolean().optional(),
+ isGoalkeeper:z.boolean().optional()
 }).strict().superRefine((value,context)=>{
  if(value.auctionStatus==="sold"&&(!value.seasonTeamId||value.purchasePrice===null||value.purchasePrice===undefined)){
   context.addIssue({code:"custom",path:["seasonTeamId"],message:"A sold lot requires a season team and purchase price"});

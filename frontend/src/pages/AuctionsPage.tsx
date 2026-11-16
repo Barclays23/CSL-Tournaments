@@ -54,6 +54,7 @@ export function AuctionsPage() {
   const [positionFilter, setPositionFilter] = useState<SeasonPlayerPosition | "">("");
   const [playerName, setPlayerName] = useState("");
   const [iconFilter, setIconFilter] = useState("");
+  const [goalkeeperFilter, setGoalkeeperFilter] = useState("");
   const summary = useServiceQuery(
     () => seasonId
       ? getAuctionSummary(seasonId)
@@ -69,9 +70,10 @@ export function AuctionsPage() {
           ...(positionFilter ? { playerPosition: positionFilter } : {}),
           ...(playerName.trim() ? { playerName: playerName.trim() } : {}),
           ...(iconFilter ? { isIconPlayer: iconFilter === "true" } : {}),
+          ...(goalkeeperFilter ? { isGoalkeeper: goalkeeperFilter === "true" } : {}),
         })
       : Promise.resolve(EMPTY_LOTS),
-    [seasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter],
+    [seasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
   );
   const players = useServiceQuery(() => getPlayers({ limit: 100, status: "active" }), []);
 
@@ -83,11 +85,13 @@ export function AuctionsPage() {
   const [playerId, setPlayerId] = useState("");
   const [playerPosition, setPlayerPosition] = useState<SeasonPlayerPosition>("midfielder");
   const [isIconPlayer, setIsIconPlayer] = useState(false);
+  const [isGoalkeeper, setIsGoalkeeper] = useState(false);
 
   const [editingLot, setEditingLot] = useState<AuctionLot | null>(null);
   const [editStatus, setEditStatus] = useState<AuctionLotStatus>("pending");
   const [editPosition, setEditPosition] = useState<SeasonPlayerPosition>("midfielder");
   const [editIconPlayer, setEditIconPlayer] = useState(false);
+  const [editGoalkeeper, setEditGoalkeeper] = useState(false);
   const [editTeamId, setEditTeamId] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editJersey, setEditJersey] = useState("");
@@ -98,7 +102,7 @@ export function AuctionsPage() {
     lots.reload();
   };
 
-  const canEditAuction = Boolean(isAdmin && data && !["completed", "archived"].includes(data.season.status));
+  const canEditAuction = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status));
   const playerNameFor = (lot: AuctionLot) =>
     typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef.name;
   const playerImageFor = (lot: AuctionLot) =>
@@ -116,6 +120,7 @@ export function AuctionsPage() {
     setEditStatus(lot.auctionStatus);
     setEditPosition(lot.playerPosition);
     setEditIconPlayer(lot.isIconPlayer);
+    setEditGoalkeeper(lot.isGoalkeeper);
     setEditTeamId(assignedTeamId || data?.teams[0]?.seasonTeamId || "");
     setEditPrice(lot.purchasePrice === null ? "" : String(lot.purchasePrice));
     setEditJersey(lot.jerseyNo === null ? "" : String(lot.jerseyNo));
@@ -147,6 +152,7 @@ export function AuctionsPage() {
         auctionStatus: editStatus,
         playerPosition: editPosition,
         isIconPlayer: editIconPlayer,
+        isGoalkeeper: editGoalkeeper,
         ...(editStatus === "sold"
           ? {
               seasonTeamId: editTeamId,
@@ -184,6 +190,7 @@ export function AuctionsPage() {
               setPositionFilter("");
               setPlayerName("");
               setIconFilter("");
+              setGoalkeeperFilter("");
             }}
           >
             <option value="">Select season</option>
@@ -250,6 +257,7 @@ export function AuctionsPage() {
                             {POSITIONS[lot.playerPosition]}
                             {lot.jerseyNo ? ` · #${lot.jerseyNo}` : ""}
                             {lot.isIconPlayer ? " · Icon" : ""}
+                            {lot.isGoalkeeper ? " · Goalkeeper" : ""}
                           </p>
                         </div>
                         <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>
@@ -271,7 +279,7 @@ export function AuctionsPage() {
               <h2 className="font-display text-2xl text-fg">Auction lots</h2>
               <span className="text-xs text-muted">{lotRows.length} result(s)</span>
             </div>
-            <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
               <Input placeholder="Search Player Name" value={playerName} onChange={(event) => setPlayerName(event.target.value)} />
               <Select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
                 <option value="">All teams</option>
@@ -297,10 +305,12 @@ export function AuctionsPage() {
                 <option value="true">Icon players</option>
                 <option value="false">Non-icon players</option>
               </Select>
+              <Select value={goalkeeperFilter} onChange={(event) => setGoalkeeperFilter(event.target.value)}>
+                <option value="">Goalkeeper: all</option>
+                <option value="true">Goalkeepers</option>
+                <option value="false">Non-goalkeepers</option>
+              </Select>
             </div>
-            <p className="mb-3 text-xs text-muted">
-              Goalkeepers are included in the Position filter; a separate goalkeeper filter is unnecessary.
-            </p>
             {lots.loading ? <Skeleton className="h-40" /> : null}
             {lots.error ? <ErrorState message={lots.error} onRetry={lots.reload} /> : null}
             {!lots.loading && !lots.error && !lotRows.length ? (
@@ -316,6 +326,7 @@ export function AuctionsPage() {
                         <h3 className="font-semibold text-fg">{playerNameFor(lot)}</h3>
                         <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{lot.auctionStatus}</span>
                         {lot.isIconPlayer ? <span className="rounded-full bg-surface px-2 py-1 text-xs text-gold">Icon</span> : null}
+                        {lot.isGoalkeeper ? <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">Goalkeeper</span> : null}
                       </div>
                       <p className="mt-1 text-xs text-muted">
                         {POSITIONS[lot.playerPosition]} · {teamNameFor(lot)}
@@ -339,7 +350,7 @@ export function AuctionsPage() {
       <Modal
         open={nominateOpen}
         title="Nominate a player"
-        description="A player may be nominated only once in this season. A goalkeeper is identified by the Goalkeeper position."
+        description="A player may be nominated only once in this season. Icon Player and Goalkeeper are independent designations."
         onClose={() => setNominateOpen(false)}
       >
         <form
@@ -349,11 +360,12 @@ export function AuctionsPage() {
             if (!seasonId || !playerId) return;
             setSaving(true);
             try {
-              await nominatePlayer({ seasonId, playerId, playerPosition, isIconPlayer });
+              await nominatePlayer({ seasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
               toast.success("Player nominated");
               setNominateOpen(false);
               setPlayerId("");
               setIsIconPlayer(false);
+              setIsGoalkeeper(false);
               refresh();
             } catch (error) {
               toast.error(errorMessage(error));
@@ -382,6 +394,10 @@ export function AuctionsPage() {
           <label className="flex items-center gap-2 text-sm text-fg">
             <input type="checkbox" checked={isIconPlayer} onChange={(event) => setIsIconPlayer(event.target.checked)} />
             Icon player
+          </label>
+          <label className="flex items-center gap-2 text-sm text-fg">
+            <input type="checkbox" checked={isGoalkeeper} onChange={(event) => setIsGoalkeeper(event.target.checked)} />
+            Goalkeeper
           </label>
           {players.error ? <p className="text-sm text-danger">{players.error}</p> : null}
           <div className="flex justify-end gap-2">
@@ -426,6 +442,10 @@ export function AuctionsPage() {
           <label className="flex items-center gap-2 text-sm text-fg">
             <input type="checkbox" checked={editIconPlayer} onChange={(event) => setEditIconPlayer(event.target.checked)} />
             Icon player
+          </label>
+          <label className="flex items-center gap-2 text-sm text-fg">
+            <input type="checkbox" checked={editGoalkeeper} onChange={(event) => setEditGoalkeeper(event.target.checked)} />
+            Goalkeeper
           </label>
           {editStatus === "sold" ? (
             <>

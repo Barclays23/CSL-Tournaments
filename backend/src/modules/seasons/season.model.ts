@@ -25,10 +25,10 @@ const matchRulesSchema = new Schema({
 }, { _id: false });
 
 const seasonSchema = new Schema<SeasonFields>({
-  seasonNumber: { type: Number, required: true, min: 1 },
+  seasonNumber: { type: Number, required: true, min: 1, validate: { validator: Number.isInteger, message: "Season number must be a positive integer" } },
   name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
   normalizedName: { type: String, required: true, select: false },
-  year: { type: Number, required: true, min: 2000, max: 2200 },
+  year: { type: Number, required: true, min: 2000, max: 2200, validate: { validator: Number.isInteger, message: "Season year must be an integer" } },
   startDate: { type: Date, default: null },
   endDate: { type: Date, default: null },
   timeZone: { type: String, enum: ["Asia/Kolkata"], default: "Asia/Kolkata", required: true },

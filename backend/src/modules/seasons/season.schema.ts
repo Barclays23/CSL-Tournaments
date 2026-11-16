@@ -33,7 +33,15 @@ const matchRules = z.object({
 const tieBreakers = z.array(z.enum(["points", "goalDifference", "goalsScored", "teamNameAsc"])).min(1).max(4)
   .refine((values) => new Set(values).size === values.length, "Tiebreakers must not contain duplicates");
 
-const dateValue = z.union([z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD date format").transform((value) => new Date(value + "T00:00:00.000Z")), z.coerce.date()]).nullable().optional();
+const dateValue = z.string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD date format")
+  .refine((value) => {
+    const date = new Date(value + "T00:00:00.000Z");
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, "Enter a valid calendar date")
+  .transform((value) => new Date(value + "T00:00:00.000Z"))
+  .nullable()
+  .optional();
 
 const dateRules = (value: { startDate?: Date | null; endDate?: Date | null }, context: z.RefinementCtx) => {
   if (value.startDate && value.endDate && value.endDate < value.startDate) {

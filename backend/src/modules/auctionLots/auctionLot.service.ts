@@ -15,7 +15,7 @@ export class AuctionLotService implements IAuctionLotService{
   this.id(seasonId);const season=await SeasonModel.findById(seasonId).lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const [teams,lots]=await Promise.all([SeasonTeamModel.find({seasonRef:season._id}).populate({path:"teamRef",select:"name"}).lean().exec(),this.lots.find({seasonRef:new Types.ObjectId(seasonId)})]);
-  const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&l.auctionStatus==="sold");const spent=teamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.displayName,logoSnapshot:st.logoSnapshot,status:st.status,budget:season.auctionSettings.budgetPerTeam,playersSigned:teamLots.length,remainingSlots:season.auctionSettings.teamSquadSize-teamLots.length,totalSpent:spent,balance:season.auctionSettings.budgetPerTeam-spent,averagePrice:teamLots.length?spent/teamLots.length:0,iconCount:teamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:teamLots.filter(l=>l.playerPosition==="goalkeeper").length,lots:teamLots.map(l=>this.map(l))};});
+  const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&l.auctionStatus==="sold");const spent=teamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.displayName,logoSnapshot:st.logoSnapshot,status:st.status,budget:season.auctionSettings.budgetPerTeam,playersSigned:teamLots.length,remainingSlots:season.auctionSettings.teamSquadSize-teamLots.length,totalSpent:spent,balance:season.auctionSettings.budgetPerTeam-spent,averagePrice:teamLots.length?spent/teamLots.length:0,iconCount:teamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:teamLots.filter(l=>l.isGoalkeeper).length,lots:teamLots.map(l=>this.map(l))};});
   return {season:{_id:String(season._id),name:season.name,year:season.year,status:season.status,auctionSettings:season.auctionSettings},totals:{participatingTeams:teams.length,lots:lots.length,sold:lots.filter(l=>l.auctionStatus==="sold").length,pending:lots.filter(l=>l.auctionStatus==="pending").length,unsold:lots.filter(l=>l.auctionStatus==="unsold").length,withdrawn:lots.filter(l=>l.auctionStatus==="withdrawn").length,totalSoldValue:lots.filter(l=>l.auctionStatus==="sold").reduce((s,l)=>s+(l.purchasePrice??0),0)},teams:summaries,lots:lots.map(l=>this.map(l))};
  }
  async list(query:AuctionLotsQueryDto):Promise<AuctionLotResponseDto[]>{
@@ -44,7 +44,7 @@ export class AuctionLotService implements IAuctionLotService{
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
     const count=await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId)},session);
     if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
-    created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:input.playerPosition==="goalkeeper",jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
+    created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
    });
   }catch(error){
    if((error as {code?:number}).code===11000)throw new AppError("This player is already nominated in this season",409,"DUPLICATE_SEASON_PLAYER");
@@ -67,7 +67,7 @@ export class AuctionLotService implements IAuctionLotService{
     AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold"}).session(session),
     AuctionLotModel.aggregate([{$match:{seasonTeamRef:team._id,auctionStatus:"sold"}},{$group:{_id:null,total:{$sum:"$purchasePrice"}}}]).session(session),
     AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold",isIconPlayer:true}).session(session),
-    AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold",playerPosition:"goalkeeper"}).session(session),
+    AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold",isGoalkeeper:true}).session(session),
     PlayerModel.findById(lot.playerRef).session(session).lean().exec(),
     input.jerseyNo==null?Promise.resolve(0):AuctionLotModel.countDocuments({seasonTeamRef:team._id,jerseyNo:input.jerseyNo,auctionStatus:"sold"}).session(session)
    ]);
@@ -75,10 +75,10 @@ export class AuctionLotService implements IAuctionLotService{
    const total=Number(spent[0]?.total??0);if(total+input.purchasePrice>season.auctionSettings.budgetPerTeam)throw new AppError("Sale exceeds the team's remaining budget",422,"AUCTION_BUDGET_EXCEEDED");
    if(soldCount>=season.auctionSettings.teamSquadSize)throw new AppError("Team squad size limit reached",422,"SQUAD_LIMIT");
    if(lot.isIconPlayer&&icons>=season.auctionSettings.iconPlayerLimit)throw new AppError("Team Icon Player limit reached",422,"ICON_LIMIT");
-   if(lot.playerPosition==="goalkeeper"&&gks>=season.auctionSettings.goalkeeperLimit)throw new AppError("Team Goalkeeper limit reached",422,"GOALKEEPER_LIMIT");
+   if(lot.isGoalkeeper&&gks>=season.auctionSettings.goalkeeperLimit)throw new AppError("Team Goalkeeper limit reached",422,"GOALKEEPER_LIMIT");
    if(jerseyCount)throw new AppError("Jersey number already exists in this season team",409,"DUPLICATE_JERSEY");
    await SeasonModel.updateOne({_id:season._id},{$inc:{auctionRevision:1}},{session});
-   lot.seasonTeamRef=team._id;lot.purchasePrice=input.purchasePrice;lot.jerseyNo=input.jerseyNo??null;lot.auctionStatus="sold";lot.isGoalkeeper=lot.playerPosition==="goalkeeper";lot.soldAt=new Date();await lot.save({session});saved=lot.toObject() as AuctionLotEntity;
+   lot.seasonTeamRef=team._id;lot.purchasePrice=input.purchasePrice;lot.jerseyNo=input.jerseyNo??null;lot.auctionStatus="sold";lot.soldAt=new Date();await lot.save({session});saved=lot.toObject() as AuctionLotEntity;
   });}finally{await session.endSession();}
   if(!saved)throw new AppError("Auction sale failed",500,"AUCTION_SALE_FAILED");return this.map(saved);
  }
@@ -100,9 +100,10 @@ export class AuctionLotService implements IAuctionLotService{
     const nextStatus=input.auctionStatus;
     const nextPosition=input.playerPosition??lot.playerPosition;
     const nextIcon=input.isIconPlayer??lot.isIconPlayer;
+    const nextGoalkeeper=input.isGoalkeeper??lot.isGoalkeeper;
     lot.playerPosition=nextPosition;
     lot.isIconPlayer=nextIcon;
-    lot.isGoalkeeper=nextPosition==="goalkeeper";
+    lot.isGoalkeeper=nextGoalkeeper;
 
     if(nextStatus==="sold"){
      const seasonTeamId=input.seasonTeamId??(lot.auctionStatus==="sold"&&lot.seasonTeamRef?String(lot.seasonTeamRef):null);
@@ -122,7 +123,7 @@ export class AuctionLotService implements IAuctionLotService{
       AuctionLotModel.countDocuments(otherSold).session(session),
       AuctionLotModel.aggregate([{$match:otherSold},{$group:{_id:null,total:{$sum:"$purchasePrice"}}}]).session(session),
       AuctionLotModel.countDocuments({...otherSold,isIconPlayer:true}).session(session),
-      AuctionLotModel.countDocuments({...otherSold,playerPosition:"goalkeeper"}).session(session),
+      AuctionLotModel.countDocuments({...otherSold,isGoalkeeper:true}).session(session),
       PlayerModel.findById(lot.playerRef).session(session).lean().exec(),
       jerseyNo===null?Promise.resolve(0):AuctionLotModel.countDocuments({...otherSold,jerseyNo}).session(session)
      ]);
@@ -131,7 +132,7 @@ export class AuctionLotService implements IAuctionLotService{
      if(soldCount>=season.auctionSettings.teamSquadSize)throw new AppError("Team squad size limit reached",422,"SQUAD_LIMIT");
      if(total+purchasePrice>season.auctionSettings.budgetPerTeam)throw new AppError("Sale exceeds the team's remaining budget",422,"AUCTION_BUDGET_EXCEEDED");
      if(nextIcon&&icons>=season.auctionSettings.iconPlayerLimit)throw new AppError("Team Icon Player limit reached",422,"ICON_LIMIT");
-     if(nextPosition==="goalkeeper"&&goalkeepers>=season.auctionSettings.goalkeeperLimit)throw new AppError("Team Goalkeeper limit reached",422,"GOALKEEPER_LIMIT");
+     if(nextGoalkeeper&&goalkeepers>=season.auctionSettings.goalkeeperLimit)throw new AppError("Team Goalkeeper limit reached",422,"GOALKEEPER_LIMIT");
      if(jerseyCount)throw new AppError("Jersey number already exists in this season team",409,"DUPLICATE_JERSEY");
 
      lot.seasonTeamRef=team._id;
@@ -161,7 +162,7 @@ export class AuctionLotService implements IAuctionLotService{
   const seasonTeam=l.seasonTeamRef as unknown as {_id?:Types.ObjectId;displayName?:string;teamRef?:{_id:Types.ObjectId;name:string;shortName:string|null;logo:unknown}|Types.ObjectId}|Types.ObjectId|null;
   const teamData=seasonTeam&&!(seasonTeam instanceof Types.ObjectId)&&seasonTeam.displayName?{_id:String(seasonTeam._id),displayName:seasonTeam.displayName,team:seasonTeam.teamRef&&!(seasonTeam.teamRef instanceof Types.ObjectId)?{_id:String(seasonTeam.teamRef._id),name:seasonTeam.teamRef.name,shortName:seasonTeam.teamRef.shortName,logo:seasonTeam.teamRef.logo}:null}:null;
   const playerData=player instanceof Types.ObjectId?String(player):player.name?{_id:String(player._id),name:player.name,profilePic:player.profilePic}:String(player._id);
-  return {_id:String(l._id),seasonRef:String(l.seasonRef),seasonTeamRef:teamData??(seasonTeam?this.refId(seasonTeam):null),playerRef:playerData,lotNumber:l.lotNumber,auctionStatus:l.auctionStatus,purchasePrice:l.purchasePrice,playerPosition:l.playerPosition,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.playerPosition==="goalkeeper",jerseyNo:l.jerseyNo,nominatedAt:l.nominatedAt?.toISOString()??null,soldAt:l.soldAt?.toISOString()??null};
+  return {_id:String(l._id),seasonRef:String(l.seasonRef),seasonTeamRef:teamData??(seasonTeam?this.refId(seasonTeam):null),playerRef:playerData,lotNumber:l.lotNumber,auctionStatus:l.auctionStatus,purchasePrice:l.purchasePrice,playerPosition:l.playerPosition,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper,jerseyNo:l.jerseyNo,nominatedAt:l.nominatedAt?.toISOString()??null,soldAt:l.soldAt?.toISOString()??null};
  }
  private refId(value:unknown):string{const v=value as {_id?:unknown};return String(v&&typeof v==="object"&&v._id?v._id:value);}
 

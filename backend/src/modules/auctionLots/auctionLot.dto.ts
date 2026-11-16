@@ -10,6 +10,7 @@ export interface UpdateAuctionLotDto{
  jerseyNo?:number|null;
  playerPosition?:SeasonPlayerPosition;
  isIconPlayer?:boolean;
+ isGoalkeeper?:boolean;
 }
 export interface AuctionLotsQueryDto{seasonId:string;seasonTeamId?:string;playerName?:string;playerPosition?:SeasonPlayerPosition;auctionStatus?:AuctionLotStatus;isIconPlayer?:boolean;isGoalkeeper?:boolean;}
 export interface AuctionLotResponseDto{_id:string;seasonRef:string;seasonTeamRef:string|null|{_id:string;displayName:string;team:{_id:string;name:string;shortName:string|null;logo:unknown}|null};playerRef:{_id:string;name:string;profilePic:unknown}|string;lotNumber:number|null;auctionStatus:AuctionLotStatus;purchasePrice:number|null;playerPosition:SeasonPlayerPosition;isIconPlayer:boolean;isGoalkeeper:boolean;jerseyNo:number|null;nominatedAt:string|null;soldAt:string|null;}
