@@ -101,9 +101,9 @@ export function HomePage() {
               <Link to="/admin/dashboard">
                 <Button size="sm">Dashboard</Button>
               </Link>
-              <Link to="/admin/settings">
+              <Link to="/admin/seasons">
                 <Button size="sm" variant="surface">
-                  Settings
+                  Manage seasons
                 </Button>
               </Link>
             </div>

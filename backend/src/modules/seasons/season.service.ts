@@ -1,6 +1,6 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
-import { isAllowedSeasonTransition, normalizeSeasonName } from "./season.rules.js";
+import { isAllowedSeasonTransition, isSeasonIdentityEditable, normalizeSeasonName } from "./season.rules.js";
 import type { ITeamRepository } from "../teams/team.interfaces.js";
 import { SeasonTeamRepository } from "../seasonTeams/seasonTeam.repository.js";
 import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
@@ -76,11 +76,15 @@ export class SeasonService implements ISeasonService {
       this.repo.getMaxSoldSquadSize(id),
     ]);
     const hasIdentityDependencies = teamCount + groupCount + lotCount + matchCount > 0;
-    if ((input.seasonNumber !== undefined || input.year !== undefined) && (current.status !== "draft" || hasIdentityDependencies)) {
-      throw new AppError("Season number and year can only change on a Draft season before any team, group, auction lot or fixture exists", 409, "SEASON_IDENTITY_LOCKED", {
-        seasonNumber: "Remove all dependent setup records before changing the edition number",
-        year: "Remove all dependent setup records before changing the year",
-      });
+    const identityFields = ["name", "seasonNumber", "year"] as const;
+    const requestedIdentityFields = identityFields.filter((field) => input[field] !== undefined);
+    if (requestedIdentityFields.length && !isSeasonIdentityEditable(current.status, hasIdentityDependencies)) {
+      const reason = "Season name, edition number and year can only be changed on an empty Draft season";
+      throw new AppError(reason, 409, "SEASON_IDENTITY_LOCKED",
+        Object.fromEntries(requestedIdentityFields.map((field) => [
+          field,
+          "This identity field is locked because the season is not an empty Draft season",
+        ])));
     }
     if (input.auctionSettings && lotCount > 0) {
       throw new AppError("Auction settings are locked after the first AuctionLot is created, regardless of its status", 409, "SEASON_AUCTION_LOCKED", {
