@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { CalendarRange, Shield, Sparkles, Swords, Trophy, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -36,7 +37,9 @@ export function HomePage() {
         }),
     [activeSeasonId],
   );
-  const historicalSeason = seasons.data?.data.filter((season) => ["completed","archived"].includes(season.status)).sort((a,b)=>b.seasonNumber-a.seasonNumber)[0];
+  const historicalSeasons = seasons.data?.data.filter((season) => ["completed","archived"].includes(season.status)).sort((a,b)=>b.seasonNumber-a.seasonNumber) ?? [];
+  const [historicalSeasonId, setHistoricalSeasonId] = useState("");
+  const historicalSeason = historicalSeasons.find((season) => season._id === historicalSeasonId) ?? historicalSeasons[0];
   const historicalAwards = useServiceQuery(() => historicalSeason ? getSeasonAwards(historicalSeason._id) : Promise.resolve({success:true,message:"No completed season",data:[]} as Awaited<ReturnType<typeof getSeasonAwards>>), [historicalSeason?._id]);
   const sponsors = useServiceQuery(() => getSponsors({ limit: 8 }), []);
   const data = dashboard.data?.data;
@@ -164,7 +167,7 @@ export function HomePage() {
 
 
         {historicalSeason ? <section className="mt-10">
-          <div className="mb-4"><p className="text-xs font-semibold uppercase tracking-wide text-accent">Season history</p><h2 className="font-display text-3xl text-fg">{historicalSeason.name} · Achievements</h2></div>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-accent">Season history</p><h2 className="font-display text-3xl text-fg">{historicalSeason.name} · Achievements</h2></div><select aria-label="Historical season" className="rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={historicalSeasonId || historicalSeason._id} onChange={(event)=>setHistoricalSeasonId(event.target.value)}>{historicalSeasons.map((season)=><option key={season._id} value={season._id}>{season.name} · {season.year}</option>)}</select></div>
           {historicalAwards.loading ? <Skeleton className="h-24" /> : null}
           {historicalAwards.error ? <ErrorState message={historicalAwards.error} onRetry={historicalAwards.reload} /> : null}
           {historicalAwards.data?.data.length ? <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
