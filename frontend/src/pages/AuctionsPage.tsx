@@ -102,7 +102,7 @@ export function AuctionsPage() {
     lots.reload();
   };
 
-  const canEditAuction = Boolean(isAdmin && data && !["completed", "archived"].includes(data.season.status));
+  const canEditAuction = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status));
   const playerNameFor = (lot: AuctionLot) =>
     typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef.name;
   const playerImageFor = (lot: AuctionLot) =>
