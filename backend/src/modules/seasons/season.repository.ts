@@ -227,13 +227,14 @@ export class SeasonRepository implements ISeasonRepository {
         const id = new Types.ObjectId(seasonId);
         const season = await SeasonModel.findOne({ _id: id, status: "draft" }).session(session).lean().exec();
         if (!season) throw new Error("SEASON_NOT_EMPTY_DRAFT");
-        const [teams, groups, lots, matches] = await Promise.all([
+        const [teams, groups, lots, matches, awards] = await Promise.all([
           SeasonTeamModel.countDocuments({ seasonRef: id }).session(session).exec(),
           GroupModel.countDocuments({ seasonRef: id }).session(session).exec(),
           AuctionLotModel.countDocuments({ seasonRef: id }).session(session).exec(),
           SeasonMatchModel.countDocuments({ seasonRef: id }).session(session).exec(),
+          SeasonAwardModel.countDocuments({ seasonRef: id }).session(session).exec(),
         ]);
-        if (teams + groups + lots + matches > 0) throw new Error("SEASON_HAS_DEPENDENCIES");
+        if (teams + groups + lots + matches + awards > 0) throw new Error("SEASON_HAS_DEPENDENCIES");
         const result = await SeasonModel.deleteOne({ _id: id, status: "draft" }).session(session).exec();
         deleted = result.deletedCount === 1;
       });
