@@ -86,13 +86,13 @@ export class GroupService implements IGroupService {
     if (!season.groupStageEnabled) {
       throw new AppError("Groups are not enabled for this season", 409, "GROUP_STAGE_DISABLED");
     }
-    if (await this._groupRepository.countFixtures(seasonId) > 0) {
-      throw new AppError("A group cannot be deleted after fixtures exist", 409, "GROUPS_LOCKED");
-    }
     const group = await this._groupRepository.findInSeason(seasonId, groupId);
     if (!group) throw new AppError("Group not found in this season", 404, "GROUP_NOT_FOUND");
     if (await this._groupRepository.countAssignments(seasonId, groupId) > 0) {
       throw new AppError("Remove all SeasonTeam assignments before deleting this group", 409, "GROUP_REFERENCED");
+    }
+    if (await this._groupRepository.countMatchReferences(seasonId, groupId) > 0) {
+      throw new AppError("This group is referenced by one or more fixtures and cannot be deleted", 409, "GROUP_REFERENCED");
     }
     if (!await this._groupRepository.deleteInSeason(seasonId, groupId)) {
       throw new AppError("Group could not be deleted. Refresh and try again.", 409, "GROUP_DELETE_CONFLICT");

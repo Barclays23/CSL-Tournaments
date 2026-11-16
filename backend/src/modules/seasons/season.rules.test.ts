@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { ELIGIBLE_SEASON_TEAM_STATUSES, isAllowedSeasonTransition, isEligibleSeasonTeamStatus, isKickoffWithinSeasonDateWindow, isSeasonReadOnly, isWinnerOfMatch, normalizeSeasonName } from "./season.rules.js";
 import { seasonCreateSchema, seasonUpdateSchema } from "./season.schema.js";
+import { normalizeGroupName } from "../groups/group.repository.js";
 
 test("season names normalize spaces and case for global uniqueness", () => {
   assert.equal(normalizeSeasonName("  CSL   Season  10 "), "csl season 10");
@@ -84,4 +85,10 @@ test("knockout winner must be one of the fixture participants", () => {
   assert.equal(isWinnerOfMatch("home", "away", "away"), true);
   assert.equal(isWinnerOfMatch("home", "away", null), false);
   assert.equal(isWinnerOfMatch("home", "away", "other"), false);
+});
+
+test("group names normalize repeated whitespace and case for season-scoped uniqueness", () => {
+  assert.equal(normalizeGroupName("  Group   A  "), "group a");
+  assert.equal(normalizeGroupName("GROUP A"), "group a");
+  assert.equal(normalizeGroupName("Group\\tA"), "group a");
 });
