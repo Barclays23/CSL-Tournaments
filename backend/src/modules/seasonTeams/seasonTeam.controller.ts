@@ -1,5 +1,6 @@
 import type {Request,Response,NextFunction} from "express";
 import {ApiResponse} from "../../utils/apiResponse.utils.js";
+import {getRequiredRouteParam} from "../../shared/utils/routeParams.js";
 import {updateSeasonTeamSchema} from "./seasonTeam.schema.js";
 import type {ISeasonTeamService} from "./seasonTeam.interfaces.js";
 import type {UpdateSeasonTeamDto} from "./seasonTeam.dto.js";

@@ -377,8 +377,8 @@ export const seasonPreviewRepository = {
         const counts = new Map(groups.map((g) => [g._id, 0]));
         for (const team of participants) {
           const groupRef = team.groupRef;
-          if (!groupRef || !counts.has(groupRef)) {
-            fail(422, "Every participating team must be assigned to a valid season group");
+          if (typeof groupRef !== "string" || !counts.has(groupRef)) {
+            return fail(422, "Every participating team must be assigned to a valid season group");
           }
           counts.set(groupRef, (counts.get(groupRef) ?? 0) + 1);
         }

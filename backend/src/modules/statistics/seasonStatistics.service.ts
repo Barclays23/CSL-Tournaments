@@ -82,7 +82,7 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
   const fixtures=matches.map(m=>this.fixture(m)).sort((a,b)=>a.kickoffAt.localeCompare(b.kickoffAt));const now=Date.now();
   const recentFixtures=fixtures.filter(f=>f.status==="completed").sort((a,b)=>b.kickoffAt.localeCompare(a.kickoffAt)).slice(0,5);
   const upcomingFixtures=fixtures.filter(f=>["scheduled","live"].includes(f.status)&&new Date(f.kickoffAt).getTime()>=now).slice(0,5);
-  return {participates:true,season:this.seasonBrief(season),team:teamInfo,seasonTeam:this.teamBrief(participation),managers:participation.managerRefs.filter(m=>m&&m.name).map(m=>({_id:String(m._id),name:m.name,role:m.role,profilePic:m.profilePic})),squad,stats:{...stats,goalDifference:stats.goalsScored-stats.goalsConceded,topScorer},recentFixtures,upcomingFixtures};
+  return {participates:true,season:this.seasonBrief(season),team:teamInfo,seasonTeam:this.teamBrief(participation),managers:participation.managerRefs.flatMap(manager=>manager instanceof Types.ObjectId?[]:[{_id:String(manager._id),name:manager.name,role:manager.role,profilePic:manager.profilePic}]),squad,stats:{...stats,goalDifference:stats.goalsScored-stats.goalsConceded,topScorer},recentFixtures,upcomingFixtures};
  }
  async getPlayerHistory(playerId:string):Promise<PlayerHistoryDto>{
   this.id(playerId,"player");const player=await this.repo.findPlayer(playerId);if(!player)throw new AppError("Player not found",404,"PLAYER_NOT_FOUND");

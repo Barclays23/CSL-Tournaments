@@ -17,7 +17,7 @@ export class SeasonTeamRepository {
   async createMany(records: SeasonTeamFields[], session?: ClientSession): Promise<SeasonTeamEntity[]> {
     if (!records.length) return [];
     const created = await SeasonTeamModel.insertMany(records, { session, ordered: true });
-    return created.map((item) => item.toObject() as SeasonTeamEntity);
+    return created.map((item) => item.toObject() as unknown as SeasonTeamEntity);
   }
   async updateStatus(id: string, status: SeasonTeamFields["status"]): Promise<SeasonTeamEntity | null> {
     return SeasonTeamModel.findByIdAndUpdate(id, { $set: { status } }, { returnDocument: "after", runValidators: true }).lean<SeasonTeamEntity>().exec();

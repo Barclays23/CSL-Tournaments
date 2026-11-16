@@ -92,8 +92,19 @@ export class SeasonService implements ISeasonService {
       });
     }
     if (input.auctionSettings) {
-      const merged = { ...current.auctionSettings, ...input.auctionSettings };
-      if (!merged) throw new AppError("Auction settings are required for an operational season", 422, "SEASON_CONFIG_REQUIRED");
+      const currentAuctionSettings = current.auctionSettings;
+      if (!currentAuctionSettings) {
+        throw new AppError("Auction settings are unavailable for this historical season", 409, "SEASON_CONFIG_REQUIRED");
+      }
+      const merged: NonNullable<SeasonEntity["auctionSettings"]> = {
+        currency: input.auctionSettings.currency ?? currentAuctionSettings.currency,
+        budgetPerTeam: input.auctionSettings.budgetPerTeam ?? currentAuctionSettings.budgetPerTeam,
+        playersCount: input.auctionSettings.playersCount ?? currentAuctionSettings.playersCount,
+        seasonTeamCount: input.auctionSettings.seasonTeamCount ?? currentAuctionSettings.seasonTeamCount,
+        teamSquadSize: input.auctionSettings.teamSquadSize ?? currentAuctionSettings.teamSquadSize,
+        iconPlayerLimit: input.auctionSettings.iconPlayerLimit ?? currentAuctionSettings.iconPlayerLimit,
+        goalkeeperLimit: input.auctionSettings.goalkeeperLimit ?? currentAuctionSettings.goalkeeperLimit,
+      };
       if (merged.seasonTeamCount < teamCount) throw new AppError("Team limit cannot be lower than current registrations", 409, "SEASON_TEAM_LIMIT_LOCKED", {
         auctionSettings: "The new team limit is below the number of registered SeasonTeams",
       });
