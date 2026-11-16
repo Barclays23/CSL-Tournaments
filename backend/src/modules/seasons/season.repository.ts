@@ -225,8 +225,9 @@ export class SeasonRepository implements ISeasonRepository {
       let deleted = false;
       await session.withTransaction(async () => {
         const id = new Types.ObjectId(seasonId);
-        const season = await SeasonModel.findOne({ _id: id, status: "draft" }).session(session).lean().exec();
-        if (!season) throw new Error("SEASON_NOT_EMPTY_DRAFT");
+        const existing = await SeasonModel.findById(id).session(session).select("_id status").lean<{ _id: Types.ObjectId; status: SeasonStatus }>().exec();
+        if (!existing) throw new Error("SEASON_NOT_FOUND");
+        if (existing.status !== "draft") throw new Error("SEASON_NOT_EMPTY_DRAFT");
         const [teams, groups, lots, matches, awards] = await Promise.all([
           SeasonTeamModel.countDocuments({ seasonRef: id }).session(session).exec(),
           GroupModel.countDocuments({ seasonRef: id }).session(session).exec(),
@@ -237,6 +238,7 @@ export class SeasonRepository implements ISeasonRepository {
         if (teams + groups + lots + matches + awards > 0) throw new Error("SEASON_HAS_DEPENDENCIES");
         const result = await SeasonModel.deleteOne({ _id: id, status: "draft" }).session(session).exec();
         deleted = result.deletedCount === 1;
+        if (!deleted) throw new Error("SEASON_DELETE_CONFLICT");
       });
       return deleted;
     } finally {
