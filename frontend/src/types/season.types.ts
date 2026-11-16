@@ -116,7 +116,7 @@ export interface NominatePlayerInput {
   playerId: string;
   playerPosition: SeasonPlayerPosition;
   isIconPlayer: boolean;
-  isGoalkeeper: boolean;
+  isGoalkeeper?: boolean;
 }
 
 export interface AuctionTeamSummary {
