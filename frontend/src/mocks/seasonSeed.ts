@@ -66,6 +66,8 @@ export interface MockSeasonMatch {
   penaltyShootout: null | { status: "pending" | "completed"; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: "scored" | "missed" | "saved" }> };
   winnerSeasonTeamRef: string | null; notes: string | null; createdAt: string; updatedAt: string;
 }
+export interface MockSeasonAwardRecipient { _id:string; recipientType:"season_team"|"player"; seasonTeamRef:string; playerRef:string|null; displayNameSnapshot:string; profileImageSnapshot:Asset|null; teamNameSnapshot:string; teamLogoSnapshot:Asset|null; }
+export interface MockSeasonAward { _id:string; seasonRef:string; awardType:"champions"|"runner_up"|"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder"|"special"; title:string; description:string|null; recipients:MockSeasonAwardRecipient[]; createdAt:string; updatedAt:string; }
 export interface MockUser {
   _id: string; name: string; email: string; username?: string; mobile?: string;
   passwordHash: string; role: "user" | "admin"; profilePic: Asset | null;
@@ -74,7 +76,7 @@ export interface MockUser {
 export interface SeasonMockDatabase {
   users: MockUser[]; teams: MockTeam[]; players: MockPlayer[]; managers: MockManager[];
   sponsors: MockSponsor[]; organizers: MockOrganizer[]; seasons: MockSeason[]; seasonTeams: MockSeasonTeam[];
-  auctionLots: MockAuctionLot[]; matches: MockSeasonMatch[]; groups: MockGroup[];
+  auctionLots: MockAuctionLot[]; matches: MockSeasonMatch[]; groups: MockGroup[]; awards: MockSeasonAward[];
 }
 
 const now = timestamp("2026-11-14T08:00:00.000Z");
@@ -153,6 +155,7 @@ const groups: MockGroup[] = [];
 const seasonTeams: MockSeasonTeam[] = [];
 const auctionLots: MockAuctionLot[] = [];
 const matches: MockSeasonMatch[] = [];
+const awards: MockSeasonAward[] = [];
 
 function groupId(seasonIndex: number, groupIndex: number) { return oid(600 + seasonIndex * 10 + groupIndex); }
 function seasonTeamId(seasonIndex: number, teamIndex: number) { return oid(700 + seasonIndex * 10 + teamIndex); }
@@ -369,6 +372,31 @@ seasons.forEach((season, seasonIndex) => {
   ));
 });
 
+// Historical award examples for the completed 2024 and 2025 seasons.
+for (const [seasonIndex, championIndex, runnerIndex] of [[0, 0, 1], [1, 2, 3]] as const) {
+  const season = seasons[seasonIndex];
+  const champion = seasonTeams.find((item) => item.seasonRef === season._id && item._id === seasonTeamId(seasonIndex, championIndex))!;
+  const runnerUp = seasonTeams.find((item) => item.seasonRef === season._id && item._id === seasonTeamId(seasonIndex, runnerIndex))!;
+  const soldLot = auctionLots.find((lot) => lot.seasonRef === season._id && lot.auctionStatus === "sold" && lot.seasonTeamRef === champion._id)!;
+  const player = players.find((item) => item._id === soldLot.playerRef)!;
+  const createAward = (offset: number, awardType: MockSeasonAward["awardType"], title: string, st: MockSeasonTeam, recipientPlayer?: MockPlayer): MockSeasonAward => ({
+    _id: oid(5000 + seasonIndex * 20 + offset), seasonRef: season._id, awardType, title, description: null,
+    recipients: [{
+      _id: oid(6000 + seasonIndex * 20 + offset), recipientType: recipientPlayer ? "player" : "season_team",
+      seasonTeamRef: st._id, playerRef: recipientPlayer?._id ?? null,
+      displayNameSnapshot: recipientPlayer?.name ?? st.displayName,
+      profileImageSnapshot: recipientPlayer?.profilePic ?? st.logoSnapshot,
+      teamNameSnapshot: st.displayName, teamLogoSnapshot: st.logoSnapshot,
+    }],
+    createdAt: season.updatedAt, updatedAt: season.updatedAt,
+  });
+  awards.push(
+    createAward(0, "champions", "Champions", champion),
+    createAward(1, "runner_up", "Runner-up", runnerUp),
+    createAward(2, "golden_boot", "Golden Boot / Top Scorer", champion, player),
+  );
+}
+
 function assertSeedIntegrity(db: SeasonMockDatabase): void {
   const assert = (condition: boolean, message: string) => { if (!condition) throw new Error(`Invalid CSL mock seed: ${message}`); };
   const unique = (values: string[], label: string) => assert(new Set(values).size === values.length, `duplicate ${label}`);
@@ -376,7 +404,7 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   for (const [label, docs] of Object.entries({
     users: db.users, teams: db.teams, players: db.players, managers: db.managers,
     sponsors: db.sponsors, organizers: db.organizers, seasons: db.seasons, seasonTeams: db.seasonTeams,
-    auctionLots: db.auctionLots, matches: db.matches, groups: db.groups,
+    auctionLots: db.auctionLots, matches: db.matches, groups: db.groups, awards: db.awards,
   })) {
     unique(docs.map((doc) => doc._id), `${label} _id`);
     assert(docs.every((doc) => validId(doc._id)), `${label} contains a non-ObjectId id`);
@@ -388,6 +416,19 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   unique(db.groups.map((group) => `${group.seasonRef}:${group.groupName}`), "season/group name");
 
   const seasonTeam = (id: string, seasonRef: string) => db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonRef);
+  unique(db.awards.map((award) => `${award.seasonRef}:${award.awardType}`), "season award category");
+  for (const award of db.awards) {
+    assert(db.seasons.some((season) => season._id === award.seasonRef), `Award ${award._id} has no season`);
+    assert(award.recipients.length > 0, `Award ${award._id} has no recipients`);
+    for (const recipient of award.recipients) {
+      const st = seasonTeam(recipient.seasonTeamRef, award.seasonRef);
+      assert(Boolean(st), `Award ${award._id} references a SeasonTeam from another season`);
+      if (recipient.recipientType === "player") {
+        assert(Boolean(recipient.playerRef && db.players.some((player) => player._id === recipient.playerRef)), `Award ${award._id} references an unknown player`);
+        assert(Boolean(db.auctionLots.some((lot) => lot.seasonRef === award.seasonRef && lot.seasonTeamRef === recipient.seasonTeamRef && lot.playerRef === recipient.playerRef && lot.auctionStatus === "sold")), `Award ${award._id} player is not rostered for that season team`);
+      }
+    }
+  }
   for (const st of db.seasonTeams) {
     assert(db.seasons.some((s) => s._id === st.seasonRef), `SeasonTeam ${st._id} has no season`);
     assert(db.teams.some((t) => t._id === st.teamRef), `SeasonTeam ${st._id} has no team`);
@@ -452,7 +493,7 @@ export function createSeasonDatabase(): SeasonMockDatabase {
       passwordHash: "$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", role: "user", profilePic: null,
       status: "active", lastLoginAt: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
     }],
-    teams, players, managers, sponsors, organizers, seasons, seasonTeams, auctionLots, matches, groups,
+    teams, players, managers, sponsors, organizers, seasons, seasonTeams, auctionLots, matches, groups, awards,
   };
   assertSeedIntegrity(database);
   return database;

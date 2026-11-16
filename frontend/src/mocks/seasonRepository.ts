@@ -4,7 +4,8 @@ import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistic
 import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
 import { requireAdmin } from "@/mocks/store";
-import type { MockAuctionLot, MockSeason, MockSeasonMatch, MockSeasonTeam, SeasonMockDatabase } from "@/mocks/seasonSeed";
+import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, SeasonMockDatabase } from "@/mocks/seasonSeed";
+import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 
 let sequence = 9000;
@@ -19,6 +20,7 @@ function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   if (!season) return fail(404, "Season not found");
   return season;
 }
+function presentAward(award: MockSeasonAward): SeasonAward { return { ...award, recipients: award.recipients.map((recipient) => ({ ...recipient })) }; }
 function seasonBrief(season: MockSeason) {
   return { _id: season._id, name: season.name, seasonNumber: season.seasonNumber, year: season.year, status: season.status };
 }
@@ -193,6 +195,64 @@ function groupStandings(db: SeasonMockDatabase, season: MockSeason) {
 }
 
 export const seasonPreviewRepository = {
+
+  async getSeasonAwards(seasonId: string) {
+    const db=readSeasonDb(); seasonById(db,seasonId);
+    return ok("Season achievements loaded",db.awards.filter((award)=>award.seasonRef===seasonId).map(presentAward));
+  },
+  async createSeasonAward(seasonId:string,input:SeasonAwardInput) {
+    requireAdmin(); const db=readSeasonDb(); const season=seasonById(db,seasonId);
+    if(season.status!=="active") fail(409,"Awards can only be managed while a season is Active");
+    if(db.awards.some((a)=>a.seasonRef===seasonId&&a.awardType===input.awardType)) fail(409,"This award category already exists");
+    if(input.awardType==="special"&&!input.title?.trim()) fail(422,"A title is required for a special award");
+    const recipients=input.recipients.map((item)=>{
+      const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));
+      if(!st) fail(422,"Recipient SeasonTeam is invalid for this season");
+      const player=item.playerId?db.players.find((x)=>x._id===item.playerId):null;
+      if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold"))) fail(422,"Player is not rostered for this SeasonTeam");
+      if(["champions","runner_up"].includes(input.awardType)&&(input.recipients.length!==1||player)) fail(422,"Team awards require exactly one SeasonTeam");
+      if(!["champions","runner_up","special"].includes(input.awardType)&&!player) fail(422,"This award requires a player recipient");
+      return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??st.displayName,profileImageSnapshot:player?.profilePic??st.logoSnapshot,teamNameSnapshot:st.displayName,teamLogoSnapshot:st.logoSnapshot};
+    });
+    if(!recipients.length||recipients.length>20) fail(422,"An award must have one to twenty recipients");
+    if(new Set(recipients.map((r)=>r.playerRef?r.seasonTeamRef+":"+r.playerRef:r.seasonTeamRef+":team")).size!==recipients.length) fail(422,"Duplicate award recipients are not allowed");
+    if(["champions","runner_up"].includes(input.awardType)) {
+      const other=db.awards.find((a)=>a.seasonRef===seasonId&&a.awardType!==input.awardType&&["champions","runner_up"].includes(a.awardType));
+      if(other?.recipients[0]?.seasonTeamRef===recipients[0].seasonTeamRef) fail(422,"Champion and Runner-up must be different teams");
+    }
+    const labels:Record<SeasonAwardInput["awardType"],string>={champions:"Champions",runner_up:"Runner-up",golden_boot:"Golden Boot / Top Scorer",golden_glove:"Golden Glove",player_of_the_season:"Player of the Season",best_young_player:"Best Young Player",best_defender:"Best Defender",best_midfielder:"Best Midfielder",special:input.title!.trim()};
+    const stamp=now(); const award:MockSeasonAward={_id:newId(),seasonRef:seasonId,awardType:input.awardType,title:input.title?.trim()||labels[input.awardType],description:input.description?.trim()||null,recipients,createdAt:stamp,updatedAt:stamp};
+    db.awards.push(award);commitSeasonDb(db);return ok("Season achievement saved",presentAward(award));
+  },
+  async updateSeasonAward(seasonId:string,awardId:string,input:Partial<SeasonAwardInput>) {
+    requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);
+    if(season.status!=="active") fail(409,"Awards can only be edited while a season is Active");
+    const award=db.awards.find((a)=>a._id===awardId&&a.seasonRef===seasonId);if(!award)fail(404,"Season award not found");
+    const nextType=input.awardType??award.awardType;
+    if(input.awardType&&db.awards.some((a)=>a._id!==awardId&&a.seasonRef===seasonId&&a.awardType===input.awardType))fail(409,"This award category already exists");
+    if(input.recipients) {
+      if(!input.recipients.length||input.recipients.length>20)fail(422,"An award must have one to twenty recipients");
+      const replacement=input.recipients.map((item)=>{
+        const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));if(!st)fail(422,"Recipient SeasonTeam is invalid for this season");
+        const player=item.playerId?db.players.find((x)=>x._id===item.playerId):null;
+        if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold")))fail(422,"Player is not rostered for this SeasonTeam");
+        if(["champions","runner_up"].includes(nextType)&&(input.recipients!.length!==1||player))fail(422,"Team awards require exactly one SeasonTeam");
+        if(!["champions","runner_up","special"].includes(nextType)&&!player)fail(422,"This award requires a player recipient");
+        return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??st.displayName,profileImageSnapshot:player?.profilePic??st.logoSnapshot,teamNameSnapshot:st.displayName,teamLogoSnapshot:st.logoSnapshot};
+      });
+      if(new Set(replacement.map((r)=>r.playerRef?r.seasonTeamRef+":"+r.playerRef:r.seasonTeamRef+":team")).size!==replacement.length)fail(422,"Duplicate award recipients are not allowed");
+      if(["champions","runner_up"].includes(nextType)){const other=db.awards.find((a)=>a.seasonRef===seasonId&&a._id!==awardId&&["champions","runner_up"].includes(a.awardType));if(other?.recipients[0]?.seasonTeamRef===replacement[0].seasonTeamRef)fail(422,"Champion and Runner-up must be different teams");}
+      award.recipients=replacement;
+    }
+    if(input.awardType)award.awardType=input.awardType;if(input.title!==undefined)award.title=input.title;if(input.description!==undefined)award.description=input.description;award.updatedAt=now();commitSeasonDb(db);return ok("Season achievement updated",presentAward(award));
+  },
+  async deleteSeasonAward(seasonId:string,awardId:string) {
+    requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);if(season.status!=="active")fail(409,"Awards can only be changed while a season is Active");
+    const index=db.awards.findIndex((a)=>a._id===awardId&&a.seasonRef===seasonId);if(index<0)fail(404,"Season award not found");
+    if(["champions","runner_up"].includes(db.awards[index].awardType))fail(409,"Mandatory team achievements cannot be deleted");
+    db.awards.splice(index,1);commitSeasonDb(db);return ok("Optional award deleted",null);
+  },
+
   async getSeasonGroups(seasonId: string) {
     const db = readSeasonDb();
     seasonById(db, seasonId);
