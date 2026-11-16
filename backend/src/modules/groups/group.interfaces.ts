@@ -1,9 +1,11 @@
 import type { GroupEntity, GroupFields } from "./group.types.js";
 import type { SeasonStatus } from "../seasons/season.types.js";
 
+export interface GroupSeasonState { status: SeasonStatus; groupStageEnabled: boolean; }
+
 export interface IGroupRepository {
   findBySeason(seasonId: string): Promise<GroupEntity[]>;
-  getSeasonStatus(seasonId: string): Promise<SeasonStatus | null>;
+  getSeasonState(seasonId: string): Promise<GroupSeasonState | null>;
   countSeasonTeams(seasonId: string): Promise<number>;
   countFixtures(seasonId: string): Promise<number>;
   findByName(seasonId: string, name: string): Promise<GroupEntity | null>;
