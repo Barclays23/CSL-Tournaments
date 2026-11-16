@@ -41,3 +41,13 @@ export function isEligibleSeasonTeamStatus(
 export function isSeasonReadOnly(status: SeasonLifecycleState): boolean {
   return status === "completed" || status === "archived";
 }
+
+
+export function isWinnerOfMatch(
+  homeSeasonTeamRef: string,
+  awaySeasonTeamRef: string,
+  winnerSeasonTeamRef: string | null,
+): boolean {
+  return winnerSeasonTeamRef !== null
+    && (winnerSeasonTeamRef === homeSeasonTeamRef || winnerSeasonTeamRef === awaySeasonTeamRef);
+}
