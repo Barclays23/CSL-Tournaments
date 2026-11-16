@@ -78,7 +78,7 @@ export class SeasonRepository implements ISeasonRepository {
             managerRefs: [],
           })), { session, ordered: true });
         }
-        created = season.toObject() as SeasonEntity;
+        created = season.toObject() as unknown as SeasonEntity;
       });
       if (!created) throw new Error("Season creation transaction did not return a document");
       return created;
@@ -186,7 +186,7 @@ export class SeasonRepository implements ISeasonRepository {
         const currentCount = await SeasonTeamModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId) }).session(session).exec();
         if (currentCount + records.length > limit) throw new Error("SEASON_TEAM_LIMIT");
         const docs = await SeasonTeamModel.insertMany(records, { session, ordered: true });
-        created = docs.map((doc) => doc.toObject() as SeasonTeamEntity);
+        created = docs.map((doc) => doc.toObject() as unknown as SeasonTeamEntity);
       });
       return created;
     } finally {

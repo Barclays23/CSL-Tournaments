@@ -329,8 +329,10 @@ export const seasonPreviewRepository = {
     const teams = db.seasonTeams.filter((st) => st.seasonRef === id);
     const lots = db.auctionLots.filter((lot) => lot.seasonRef === id);
     const matches = db.matches.filter((match) => match.seasonRef === id);
-    if ((input.seasonNumber !== undefined || input.year !== undefined) && (season.status !== "draft" || teams.length || lots.length || matches.length || db.groups.some((g) => g.seasonRef === id))) {
-      fail(409, "Season number and year are locked after dependent setup records exist");
+    const hasIdentityDependencies = teams.length > 0 || lots.length > 0 || matches.length > 0 || db.groups.some((g) => g.seasonRef === id);
+    if ((input.name !== undefined || input.seasonNumber !== undefined || input.year !== undefined)
+      && (season.status !== "draft" || hasIdentityDependencies)) {
+      fail(409, "Season name, edition number and year can only be changed on an empty Draft season");
     }
     if (input.seasonNumber !== undefined && db.seasons.some((s) => s._id !== id && s.seasonNumber === input.seasonNumber)) fail(409, "Season number already exists");
     if (input.name !== undefined) {
@@ -374,8 +376,11 @@ export const seasonPreviewRepository = {
         const groups = db.groups.filter((g) => g.seasonRef === id);
         const counts = new Map(groups.map((g) => [g._id, 0]));
         for (const team of participants) {
-          if (!team.groupRef || !counts.has(team.groupRef)) fail(422, "Every participating team must be assigned to a valid season group");
-          counts.set(team.groupRef, (counts.get(team.groupRef) ?? 0) + 1);
+          const groupRef = team.groupRef;
+          if (typeof groupRef !== "string" || !counts.has(groupRef)) {
+            return fail(422, "Every participating team must be assigned to a valid season group");
+          }
+          counts.set(groupRef, (counts.get(groupRef) ?? 0) + 1);
         }
         if (!groups.length || [...counts.values()].some((count) => count < 2)) fail(422, "Every group must contain at least two participating teams");
       }
@@ -455,7 +460,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const team = db.seasonTeams.find((st) => st._id === id);
-    if (!team) fail(404, "SeasonTeam not found");
+    if (!team) return fail(404, "SeasonTeam not found");
     const season = seasonById(db, team.seasonRef);
     if (["completed", "archived"].includes(season.status)) fail(409, "Closed season participation is read-only");
     if (input.groupId !== undefined) {
@@ -492,7 +497,7 @@ export const seasonPreviewRepository = {
     const season = seasonById(db, seasonId);
     if (season.status !== "active") fail(409, "Controlled withdrawal is available only during an Active season");
     const team = db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonId);
-    if (!team) fail(404, "SeasonTeam not found");
+    if (!team) return fail(404, "SeasonTeam not found");
     if (team.status === "withdrawn") fail(409, "SeasonTeam has already withdrawn");
     const teamMatches = db.matches.filter((match) => match.seasonRef === seasonId && (match.homeSeasonTeamRef === id || match.awaySeasonTeamRef === id));
     if (teamMatches.some((match) => match.status === "live")) fail(409, "A team cannot withdraw during a live match");
@@ -517,7 +522,7 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb(); const season = seasonById(db, seasonId);
     if (!["draft", "upcoming"].includes(season.status) || db.matches.some((match) => match.seasonRef === seasonId)) fail(409, "Groups are locked after fixtures exist");
     const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
-    if (!group) fail(404, "Group not found");
+    if (!group) return fail(404, "Group not found");
     if (input.groupName !== undefined) {
       const normalized = input.groupName.trim().replace(/\s+/g, " ").toLowerCase();
       if (db.groups.some((item) => item._id !== groupId && item.seasonRef === seasonId && item.groupName.trim().replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "Group name already exists in this season");
@@ -531,10 +536,12 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     if (!["draft", "upcoming"].includes(season.status)) fail(409, "Groups can only be deleted before activation");
-    if (db.matches.some((match) => match.seasonRef === seasonId)) fail(409, "Groups cannot be deleted after fixtures exist");
     const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
-    if (!group) fail(404, "Group not found");
+    if (!group) return fail(404, "Group not found");
     if (db.seasonTeams.some((st) => st.seasonRef === seasonId && st.groupRef === groupId)) fail(409, "Remove all SeasonTeam assignments before deleting this group");
+    if (db.matches.some((match) => match.seasonRef === seasonId && match.groupRef === groupId)) {
+      fail(409, "This group is referenced by a fixture and cannot be deleted");
+    }
     db.groups = db.groups.filter((item) => item._id !== groupId);
     commitSeasonDb(db);
     return ok("Unused group deleted", null);

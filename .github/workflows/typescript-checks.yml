@@ -8,6 +8,7 @@ on:
       - feature/updated-csl-project-plan
       - feature/season-based-mock-data
       - feature/season-management-complete
+      - feature/season-management-final-hardening
   pull_request:
     branches:
       - main

@@ -8,7 +8,7 @@ export class AuctionLotRepository{
  async findById(id:string,session?:ClientSession):Promise<AuctionLotEntity|null>{return AuctionLotModel.findById(id).session(session??null).lean<AuctionLotEntity>().exec();}
  async findPopulatedById(id:string):Promise<AuctionLotEntity|null>{return AuctionLotModel.findById(id).populate(populate).lean<AuctionLotEntity>().exec();}
  async findPlayerIdsByName(name:string):Promise<Types.ObjectId[]>{const players=await PlayerModel.find({name:{$regex:name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"),$options:"i"}}).select("_id").limit(250).lean<{_id:Types.ObjectId}[]>().exec();return players.map(p=>p._id);}
- async create(data:AuctionLotFields,session?:ClientSession):Promise<AuctionLotEntity>{const [doc]=await AuctionLotModel.create([data],{session});return doc.toObject() as AuctionLotEntity;}
+ async create(data:AuctionLotFields,session?:ClientSession):Promise<AuctionLotEntity>{const [doc]=await AuctionLotModel.create([data],{session});return doc.toObject() as unknown as AuctionLotEntity;}
  async update(id:string,data:Partial<AuctionLotFields>,session?:ClientSession):Promise<AuctionLotEntity|null>{return AuctionLotModel.findByIdAndUpdate(id,{$set:data},{session,returnDocument:"after",runValidators:true}).lean<AuctionLotEntity>().exec();}
  async count(query:Partial<AuctionLotQuery>,session?:ClientSession):Promise<number>{return AuctionLotModel.countDocuments(query).session(session??null).exec();}
  async sumSold(seasonTeamId:string,session?:ClientSession):Promise<number>{const rows=await AuctionLotModel.aggregate<{total:number}>([{$match:{seasonTeamRef:new Types.ObjectId(seasonTeamId),auctionStatus:"sold"}},{$group:{_id:null,total:{$sum:"$purchasePrice"}}}]).session(session??null).exec();return rows[0]?.total??0;}

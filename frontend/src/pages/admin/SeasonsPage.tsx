@@ -102,7 +102,12 @@ function SeasonsBody() {
     [selectedSeasonId],
   );
   const fixtures = useServiceQuery(
-    () => selectedSeasonId ? getSeasonMatches(selectedSeasonId, { page: 1, limit: 100 }) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getSeasonMatches>>),
+    () => selectedSeasonId ? getSeasonMatches(selectedSeasonId, { page: 1, limit: 100 }) : Promise.resolve({
+      success: true,
+      message: "No season selected",
+      data: [],
+      pagination: { page: 1, limit: 100, total: 0, totalPages: 0 },
+    } as Awaited<ReturnType<typeof getSeasonMatches>>),
     [selectedSeasonId],
   );
   const lots = useServiceQuery(

@@ -42,6 +42,10 @@ export function isSeasonReadOnly(status: SeasonLifecycleState): boolean {
   return status === "completed" || status === "archived";
 }
 
+export function isSeasonIdentityEditable(status: SeasonLifecycleState, hasDependencies: boolean): boolean {
+  return status === "draft" && !hasDependencies;
+}
+
 
 export function isWinnerOfMatch(
   homeSeasonTeamRef: string,

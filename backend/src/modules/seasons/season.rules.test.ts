@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ELIGIBLE_SEASON_TEAM_STATUSES, isAllowedSeasonTransition, isEligibleSeasonTeamStatus, isKickoffWithinSeasonDateWindow, isSeasonReadOnly, isWinnerOfMatch, normalizeSeasonName } from "./season.rules.js";
+import { ELIGIBLE_SEASON_TEAM_STATUSES, isAllowedSeasonTransition, isEligibleSeasonTeamStatus, isKickoffWithinSeasonDateWindow, isSeasonReadOnly, isSeasonIdentityEditable, isWinnerOfMatch, normalizeSeasonName } from "./season.rules.js";
 import { seasonCreateSchema, seasonUpdateSchema } from "./season.schema.js";
+import { normalizeGroupName } from "../groups/group.repository.js";
 
 test("season names normalize spaces and case for global uniqueness", () => {
   assert.equal(normalizeSeasonName("  CSL   Season  10 "), "csl season 10");
@@ -84,4 +85,19 @@ test("knockout winner must be one of the fixture participants", () => {
   assert.equal(isWinnerOfMatch("home", "away", "away"), true);
   assert.equal(isWinnerOfMatch("home", "away", null), false);
   assert.equal(isWinnerOfMatch("home", "away", "other"), false);
+});
+
+test("group names normalize repeated whitespace and case for season-scoped uniqueness", () => {
+  assert.equal(normalizeGroupName("  Group   A  "), "group a");
+  assert.equal(normalizeGroupName("GROUP A"), "group a");
+  assert.equal(normalizeGroupName("Group\tA"), "group a");
+});
+
+test("season identity is editable only for an empty Draft season", () => {
+  assert.equal(isSeasonIdentityEditable("draft", false), true);
+  assert.equal(isSeasonIdentityEditable("draft", true), false);
+  assert.equal(isSeasonIdentityEditable("upcoming", false), false);
+  assert.equal(isSeasonIdentityEditable("active", false), false);
+  assert.equal(isSeasonIdentityEditable("completed", false), false);
+  assert.equal(isSeasonIdentityEditable("archived", false), false);
 });

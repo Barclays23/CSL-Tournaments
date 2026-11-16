@@ -11,6 +11,7 @@ export interface IGroupRepository {
   findByName(seasonId: string, name: string): Promise<GroupEntity | null>;
   findInSeason(seasonId: string, groupId: string): Promise<GroupEntity | null>;
   countAssignments(seasonId: string, groupId: string): Promise<number>;
+  countMatchReferences(seasonId: string, groupId: string): Promise<number>;
   create(data: GroupFields): Promise<GroupEntity>;
   updateInSeason(seasonId: string, groupId: string, data: Partial<Pick<GroupFields, "groupName" | "displayOrder">>): Promise<GroupEntity | null>;
   deleteInSeason(seasonId: string, groupId: string): Promise<boolean>;

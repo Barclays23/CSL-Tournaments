@@ -228,9 +228,11 @@ export class MatchService implements IMatchService {
 
     if (stage === "group") {
       if (!groupName) throw new AppError("Group name is required for a group-stage match", 422, "GROUP_REQUIRED");
-      if (team1.groupName !== groupName || team2.groupName !== groupName) {
-        throw new AppError("Both teams must belong to the selected group", 422, "GROUP_MISMATCH");
-      }
+      throw new AppError(
+        "Group-stage fixtures must be created through the season-scoped fixtures API so membership is validated against SeasonTeam.groupRef",
+        409,
+        "SEASON_SCOPE_REQUIRED",
+      );
     }
   }
 

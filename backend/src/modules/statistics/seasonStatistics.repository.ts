@@ -1,4 +1,5 @@
 import {Types} from "mongoose";
+import type {ManagerEntity} from "../managers/manager.types.js";
 import {SeasonModel} from "../seasons/season.model.js";
 import {SeasonTeamModel} from "../seasonTeams/seasonTeam.model.js";
 import {GroupModel} from "../groups/group.model.js";
@@ -21,7 +22,8 @@ const matchPopulation=[
  {path:"goals.playerSeasonTeamRef",select:"displayName logoSnapshot teamRef",populate:{path:"teamRef",select:"name shortName logo"}},
  {path:"goals.scorerPlayerRef",select:"name profilePic"}
 ];
-export type PopulatedSeasonTeam=SeasonTeamEntity&{teamRef:TeamEntity;groupRef:any;managerRefs:Array<any>};
+export type PopulatedSeasonManager=Pick<ManagerEntity,"_id"|"name"|"role"|"profilePic">;
+export type PopulatedSeasonTeam=Omit<SeasonTeamEntity,"managerRefs">&{managerRefs:Array<PopulatedSeasonManager|Types.ObjectId>};
 export type PopulatedAuctionLot=Omit<AuctionLotEntity,"playerRef"|"seasonTeamRef"|"seasonRef">&{playerRef:PlayerEntity;seasonTeamRef:any;seasonRef:SeasonEntity};
 export class SeasonStatisticsRepository{
  async findSeason(id:string):Promise<SeasonEntity|null>{return SeasonModel.findById(id).lean<SeasonEntity>().exec();}

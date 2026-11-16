@@ -41,7 +41,7 @@ export class SeasonMatchRepository {
   async findGroup(seasonId: string, id: string) { return GroupModel.findOne({ _id: new Types.ObjectId(id), seasonRef: new Types.ObjectId(seasonId) }).lean().exec(); }
   async findPlayer(id: string): Promise<PlayerEntity | null> { return PlayerModel.findById(id).lean<PlayerEntity>().exec(); }
   async findSoldLot(seasonId: string, playerId: string): Promise<AuctionLotEntity | null> { return AuctionLotModel.findOne({ seasonRef: new Types.ObjectId(seasonId), playerRef: new Types.ObjectId(playerId), auctionStatus: "sold" }).lean<AuctionLotEntity>().exec(); }
-  async create(data: SeasonMatchFields): Promise<SeasonMatchEntity> { const [doc] = await SeasonMatchModel.create([data]); return doc.toObject() as SeasonMatchEntity; }
+  async create(data: SeasonMatchFields): Promise<SeasonMatchEntity> { const [doc] = await SeasonMatchModel.create([data]); return doc.toObject() as unknown as SeasonMatchEntity; }
   async update(id: string, data: Partial<SeasonMatchFields>): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findByIdAndUpdate(id, { $set: data }, { returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec(); }
   async delete(id: string): Promise<boolean> { const result = await SeasonMatchModel.deleteOne({ _id: id }).exec(); return result.deletedCount === 1; }
   async appendGoal(id: string, goal: SeasonMatchFields["goals"][number]): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findByIdAndUpdate(id, { $push: { goals: goal } }, { returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec(); }

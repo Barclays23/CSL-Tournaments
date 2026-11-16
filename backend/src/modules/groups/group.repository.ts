@@ -8,7 +8,7 @@ import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import type { SeasonStatus } from "../seasons/season.types.js";
 
 export function normalizeGroupName(name: string): string {
-  return name.trim().replace(/\\s+/g, " ").toLocaleLowerCase("en");
+  return name.trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
 }
 
 export class GroupRepository implements IGroupRepository {
@@ -48,6 +48,13 @@ export class GroupRepository implements IGroupRepository {
     }).lean<GroupEntity>().exec();
   }
 
+  async countMatchReferences(seasonId: string, groupId: string): Promise<number> {
+    return SeasonMatchModel.countDocuments({
+      seasonRef: new Types.ObjectId(seasonId),
+      groupRef: new Types.ObjectId(groupId),
+    }).exec();
+  }
+
   async countAssignments(seasonId: string, groupId: string): Promise<number> {
     const groupRef = new Types.ObjectId(groupId);
     return SeasonTeamModel.countDocuments({
@@ -62,7 +69,7 @@ export class GroupRepository implements IGroupRepository {
       groupName: data.groupName.trim(),
       normalizedGroupName: normalizeGroupName(data.groupName),
     });
-    return record.toObject() as GroupEntity;
+    return record.toObject() as unknown as GroupEntity;
   }
 
   async updateInSeason(
