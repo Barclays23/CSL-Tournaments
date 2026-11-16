@@ -1,5 +1,10 @@
 import { Types } from "mongoose";
 import type { ClientSession } from "mongoose";
+import { SeasonModel } from "../seasons/season.model.js";
+import { ManagerModel } from "../managers/manager.model.js";
+import { GroupModel } from "../groups/group.model.js";
+import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
+import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { SeasonTeamModel } from "./seasonTeam.model.js";
 import type { SeasonTeamEntity, SeasonTeamFields, SeasonTeamListFilter } from "./seasonTeam.types.js";
 
