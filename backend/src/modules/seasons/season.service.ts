@@ -200,8 +200,12 @@ export class SeasonService implements ISeasonService {
     const blockers: string[] = [];
     const unresolved = matches.filter((match) => match.status !== "completed");
     unresolved.forEach((match) => blockers.push("Match " + match.matchNumber + " is " + match.status));
-    matches.filter((match) => match.stage !== "group" && match.status === "completed" && !match.winnerSeasonTeamRef)
-      .forEach((match) => blockers.push("Knockout match " + match.matchNumber + " has no valid winner"));
+    matches.filter((match) => {
+      if (match.stage === "group" || match.status !== "completed") return false;
+      const winnerId = match.winnerSeasonTeamRef ? String(match.winnerSeasonTeamRef) : null;
+      return !winnerId
+        || (winnerId !== String(match.homeSeasonTeamRef) && winnerId !== String(match.awaySeasonTeamRef));
+    }).forEach((match) => blockers.push("Knockout match " + match.matchNumber + " has no valid winner among its participants"));
     const finalMatch = matches.filter((match) => match.stage === "final").sort((a, b) => b.matchNumber - a.matchNumber)[0];
     if (!finalMatch) blockers.push("The tournament final has not been recorded");
     else if (finalMatch.status !== "completed" || !finalMatch.winnerSeasonTeamRef) blockers.push("The final must be completed with a determinable winner");
