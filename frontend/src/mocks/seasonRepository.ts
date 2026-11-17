@@ -362,7 +362,8 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Season is closed for fixture creation");
+    if (!["upcoming", "active"].includes(season.status)) fail(409, "Fixtures can only be created for Upcoming or Active seasons");
+    if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season");
     if (db.matches.some((match) => match.seasonRef === seasonId && match.matchNumber === input.matchNumber)) {
       fail(409, "Match number already exists in this season");
     }
