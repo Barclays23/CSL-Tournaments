@@ -581,6 +581,16 @@ export const previewRepository = {
       updatedAt: new Date().toISOString(),
     };
     db.teams[index] = team;
+    const seasonTeamMaster = seasonDb.teams.find((item) => item._id === id);
+    if (seasonTeamMaster) {
+      seasonTeamMaster.name = team.name;
+      seasonTeamMaster.shortName = team.shortName;
+      seasonTeamMaster.description = team.description;
+      seasonTeamMaster.logo = team.logo;
+      seasonTeamMaster.poster = team.poster;
+      seasonTeamMaster.status = team.status;
+      seasonTeamMaster.updatedAt = team.updatedAt;
+    }
     const affectedSeasonTeamIds = new Set<string>();
     for (const seasonTeam of seasonDb.seasonTeams) {
       if (seasonTeam.teamRef !== id) continue;
