@@ -417,8 +417,8 @@ function SeasonsBody() {
 
       <div className="space-y-5">
         {selected ? (
-          <div className="grid gap-5">
-            <GlassCard className="p-5">
+          <div className="grid items-start gap-5 lg:grid-cols-2">
+            <GlassCard className="p-5 lg:col-span-2">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-3">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-accent">
@@ -446,7 +446,7 @@ function SeasonsBody() {
               </div>
               {selected.status === "draft" && dependenciesExist ? <p className="mt-2 text-xs text-muted">Deletion is disabled because this Draft season has linked teams, groups, auction lots or fixtures. Remove only unused setup records first.</p> : null}
             </GlassCard>
-            <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 grid-cols-2 xl:grid-cols-4 lg:col-span-2">
               {[
                 { label: "Participating teams", value: registeredTeams.length, icon: Users },
                 { label: "Season groups", value: seasonGroups.length, icon: Layers3 },
