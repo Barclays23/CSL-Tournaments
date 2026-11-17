@@ -28,7 +28,7 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const player = useServiceQuery(() => getPlayerById(playerId), [playerId]);
+  const player = useServiceQuery(() => getPlayerById(playerId, isAdmin), [playerId, isAdmin]);
   const history = useServiceQuery(() => getPlayerHistory(playerId), [playerId]);
   const awardSeasonIds = Array.from(new Set(history.data?.data.auctionHistory.map((entry) => entry.season._id) ?? []));
   const playerAwards = useServiceQuery(async () => {

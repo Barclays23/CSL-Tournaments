@@ -14,11 +14,13 @@ export function getPlayers(params: PlayerQuery = {}) {
   );
 }
 
-export function getPlayerById(id: string) {
+export function getPlayerById(id: string, includeAdminDetails = false) {
   return run(() =>
     USE_MOCK_API
       ? previewRepository.getPlayer(id)
-      : api.get<ApiResponse<PublicPlayer | AdminPlayer>>(`/players/${id}`).then((response) => response.data),
+      : api.get<ApiResponse<PublicPlayer | AdminPlayer>>(
+          includeAdminDetails ? `/players/${id}/admin-details` : `/players/${id}`,
+        ).then((response) => response.data),
   );
 }
 

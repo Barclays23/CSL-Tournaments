@@ -23,6 +23,7 @@ export interface IPlayerService {
 export interface IPlayerController {
   getPlayers: ControllerMethod;
   getPlayerById: ControllerMethod;
+  getPlayerAdminDetails: ControllerMethod;
   createPlayer: ControllerMethod;
   updatePlayer: ControllerMethod;
   deactivatePlayer: ControllerMethod;

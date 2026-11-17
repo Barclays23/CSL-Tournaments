@@ -8,6 +8,7 @@ import { playerCreateSchema, playerQuerySchema, playerUpdateSchema } from "./pla
 
 export const playerRouter = Router();
 playerRouter.get("/:id/history", seasonStatisticsController.getPlayerHistory);
+playerRouter.get("/:id/admin-details", authenticate, requireAdmin, playerController.getPlayerAdminDetails);
 playerRouter.get("/", optionalAuthenticate, validate(playerQuerySchema, "query"), playerController.getPlayers);
 playerRouter.get("/:id", optionalAuthenticate, playerController.getPlayerById);
 playerRouter.post("/", authenticate, requireAdmin, validate(playerCreateSchema), playerController.createPlayer);

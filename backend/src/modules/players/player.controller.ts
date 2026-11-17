@@ -25,6 +25,13 @@ export class PlayerController implements IPlayerController {
       response.status(HTTP_STATUS.OK).json(ApiResponse.success(PLAYER_MESSAGES.PLAYER_FETCHED, player));
     } catch (error: unknown) { next(error); }
   };
+  getPlayerAdminDetails = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      const id = getRequiredRouteParam(request.params.id, "id");
+      const player: PlayerAdminDTO = await this._playerService.getPlayerById(id, true) as PlayerAdminDTO;
+      response.status(HTTP_STATUS.OK).json(ApiResponse.success(PLAYER_MESSAGES.PLAYER_FETCHED, player));
+    } catch (error: unknown) { next(error); }
+  };
   createPlayer = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const input: PlayerCreateInput = playerCreateSchema.parse(request.body);
