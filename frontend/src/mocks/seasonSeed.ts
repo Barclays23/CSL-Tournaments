@@ -45,7 +45,7 @@ export interface MockGroup {
 export interface MockSeasonTeam {
   _id: string; seasonRef: string; teamRef: string; displayName: string; logoSnapshot: Asset | null;
   groupRef: string | null; managerRefs: string[];
-  status: "registered" | "active" | "withdrawn" | "eliminated" | "completed";
+  status: "registered" | "active" | "withdrawn" | "eliminated" | "completed"; participationHistory?: Array<{fromStatus:string;toStatus:string;reason:string;changedAt:string}>;
   createdAt: string; updatedAt: string;
 }
 export interface MockAuctionLot {

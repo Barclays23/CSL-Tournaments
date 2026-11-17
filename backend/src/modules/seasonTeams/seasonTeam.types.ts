@@ -10,6 +10,7 @@ export interface SeasonTeamFields {
   groupRef: Types.ObjectId | null;
   managerRefs: Types.ObjectId[];
   status: SeasonTeamStatus;
+  participationHistory?: Array<{ fromStatus: SeasonTeamStatus; toStatus: SeasonTeamStatus; reason: string; changedAt: Date }>;
 }
 export interface SeasonTeamEntity extends SeasonTeamFields {
   _id: Types.ObjectId;

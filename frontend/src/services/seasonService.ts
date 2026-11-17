@@ -37,6 +37,9 @@ export function updateSeasonTeam(seasonId: string, id: string, data: { groupId?:
 export function removeSeasonTeam(seasonId: string, id: string) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.removeSeasonTeam(seasonId, id) : api.delete<ApiResponse<null>>("/seasons/" + seasonId + "/teams/" + id).then((r) => r.data));
 }
+export function recallSeasonTeam(seasonId: string, id: string, reason: string) {
+  return run(() => USE_MOCK_API ? seasonPreviewRepository.recallSeasonTeam(seasonId, id, reason) : api.post<ApiResponse<SeasonTeam>>("/seasons/" + seasonId + "/teams/" + id + "/recall", { reason }).then((r) => r.data));
+}
 export function withdrawSeasonTeam(seasonId: string, id: string) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.withdrawSeasonTeam(seasonId, id) : api.post<ApiResponse<SeasonTeam>>("/seasons/" + seasonId + "/teams/" + id + "/withdraw").then((r) => r.data));
 }

@@ -166,6 +166,7 @@ export interface SeasonTeam {
   groupRef: string | null;
   managerRefs: string[];
   status: "registered" | "active" | "withdrawn" | "eliminated" | "completed";
+  participationHistory?: Array<{fromStatus:string;toStatus:string;reason:string;changedAt:string}>;
   team: { _id: string; name: string; shortName: string | null; logo: unknown } | null;
   group: { _id: string; groupName: string; displayOrder: number } | null;
   managers: Array<{ _id: string; name: string; role: string | null; profilePic: unknown }>;

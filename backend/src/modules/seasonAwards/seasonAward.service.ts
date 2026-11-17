@@ -3,6 +3,7 @@ import { AppError } from "../../shared/errors/appError.js";
 import { SEASON_AWARD_CATEGORIES, type SeasonAwardEntity, type SeasonAwardFields, type SeasonAwardType } from "./seasonAward.types.js";
 import type { CreateSeasonAwardDto, ISeasonAwardService, SeasonAwardResponseDto, UpdateSeasonAwardDto } from "./seasonAward.dto.js";
 import { SeasonAwardRepository } from "./seasonAward.repository.js";
+import { getSeasonAwardReadinessBlockers } from "./seasonAward.readiness.js";
 
 const ELIGIBLE_TEAM_STATUSES = new Set(["registered", "active"]);
 
@@ -16,6 +17,7 @@ export class SeasonAwardService implements ISeasonAwardService {
   }
 
   async create(seasonId: string, input: CreateSeasonAwardDto): Promise<SeasonAwardResponseDto> {
+    await this.ensureAwardReadiness(seasonId);
     this.ensureId(seasonId, "season");
     await this.ensureActiveSeason(seasonId);
     const fields = await this.buildFields(seasonId, input.awardType, input.title, input.description, input.recipients);
@@ -30,6 +32,7 @@ export class SeasonAwardService implements ISeasonAwardService {
   }
 
   async update(seasonId: string, awardId: string, input: UpdateSeasonAwardDto): Promise<SeasonAwardResponseDto> {
+    await this.ensureAwardReadiness(seasonId);
     this.ensureId(seasonId, "season");
     this.ensureId(awardId, "award");
     await this.ensureActiveSeason(seasonId);
@@ -58,6 +61,7 @@ export class SeasonAwardService implements ISeasonAwardService {
   }
 
   async delete(seasonId: string, awardId: string): Promise<void> {
+    await this.ensureAwardReadiness(seasonId);
     this.ensureId(seasonId, "season");
     this.ensureId(awardId, "award");
     await this.ensureActiveSeason(seasonId);
@@ -171,6 +175,15 @@ export class SeasonAwardService implements ISeasonAwardService {
       && String(counterpart.recipients[0]?.seasonTeamRef) === String(recipients[0]?.seasonTeamRef)) {
       throw new AppError("Champion and Runner-up must be different SeasonTeams", 422, "SAME_CHAMPION_RUNNER_UP");
     }
+  }
+
+  private async ensureAwardReadiness(seasonId: string): Promise<void> {
+    this.ensureId(seasonId, "season");
+    const status = await this.repository.findSeasonStatus(seasonId);
+    if (!status) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+    if (status !== "active") throw new AppError("Season awards can only be changed while the season is Active; Completed and Archived history is read-only", 409, "SEASON_AWARDS_LOCKED");
+    const blockers = getSeasonAwardReadinessBlockers(await this.repository.getAwardReadinessSnapshot(seasonId));
+    if (blockers.length) throw new AppError("Achievements and awards are available after fixtures and auction activity are finalized", 409, "SEASON_AWARDS_NOT_READY", Object.fromEntries(blockers.map((item, index) => ["blocker." + (index + 1), item])));
   }
 
   private async ensureActiveSeason(seasonId: string): Promise<void> {
