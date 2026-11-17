@@ -24,7 +24,9 @@ export class PlayerService implements IPlayerService {
     this.ensureValidPlayerId(playerId);
     const player = await this._playerRepository.findPlayerById(playerId);
     if (!player) throw new AppError("Player not found", 404, "PLAYER_NOT_FOUND");
-    return this.mapPlayer(player, isAdmin);
+    // A direct Player Details request is public and includes the complete permanent profile.
+    // The paginated player directory continues to use the restricted public projection.
+    return this.mapPlayer(player, true);
   }
 
   async createPlayer(input: PlayerCreateDTO): Promise<PlayerAdminDTO> {

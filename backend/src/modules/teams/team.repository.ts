@@ -4,6 +4,7 @@ import type { TeamRecord } from "./team.model.js";
 import { ManagerModel } from "../managers/manager.model.js";
 import { MatchModel } from "../matches/match.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
+import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
 import { PlayerModel } from "../players/player.model.js";
 import type { ITeamRepository } from "./team.interfaces.js";
 import type { TeamCreateDTO, TeamEntity, TeamFields, TeamListFilter, TeamReferenceCounts, TeamUpdateDTO } from "./team.types.js";
@@ -75,10 +76,35 @@ export class TeamRepository implements ITeamRepository {
     if (data.logo !== undefined) updateFields.logo = data.logo;
     if (data.poster !== undefined) updateFields.poster = data.poster;
     if (data.status !== undefined) updateFields.status = data.status;
-    return TeamModel.findByIdAndUpdate(teamId, { $set: updateFields }, {
+    const updatedTeam = await TeamModel.findByIdAndUpdate(teamId, { $set: updateFields }, {
       returnDocument: "after",
       runValidators: true,
     }).lean<TeamEntity>().exec();
+    if (!updatedTeam) return null;
+
+    if (data.name !== undefined || data.logo !== undefined) {
+      const teamObjectId = new Types.ObjectId(teamId);
+      const seasonTeams = await SeasonTeamModel.find({ teamRef: teamObjectId })
+        .select("_id").lean<Array<{ _id: Types.ObjectId }>>().exec();
+      const seasonTeamIds = seasonTeams.map((seasonTeam) => seasonTeam._id);
+      const snapshotUpdates: Record<string, unknown> = {};
+      if (data.name !== undefined) snapshotUpdates.displayName = updatedTeam.name;
+      if (data.logo !== undefined) snapshotUpdates.logoSnapshot = updatedTeam.logo;
+
+      await SeasonTeamModel.updateMany({ teamRef: teamObjectId }, { $set: snapshotUpdates }).exec();
+
+      if (seasonTeamIds.length) {
+        const awardSnapshotUpdates: Record<string, unknown> = {};
+        if (data.name !== undefined) awardSnapshotUpdates["recipients.$[recipient].teamNameSnapshot"] = updatedTeam.name;
+        if (data.logo !== undefined) awardSnapshotUpdates["recipients.$[recipient].teamLogoSnapshot"] = updatedTeam.logo;
+        await SeasonAwardModel.updateMany(
+          { "recipients.seasonTeamRef": { $in: seasonTeamIds } },
+          { $set: awardSnapshotUpdates },
+          { arrayFilters: [{ "recipient.seasonTeamRef": { $in: seasonTeamIds } }] },
+        ).exec();
+      }
+    }
+    return updatedTeam;
   }
 
   async deleteTeam(teamId: string): Promise<boolean> {
