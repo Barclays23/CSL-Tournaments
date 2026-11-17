@@ -1,9 +1,19 @@
 import {Types,type ClientSession} from "mongoose";
 import {AuctionLotModel} from "./auctionLot.model.js";
 import {PlayerModel} from "../players/player.model.js";
-import type {AuctionLotEntity,AuctionLotFields,AuctionLotQuery} from "./auctionLot.types.js";
+import {SeasonModel} from "../seasons/season.model.js";
+import {SeasonTeamModel} from "../seasonTeams/seasonTeam.model.js";
+import type {AuctionLotEntity,AuctionLotFields,AuctionLotQuery,ISeasonRosterLookupRepository} from "./auctionLot.types.js";
 const populate=[{path:"playerRef",select:"name profilePic"},{path:"seasonTeamRef",select:"displayName logoSnapshot teamRef",populate:{path:"teamRef",select:"name shortName logo"}}];
-export class AuctionLotRepository{
+export class AuctionLotRepository implements ISeasonRosterLookupRepository{
+ async isPlayerSoldToTeamInActiveSeason(playerId:string,teamId:string):Promise<boolean>{
+  if(!Types.ObjectId.isValid(playerId)||!Types.ObjectId.isValid(teamId))return false;
+  const season=await SeasonModel.findOne({status:"active"}).select("_id").lean<{_id:Types.ObjectId}|null>().exec();
+  if(!season)return false;
+  const seasonTeam=await SeasonTeamModel.findOne({seasonRef:season._id,teamRef:new Types.ObjectId(teamId),status:{$nin:["withdrawn","eliminated","completed"]}}).select("_id").lean<{_id:Types.ObjectId}|null>().exec();
+  if(!seasonTeam)return false;
+  return Boolean(await AuctionLotModel.exists({seasonRef:season._id,playerRef:new Types.ObjectId(playerId),seasonTeamRef:seasonTeam._id,auctionStatus:"sold"}).exec());
+ }
  async find(query:AuctionLotQuery):Promise<AuctionLotEntity[]>{return AuctionLotModel.find(query).sort({lotNumber:1,createdAt:1}).populate(populate).lean<AuctionLotEntity[]>().exec();}
  async findById(id:string,session?:ClientSession):Promise<AuctionLotEntity|null>{return AuctionLotModel.findById(id).session(session??null).lean<AuctionLotEntity>().exec();}
  async findPopulatedById(id:string):Promise<AuctionLotEntity|null>{return AuctionLotModel.findById(id).populate(populate).lean<AuctionLotEntity>().exec();}

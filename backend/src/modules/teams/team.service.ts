@@ -1,17 +1,11 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import type { PaginatedResult } from "../../shared/types/common.types.js";
-import type { ISettingsService } from "../settings/settings.types.js";
-import type { IPlayerRepository } from "../players/player.interfaces.js";
 import type { ITeamService, ITeamRepository } from "./team.interfaces.js";
-import type { TeamAuctionCardDTO, TeamAuctionSummaryDTO, TeamBriefDTO, TeamCreateDTO, TeamDTO, TeamFields, TeamListFilter, TeamQueryDTO, TeamUpdateDTO } from "./team.types.js";
+import type { TeamCreateDTO, TeamDTO, TeamFields, TeamListFilter, TeamQueryDTO, TeamUpdateDTO } from "./team.types.js";
 
 export class TeamService implements ITeamService {
-  constructor(
-    private readonly _teamRepository: ITeamRepository,
-    private readonly _playerRepository: IPlayerRepository,
-    private readonly _settingsService: ISettingsService,
-  ) {}
+  constructor(private readonly _teamRepository: ITeamRepository) {}
 
   async getTeams(query: TeamQueryDTO, isAdmin: boolean): Promise<PaginatedResult<TeamDTO>> {
     const filter: TeamListFilter = {};
@@ -82,58 +76,6 @@ export class TeamService implements ITeamService {
     if (!deleted) throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");
   }
 
-  async getTeamAuctionSummary(): Promise<TeamAuctionSummaryDTO> {
-    const settings = await this._settingsService.getTournamentSettings();
-    const activeTeams = await this._teamRepository.findTeams({ status: "active" }, 1, 100);
-    const auctionTotals = await this._playerRepository.getPlayerAuctionCounts();
-
-    const teamCards: TeamAuctionCardDTO[] = await Promise.all(
-      activeTeams.items.map(async (team) => {
-        const players = await this._playerRepository.findSoldPlayersByTeam(String(team._id));
-        const purchaseCost = players.reduce((total, player) => total + player.auctionPrice, 0);
-        const teamBrief: TeamBriefDTO = this.mapTeamToBriefDTO(team);
-
-        return {
-          team: this.mapTeamToDTO(team),
-          players: players.map((player) => ({
-            _id: String(player._id),
-            name: player.name,
-            position: player.position,
-            isIconPlayer: player.isIconPlayer,
-            teamRef: String(team._id),
-            team: teamBrief,
-            jerseyNo: player.jerseyNo,
-            auctionPrice: player.auctionPrice,
-            auctionStatus: player.auctionStatus,
-            status: player.status,
-            profilePic: player.profilePic,
-          })),
-          stats: {
-            auctionBudget: settings.auctionBudgetPerTeam,
-            purchaseCost,
-            remainingBalance: settings.auctionBudgetPerTeam - purchaseCost,
-            playerCount: players.length,
-            remainingSlots: settings.maxPlayersPerTeam - players.length,
-            averagePurchaseCost: players.length > 0 ? purchaseCost / players.length : 0,
-            iconPlayerCount: players.filter((player) => player.isIconPlayer).length,
-            goalkeeperCount: players.filter((player) => player.position === "GK").length,
-            maxPlayers: settings.maxPlayersPerTeam,
-            requiredIcons: settings.requiredIconPlayers,
-            requiredGoalkeepers: settings.requiredGoalkeepers,
-          },
-        };
-      }),
-    );
-
-    return {
-      totals: {
-        ...auctionTotals,
-        activeTeams: activeTeams.total,
-      },
-      teams: teamCards,
-    };
-  }
-
   private mapTeamToDTO(team: TeamFields & { _id: Types.ObjectId; createdAt: Date; updatedAt: Date }): TeamDTO {
     return {
       _id: String(team._id),
@@ -145,15 +87,6 @@ export class TeamService implements ITeamService {
       status: team.status,
       createdAt: team.createdAt.toISOString(),
       updatedAt: team.updatedAt.toISOString(),
-    };
-  }
-
-  private mapTeamToBriefDTO(team: TeamFields & { _id: Types.ObjectId }): TeamBriefDTO {
-    return {
-      _id: String(team._id),
-      name: team.name,
-      shortName: team.shortName,
-      logo: team.logo,
     };
   }
 

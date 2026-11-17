@@ -20,10 +20,9 @@ export interface MockTeam {
   status: "active" | "inactive"; createdAt: string; updatedAt: string;
 }
 export interface MockPlayer {
-  _id: string; __v: number; name: string; mobile: string; email: string | null; dateOfBirth: string | null;
-  position: "GK" | "DF" | "MF" | "FW"; isIconPlayer: boolean; teamRef: string | null;
-  jerseyNo: number | null; auctionPrice: number; auctionStatus: "pending" | "sold" | "unsold";
-  status: "active" | "inactive"; profilePic: Asset | null; createdAt: string; updatedAt: string;
+  _id: string; __v: number; name: string; mobile: string | null; email: string | null;
+  dateOfBirth: string | null; profilePic: Asset | null; status: "active" | "inactive";
+  notes: string | null; createdAt: string; updatedAt: string;
 }
 export interface MockManager {
   _id: string; __v: number; name: string; mobile: string; email: string | null; dateOfBirth: string | null;
@@ -103,14 +102,11 @@ const playerNames = [
   "Pranav Mathew", "Riyas Hussain", "Sabir Nair", "Tony Menon", "Unni Kumar", "Vineeth Rahman",
 ];
 const players: MockPlayer[] = playerNames.map((name, index) => ({
-  _id: oid(200 + index), __v: 0, name, mobile: `9847${String(100000 + index).slice(-6)}`,
+  _id: oid(200 + index), __v: 0, name, mobile: index % 7 === 0 ? null : `9847${String(100000 + index).slice(-6)}`,
   email: index % 5 === 0 ? `${name.toLowerCase().replaceAll(" ", ".")}@example.com` : null,
   dateOfBirth: index % 4 === 0 ? `199${index % 10}-0${(index % 8) + 1}-15T00:00:00.000Z` : null,
-  // These fields remain because the current Player Mongoose model still declares them.
-  // Season position, jersey and purchase price are sourced from AuctionLot in this preview.
-  position: (["GK", "DF", "MF", "FW"] as const)[index % 4], isIconPlayer: false,
-  teamRef: null, jerseyNo: null, auctionPrice: 0, auctionStatus: "pending",
   status: "active", profilePic: asset(`https://i.pravatar.cc/240?img=${(index % 70) + 1}`, `mock/players/player-${index + 1}`),
+  notes: index % 6 === 0 ? "Sample player profile note." : null,
   createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
 
@@ -441,7 +437,7 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
     assert(lot.seasonTeamRef === null || Boolean(seasonTeam(lot.seasonTeamRef, lot.seasonRef)), `AuctionLot ${lot._id} points to a team in another season`);
     assert(lot.auctionStatus !== "sold" || (lot.seasonTeamRef !== null && lot.purchasePrice !== null && lot.soldAt !== null), `sold AuctionLot ${lot._id} is incomplete`);
     assert(lot.auctionStatus === "sold" || lot.purchasePrice === null, `non-sold AuctionLot ${lot._id} has a purchase price`);
-    assert(lot.isGoalkeeper === (lot.playerPosition === "goalkeeper"), `AuctionLot ${lot._id} has inconsistent goalkeeper position metadata`);
+    assert(typeof lot.isGoalkeeper === "boolean", `AuctionLot ${lot._id} is missing its independent goalkeeper flag`);
     assert(lot.auctionStatus === "sold" || (lot.seasonTeamRef === null && lot.jerseyNo === null && lot.soldAt === null), `non-sold AuctionLot ${lot._id} retains sale details`);
   }
   for (const match of db.matches) {

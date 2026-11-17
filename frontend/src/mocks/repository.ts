@@ -7,7 +7,7 @@ import type { AdminPlayer, PlayerQuery, PlayerWrite, PublicPlayer } from "@/type
 import type { SettingsUpdate } from "@/types/settings.types";
 import type { AdminSponsor, PublicSponsor, SponsorQuery, SponsorWrite } from "@/types/sponsor.types";
 import type { DashboardSummary, GroupStanding, StandingRow, TeamStatistics, TopScorer } from "@/types/statistics.types";
-import type { AuctionSummary, Team, TeamAuctionCard, TeamBrief, TeamSquadStats, TeamWrite } from "@/types/team.types";
+import type { Team, TeamBrief, TeamWrite } from "@/types/team.types";
 import { isKnockout } from "@/constants/football.constants";
 import {
   commit,
@@ -28,6 +28,8 @@ import {
 } from "@/mocks/store";
 import { ApiError } from "@/utils/errorHandler";
 import { getMatchScore } from "@/utils/getMatchScore";
+import type { MockPlayer } from "@/mocks/seasonSeed";
+import { commitSeasonDb, readSeasonDb } from "@/mocks/seasonStore";
 
 const PREVIEW_EMAIL = "admin@csl.local";
 const PREVIEW_PASSWORD = "Admin@12345";
@@ -65,33 +67,30 @@ function presentTeam(team: StoredTeam): Team {
   return { ...team, description: team.description };
 }
 
-function presentPlayer(db: Database, player: StoredPlayer, admin: boolean): PublicPlayer | AdminPlayer {
-  const team = player.teamRef ? db.teams.find((item) => item._id === player.teamRef) : null;
+function presentPlayer(_db: Database, player: StoredPlayer, admin: boolean): PublicPlayer | AdminPlayer {
   const base: PublicPlayer = {
     _id: player._id,
     name: player.name,
-    position: player.position,
-    isIconPlayer: player.isIconPlayer,
-    teamRef: player.teamRef,
-    team: team ? briefTeam(team) : null,
-    jerseyNo: player.jerseyNo,
-    auctionPrice: player.auctionPrice,
-    auctionStatus: player.auctionStatus,
-    status: player.status,
     profilePic: player.profilePic,
+    status: player.status,
   };
   if (!admin) return base;
-  return { ...base, mobile: player.mobile, email: player.email, dateOfBirth: player.dateOfBirth };
+  return {
+    ...base,
+    mobile: player.mobile,
+    email: player.email,
+    dateOfBirth: player.dateOfBirth,
+    notes: player.notes ?? null,
+    createdAt: player.createdAt ?? new Date().toISOString(),
+    updatedAt: player.updatedAt ?? new Date().toISOString(),
+  };
 }
 
 function playerBrief(player: StoredPlayer): PlayerBrief {
   return {
     _id: player._id,
     name: player.name,
-    position: player.position,
-    jerseyNo: player.jerseyNo,
     profilePic: player.profilePic,
-    teamRef: player.teamRef,
   };
 }
 
@@ -155,95 +154,47 @@ function presentSponsor(sponsor: StoredSponsor, admin: boolean): PublicSponsor |
   };
 }
 
-function squadOf(db: Database, teamId: string, exceptId?: string) {
-  return db.players.filter(
-    (player) => player.teamRef === teamId && player.auctionStatus === "sold" && player._id !== exceptId,
-  );
+function createMockObjectId(): string {
+  return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
+}
+
+function syncSeasonPlayer(seasonPlayers: MockPlayer[], player: StoredPlayer): void {
+  const master: MockPlayer = {
+    _id: player._id, __v: player.__v, name: player.name, mobile: player.mobile,
+    email: player.email, dateOfBirth: player.dateOfBirth, profilePic: player.profilePic,
+    status: player.status, notes: player.notes ?? null,
+    createdAt: player.createdAt, updatedAt: player.updatedAt,
+  };
+  const index = seasonPlayers.findIndex((item) => item._id === player._id);
+  if (index >= 0) seasonPlayers[index] = master;
+  else seasonPlayers.push(master);
 }
 
 function applyPlayer(db: Database, input: PlayerWrite, existing?: StoredPlayer): StoredPlayer {
-  const mobile = input.mobile;
+  const mobile = input.mobile?.trim() || "";
   const email = input.email?.trim().toLowerCase() || null;
-  if (db.players.some((player) => player.mobile === mobile && player._id !== existing?._id)) {
+  if (mobile && db.players.some((player) => player.mobile === mobile && player._id !== existing?._id)) {
     fail(409, "A player with this mobile number already exists", { mobile: "This mobile number is already used" });
   }
   if (email && db.players.some((player) => player.email === email && player._id !== existing?._id)) {
     fail(409, "A player with this email already exists", { email: "This email is already used" });
   }
-
-  const next: StoredPlayer = {
-    _id: existing?._id ?? uid("player"),
+  const now = new Date().toISOString();
+  return {
+    ...(existing ?? {
+      _id: createMockObjectId(),
+      __v: 0,
+      createdAt: now,
+    }),
     name: input.name.trim(),
     mobile,
     email,
     dateOfBirth: input.dateOfBirth || null,
-    position: input.position,
-    isIconPlayer: input.isIconPlayer,
-    teamRef: input.teamRef || null,
-    jerseyNo: input.jerseyNo ?? null,
-    auctionPrice: input.auctionPrice ?? 0,
-    auctionStatus: input.auctionStatus,
     status: input.status,
     profilePic: input.profilePic === undefined ? existing?.profilePic ?? null : input.profilePic,
+    notes: input.notes?.trim() || null,
+    updatedAt: now,
   };
-
-  if (next.status === "inactive") {
-    next.teamRef = null;
-    next.jerseyNo = null;
-    next.auctionPrice = 0;
-    next.auctionStatus = "pending";
-  } else if (next.auctionStatus !== "sold") {
-    next.teamRef = null;
-    next.jerseyNo = null;
-    next.auctionPrice = 0;
-  } else {
-    if (!next.teamRef) fail(422, "A sold player must have a team", { teamRef: "Choose a team" });
-    if (next.auctionPrice <= 0) {
-      fail(422, "A sold player needs a price above zero", { auctionPrice: "Enter a price above zero" });
-    }
-    const team = db.teams.find((item) => item._id === next.teamRef);
-    if (!team || team.status !== "active") {
-      fail(422, "Players can only be sold to an active team", { teamRef: "Choose an active team" });
-    }
-    const squad = squadOf(db, team._id, next._id);
-    const settings = db.settings;
-    if (squad.length >= settings.maxPlayersPerTeam) {
-      fail(422, `${team.name} already has ${settings.maxPlayersPerTeam} players`, {
-        teamRef: "This squad is already full",
-      });
-    }
-    const spend = squad.reduce((sum, player) => sum + player.auctionPrice, 0);
-    if (spend + next.auctionPrice > settings.auctionBudgetPerTeam) {
-      fail(422, `${team.name} would go over the auction budget`, {
-        auctionPrice: "This price exceeds the remaining budget",
-      });
-    }
-    if (next.isIconPlayer && squad.filter((player) => player.isIconPlayer).length >= settings.requiredIconPlayers) {
-      fail(422, `${team.name} already has the required icon player`, {
-        isIconPlayer: "This team cannot take another icon player",
-      });
-    }
-    if (next.position === "GK" && squad.filter((player) => player.position === "GK").length >= settings.requiredGoalkeepers) {
-      fail(422, `${team.name} already has the required goalkeeper`, {
-        position: "This team cannot take another goalkeeper",
-      });
-    }
-    if (next.jerseyNo != null && squad.some((player) => player.jerseyNo === next.jerseyNo)) {
-      fail(409, "That jersey number is already used in this team", {
-        jerseyNo: "Another player in this team already has this number",
-      });
-    }
-  }
-
-  if (next.status === "active") {
-    const others = db.players.filter((player) => player.status === "active" && player._id !== next._id).length;
-    if (others >= db.settings.maxActivePlayers) {
-      fail(422, `The active player limit is ${db.settings.maxActivePlayers}`, {
-        status: "Deactivate another player before adding this one",
-      });
-    }
-  }
-  return next;
 }
 
 function scorePair(match: StoredMatch) {
@@ -320,6 +271,16 @@ function applyMatch(db: Database, input: MatchWrite, existing?: StoredMatch): St
   return next;
 }
 
+function playerBelongsToActiveSeasonTeam(playerId: string, teamId: string): boolean {
+  const seasonDb = readSeasonDb();
+  const activeSeason = seasonDb.seasons.find((season) => season.status === "active");
+  if (!activeSeason) return false;
+  const lot = seasonDb.auctionLots.find((item) => item.seasonRef === activeSeason._id && item.playerRef === playerId && item.auctionStatus === "sold");
+  if (!lot?.seasonTeamRef) return false;
+  const seasonTeam = seasonDb.seasonTeams.find((item) => item._id === lot.seasonTeamRef);
+  return Boolean(seasonTeam && seasonTeam.teamRef === teamId && !["withdrawn", "eliminated", "completed"].includes(seasonTeam.status));
+}
+
 function validateGoal(db: Database, match: StoredMatch, input: GoalWrite) {
   if (match.status === "cancelled") fail(422, "Cancelled matches cannot record goals");
   if (input.scoringTeamRef !== match.team1Ref && input.scoringTeamRef !== match.team2Ref) {
@@ -329,24 +290,16 @@ function validateGoal(db: Database, match: StoredMatch, input: GoalWrite) {
   if (input.goalType === "normal") {
     if (input.scorerRef) {
       const scorer = db.players.find((player) => player._id === input.scorerRef);
-      if (!scorer) fail(404, "Scorer not found", { scorerRef: "Choose a player from this team" });
-      if (scorer.teamRef !== input.scoringTeamRef) {
-        fail(422, "A normal scorer must belong to the team credited with the goal", {
-          scorerRef: "This player is not in the scoring team",
-        });
+      if (!scorer || scorer.status !== "active" || !playerBelongsToActiveSeasonTeam(input.scorerRef, input.scoringTeamRef)) {
+        fail(422, "A normal scorer must be an active player sold to the scoring team in the active season", { scorerRef: "This player is not in the scoring team's active-season squad" });
       }
     }
     return { scorerRef: input.scorerRef || null, ownGoalPlayerRef: null as string | null };
   }
-  if (!input.ownGoalPlayerRef) {
-    fail(422, "Choose the player who scored the own goal", { ownGoalPlayerRef: "Choose an opposing player" });
-  }
+  if (!input.ownGoalPlayerRef) fail(422, "Choose the player who scored the own goal", { ownGoalPlayerRef: "Choose an opposing player" });
   const own = db.players.find((player) => player._id === input.ownGoalPlayerRef);
-  if (!own) fail(404, "Own-goal player not found", { ownGoalPlayerRef: "Choose an opposing player" });
-  if (own.teamRef !== opponent) {
-    fail(422, "An own goal must be credited to a player from the opposing team", {
-      ownGoalPlayerRef: "This player is not on the opposing team",
-    });
+  if (!own || own.status !== "active" || !playerBelongsToActiveSeasonTeam(input.ownGoalPlayerRef, opponent)) {
+    fail(422, "An own-goal player must be an active player sold to the opposing team in the active season", { ownGoalPlayerRef: "This player is not on the opposing team's active-season squad" });
   }
   return { scorerRef: null as string | null, ownGoalPlayerRef: input.ownGoalPlayerRef };
 }
@@ -407,39 +360,28 @@ function buildStandings(db: Database): GroupStanding[] {
 
 function topScorers(db: Database): TopScorer[] {
   const counts = new Map<string, number>();
+  const scoringTeamByPlayer = new Map<string, string>();
   for (const match of db.matches) {
     if (match.status !== "completed") continue;
     for (const item of match.goals) {
       if (item.goalType === "normal" && item.scorerRef) {
         counts.set(item.scorerRef, (counts.get(item.scorerRef) ?? 0) + 1);
+        scoringTeamByPlayer.set(item.scorerRef, item.scoringTeamRef);
       }
     }
   }
-  const rows = [...counts.entries()]
-    .map(([playerId, goals]) => {
-      const player = db.players.find((item) => item._id === playerId);
-      if (!player) return null;
-      const team = player.teamRef ? db.teams.find((item) => item._id === player.teamRef) : null;
-      const presentedPlayer = presentPlayer(db, player, false) as PublicPlayer;
-      return {
-        player: {
-          _id: presentedPlayer._id,
-          name: presentedPlayer.name,
-          profilePic: presentedPlayer.profilePic,
-        },
-        team: team ? briefTeam(team) : null,
-        goals,
-      };
-    })
-    .filter((row): row is Omit<TopScorer, "rank"> => Boolean(row))
+  const rows = [...counts.entries()].map(([playerId, goals]) => {
+    const player = db.players.find((item) => item._id === playerId);
+    if (!player) return null;
+    const teamId = scoringTeamByPlayer.get(playerId);
+    const team = teamId ? db.teams.find((item) => item._id === teamId) : null;
+    const presentedPlayer = presentPlayer(db, player, false) as PublicPlayer;
+    return { player: { _id: presentedPlayer._id, name: presentedPlayer.name, profilePic: presentedPlayer.profilePic }, team: team ? briefTeam(team) : null, goals };
+  }).filter((row): row is Omit<TopScorer, "rank"> => Boolean(row))
     .sort((a, b) => b.goals - a.goals || a.player.name.localeCompare(b.player.name));
-  let lastGoals = -1;
-  let rank = 0;
+  let lastGoals = -1, rank = 0;
   return rows.map((row, index) => {
-    if (row.goals !== lastGoals) {
-      rank = index + 1;
-      lastGoals = row.goals;
-    }
+    if (row.goals !== lastGoals) { rank = index + 1; lastGoals = row.goals; }
     return { ...row, rank };
   });
 }
@@ -461,25 +403,6 @@ function teamGoalTotals(db: Database) {
     if (score.team1 === 0) away.cleanSheets += 1;
   }
   return totals;
-}
-
-function squadStats(db: Database, teamId: string): TeamSquadStats {
-  const settings = db.settings;
-  const squad = squadOf(db, teamId);
-  const purchaseCost = squad.reduce((sum, player) => sum + player.auctionPrice, 0);
-  return {
-    auctionBudget: settings.auctionBudgetPerTeam,
-    purchaseCost,
-    remainingBalance: settings.auctionBudgetPerTeam - purchaseCost,
-    playerCount: squad.length,
-    remainingSlots: Math.max(settings.maxPlayersPerTeam - squad.length, 0),
-    averagePurchaseCost: squad.length ? purchaseCost / squad.length : 0,
-    iconPlayerCount: squad.filter((player) => player.isIconPlayer).length,
-    goalkeeperCount: squad.filter((player) => player.position === "GK").length,
-    maxPlayers: settings.maxPlayersPerTeam,
-    requiredIcons: settings.requiredIconPlayers,
-    requiredGoalkeepers: settings.requiredGoalkeepers,
-  };
 }
 
 export const previewRepository = {
@@ -525,12 +448,7 @@ export const previewRepository = {
       const needle = query.search.trim().toLowerCase();
       items = items.filter((player) => player.name.toLowerCase().includes(needle));
     }
-    if (query.position) items = items.filter((player) => player.position === query.position);
-    if (query.teamRef) {
-      items = query.teamRef === "unassigned" ? items.filter((player) => !player.teamRef) : items.filter((player) => player.teamRef === query.teamRef);
-    }
     if (admin && query.status) items = items.filter((player) => player.status === query.status);
-    if (admin && query.auctionStatus) items = items.filter((player) => player.auctionStatus === query.auctionStatus);
     items.sort((a, b) => a.name.localeCompare(b.name));
     const page = paginate(items, query.page ?? 1, query.limit ?? 12);
     return ok(
@@ -549,19 +467,25 @@ export const previewRepository = {
   async createPlayer(input: PlayerWrite): Promise<ApiResponse<AdminPlayer>> {
     requireAdmin();
     const db = readDb();
+    const seasonDb = readSeasonDb();
     const player = applyPlayer(db, input);
     db.players.push(player);
+    syncSeasonPlayer(seasonDb.players, player);
     commit(db);
+    commitSeasonDb(seasonDb);
     return ok("Player created", presentPlayer(db, player, true) as AdminPlayer);
   },
   async updatePlayer(id: string, input: PlayerWrite): Promise<ApiResponse<AdminPlayer>> {
     requireAdmin();
     const db = readDb();
+    const seasonDb = readSeasonDb();
     const index = db.players.findIndex((player) => player._id === id);
     if (index < 0) fail(404, "Player not found");
     const player = applyPlayer(db, input, db.players[index]);
     db.players[index] = player;
+    syncSeasonPlayer(seasonDb.players, player);
     commit(db);
+    commitSeasonDb(seasonDb);
     return ok("Player updated", presentPlayer(db, player, true) as AdminPlayer);
   },
   async deactivatePlayer(id: string): Promise<ApiResponse<AdminPlayer>> {
@@ -574,16 +498,23 @@ export const previewRepository = {
   async deletePlayer(id: string) {
     requireAdmin();
     const db = readDb();
-    const used = db.matches.some((match) =>
+    const seasonDb = readSeasonDb();
+    const usedInSeason = seasonDb.auctionLots.some((lot) => lot.playerRef === id) ||
+      seasonDb.matches.some((match) => match.goals.some((goal) => goal.scorerPlayerRef === id) ||
+        (match.penaltyShootout?.kicks ?? []).some((kick) => kick.playerRef === id)) ||
+      seasonDb.awards.some((award) => award.recipients.some((recipient) => recipient.playerRef === id));
+    const used = usedInSeason || db.matches.some((match) =>
       match.goals.some((item) => item.scorerRef === id || item.ownGoalPlayerRef === id),
     );
     if (used) {
-      fail(422, "This player is named in a match. Deactivate the player, or edit those goals first.");
+      fail(409, "This player has auction, match, or award history. Deactivate the player to preserve historical records.");
     }
     const before = db.players.length;
     db.players = db.players.filter((player) => player._id !== id);
     if (db.players.length === before) fail(404, "Player not found");
+    seasonDb.players = seasonDb.players.filter((player) => player._id !== id);
     commit(db);
+    commitSeasonDb(seasonDb);
     return ok("Player deleted", null);
   },
   async getTeams() {
@@ -597,33 +528,6 @@ export const previewRepository = {
     const team = db.teams.find((item) => item._id === id);
     if (!team || (!isAdmin() && team.status !== "active")) fail(404, "Team not found");
     return ok("Team loaded", presentTeam(team));
-  },
-  async getAuctionSummary(): Promise<ReturnType<typeof ok<AuctionSummary>>> {
-    const db = readDb();
-    const activePlayers = db.players.filter((player) => player.status === "active");
-    const teams: TeamAuctionCard[] = db.teams
-      .filter((team) => team.status === "active")
-      .map((team) => ({
-        team: presentTeam(team),
-        players: squadOf(db, team._id)
-          .sort((a, b) => (a.jerseyNo ?? 99) - (b.jerseyNo ?? 99))
-          .map((player) => presentPlayer(db, player, false) as PublicPlayer),
-        stats: squadStats(db, team._id),
-      }));
-    const summary: AuctionSummary = {
-      totals: {
-        activeAuctionPlayers: activePlayers.length,
-        pendingPlayers: activePlayers.filter((player) => player.auctionStatus === "pending").length,
-        soldPlayers: db.players.filter((player) => player.auctionStatus === "sold").length,
-        unsoldPlayers: activePlayers.filter((player) => player.auctionStatus === "unsold").length,
-        totalAuctionSpend: db.players
-          .filter((player) => player.auctionStatus === "sold")
-          .reduce((sum, player) => sum + player.auctionPrice, 0),
-        activeTeams: teams.length,
-      },
-      teams,
-    };
-    return ok("Auction summary loaded", summary);
   },
   async createTeam(input: TeamWrite) {
     requireAdmin();
@@ -682,8 +586,9 @@ export const previewRepository = {
   async deleteTeam(id: string) {
     requireAdmin();
     const db = readDb();
-    if (db.players.some((player) => player.teamRef === id)) {
-      fail(422, "Reassign or remove this team's players before deleting it");
+    const seasonDb = readSeasonDb();
+    if (seasonDb.seasonTeams.some((seasonTeam) => seasonTeam.teamRef === id)) {
+      fail(422, "This team has season participation history and cannot be deleted.");
     }
     if (db.managers.some((manager) => manager.teamRef === id)) {
       fail(422, "Reassign this team's managers before deleting it");
@@ -986,7 +891,22 @@ export const previewRepository = {
   },
   async getDashboard(): Promise<ReturnType<typeof ok<DashboardSummary>>> {
     const db = readDb();
-    const auction = (await this.getAuctionSummary()).data;
+    const seasonDb = readSeasonDb();
+    const activeSeason = seasonDb.seasons.find((season) => season.status === "active")
+      ?? [...seasonDb.seasons].sort((a, b) => b.seasonNumber - a.seasonNumber)[0];
+    const seasonLots = activeSeason ? seasonDb.auctionLots.filter((lot) => lot.seasonRef === activeSeason._id) : [];
+    const activePlayerIds = new Set(seasonDb.players.filter((player) => player.status === "active").map((player) => player._id));
+    const activeLots = seasonLots.filter((lot) => activePlayerIds.has(lot.playerRef));
+    const seasonTeams = activeSeason ? seasonDb.seasonTeams.filter((team) => team.seasonRef === activeSeason._id) : [];
+    const soldLots = activeLots.filter((lot) => lot.auctionStatus === "sold");
+    const auctionTotals = {
+      activeTeams: seasonTeams.length,
+      activeAuctionPlayers: activePlayerIds.size,
+      pendingPlayers: activeLots.filter((lot) => lot.auctionStatus === "pending").length,
+      soldPlayers: soldLots.length,
+      unsoldPlayers: activeLots.filter((lot) => lot.auctionStatus === "unsold").length,
+      totalAuctionSpend: soldLots.reduce((sum, lot) => sum + (lot.purchasePrice ?? 0), 0),
+    };
     const scorers = topScorers(db);
     const totals = teamGoalTotals(db);
     const completed = db.matches.filter((match) => match.status === "completed");
@@ -997,16 +917,14 @@ export const previewRepository = {
     const mostConceding = [...ranked].sort((a, b) => b.conceded - a.conceded || a.team.name.localeCompare(b.team.name))[0];
     const bestClean = ranked.reduce((max, row) => Math.max(max, row.cleanSheets), 0);
     const alerts: string[] = [];
-    for (const card of auction.teams) {
-      if (card.stats.playerCount < card.stats.maxPlayers) {
-        alerts.push(`${card.team.name} has ${card.stats.remainingSlots} squad place${card.stats.remainingSlots === 1 ? "" : "s"} left`);
-      }
-      if (card.stats.playerCount > 0 && card.stats.iconPlayerCount < card.stats.requiredIcons) {
-        alerts.push(`${card.team.name} is missing an icon player`);
-      }
-      if (card.stats.playerCount > 0 && card.stats.goalkeeperCount < card.stats.requiredGoalkeepers) {
-        alerts.push(`${card.team.name} is missing a goalkeeper`);
-      }
+    for (const seasonTeam of seasonTeams) {
+      const teamLots = soldLots.filter((lot) => lot.seasonTeamRef === seasonTeam._id);
+      const squadSize = activeSeason?.auctionSettings?.teamSquadSize ?? 0;
+      const iconLimit = activeSeason?.auctionSettings?.iconPlayerLimit ?? 0;
+      const goalkeeperLimit = activeSeason?.auctionSettings?.goalkeeperLimit ?? 0;
+      if (teamLots.length < squadSize) alerts.push(`${seasonTeam.displayName} has ${squadSize - teamLots.length} squad place${squadSize - teamLots.length === 1 ? "" : "s"} left`);
+      if (teamLots.length > 0 && teamLots.filter((lot) => lot.isIconPlayer).length < iconLimit) alerts.push(`${seasonTeam.displayName} is missing an icon player`);
+      if (teamLots.length > 0 && teamLots.filter((lot) => lot.isGoalkeeper).length < goalkeeperLimit) alerts.push(`${seasonTeam.displayName} is missing a goalkeeper`);
     }
     const live = db.matches.filter((match) => match.status === "live").length;
     if (live) alerts.push(`${live} match${live === 1 ? " is" : "es are"} live`);
@@ -1016,12 +934,12 @@ export const previewRepository = {
       endDate: db.settings.endDate,
       totalMatchesPlayed: completed.length,
       totalGoals: completed.reduce((sum, match) => sum + match.goals.length, 0),
-      activeTeams: auction.totals.activeTeams,
-      activePlayers: auction.totals.activeAuctionPlayers,
-      pendingPlayers: auction.totals.pendingPlayers,
-      soldPlayers: auction.totals.soldPlayers,
-      unsoldPlayers: auction.totals.unsoldPlayers,
-      totalAuctionSpend: auction.totals.totalAuctionSpend,
+      activeTeams: auctionTotals.activeTeams,
+      activePlayers: auctionTotals.activeAuctionPlayers,
+      pendingPlayers: auctionTotals.pendingPlayers,
+      soldPlayers: auctionTotals.soldPlayers,
+      unsoldPlayers: auctionTotals.unsoldPlayers,
+      totalAuctionSpend: auctionTotals.totalAuctionSpend,
       upcomingMatchCount: db.matches.filter((match) => match.status === "scheduled").length,
       topScorer: scorers[0] ?? null,
       mostScoringTeam: mostScoring ? { team: mostScoring.team, goals: mostScoring.scored } : null,

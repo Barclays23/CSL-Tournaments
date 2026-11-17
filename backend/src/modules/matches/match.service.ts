@@ -1,8 +1,10 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import type { PaginatedResult } from "../../shared/types/common.types.js";
-import type { IPlayerRepository, PlayerEntity } from "../players/player.types.js";
+ 
 import type { ITeamRepository, TeamBriefDTO } from "../teams/team.types.js";
+import type { IPlayerRepository } from "../players/player.interfaces.js";
+import type { ISeasonRosterLookupRepository } from "../auctionLots/auctionLot.types.js";
 import type { IMatchService, IMatchRepository } from "./match.interfaces.js";
 import type { GoalCreateDTO, GoalFields, MatchCreateDTO, MatchEntity, MatchFields, MatchListFilter, MatchQueryDTO, MatchResponseDTO, MatchGoalDTO, MatchPlayerBriefDTO, MatchUpdateDTO, MatchTeamReferenceEntity, MatchPlayerReferenceEntity, PopulatedGoalEntity, PopulatedMatchEntity } from "./match.types.js";
 
@@ -11,6 +13,7 @@ export class MatchService implements IMatchService {
     private readonly _matchRepository: IMatchRepository,
     private readonly _teamRepository: ITeamRepository,
     private readonly _playerRepository: IPlayerRepository,
+    private readonly _auctionLotRepository: ISeasonRosterLookupRepository,
   ) {}
 
   async getMatches(query: MatchQueryDTO): Promise<PaginatedResult<MatchResponseDTO>> {
@@ -240,16 +243,23 @@ export class MatchService implements IMatchService {
     const team1Id = String(match.team1Ref);
     const team2Id = String(match.team2Ref);
     const scoringTeamId = input.scoringTeamRef;
-
     if (scoringTeamId !== team1Id && scoringTeamId !== team2Id) {
       throw new AppError("Scoring team must be one of the match teams", 422, "INVALID_SCORING_TEAM");
     }
 
     if (input.goalType === "normal") {
-      if (!input.scorerRef) throw new AppError("Select a goal scorer", 422, "SCORER_REQUIRED");
+      if (!input.scorerRef) {
+        return {
+          scoringTeamRef: new Types.ObjectId(scoringTeamId),
+          goalType: "normal",
+          scorerRef: null,
+          ownGoalPlayerRef: null,
+        };
+      }
       const scorer = await this._playerRepository.findPlayerById(input.scorerRef);
-      if (!scorer || scorer.status !== "active" || String(scorer.teamRef) !== scoringTeamId) {
-        throw new AppError("Normal scorer must be an active player in the scoring team", 422, "INVALID_SCORER");
+      const belongsToScoringTeam = await this._auctionLotRepository.isPlayerSoldToTeamInActiveSeason(input.scorerRef, scoringTeamId);
+      if (!scorer || scorer.status !== "active" || !belongsToScoringTeam) {
+        throw new AppError("Normal scorer must be an active player sold to the scoring team in the active season", 422, "INVALID_SCORER");
       }
       return {
         scoringTeamRef: new Types.ObjectId(scoringTeamId),
@@ -259,13 +269,13 @@ export class MatchService implements IMatchService {
       };
     }
 
-    if (!input.ownGoalPlayerRef) throw new AppError("Select the own-goal player", 422, "OWN_GOAL_PLAYER_REQUIRED");
+    if (!input.ownGoalPlayerRef) throw new AppError("Select the player who scored the own goal", 422, "OWN_GOAL_PLAYER_REQUIRED");
+    const opponentId = scoringTeamId === team1Id ? team2Id : team1Id;
     const ownGoalPlayer = await this._playerRepository.findPlayerById(input.ownGoalPlayerRef);
-    const opposingTeamId = scoringTeamId === team1Id ? team2Id : team1Id;
-    if (!ownGoalPlayer || String(ownGoalPlayer.teamRef) !== opposingTeamId) {
-      throw new AppError("Own-goal player must belong to the opposing team", 422, "INVALID_OWN_GOAL_PLAYER");
+    const belongsToOpponent = await this._playerRepository.isPlayerSoldToTeamInActiveSeason(input.ownGoalPlayerRef, opponentId);
+    if (!ownGoalPlayer || ownGoalPlayer.status !== "active" || !belongsToOpponent) {
+      throw new AppError("Own-goal player must be an active player sold to the opposing team in the active season", 422, "INVALID_OWN_GOAL_PLAYER");
     }
-
     return {
       scoringTeamRef: new Types.ObjectId(scoringTeamId),
       goalType: "own_goal",
@@ -345,10 +355,7 @@ export class MatchService implements IMatchService {
     return {
       _id: String(reference._id),
       name: reference.name,
-      position: reference.position,
-      jerseyNo: reference.jerseyNo,
       profilePic: reference.profilePic,
-      teamRef: reference.teamRef ? String(reference.teamRef) : null,
     };
   }
 

@@ -23,8 +23,7 @@ export type TeamCreateDTO = CreateTeamDto;
 export type TeamUpdateDTO = UpdateTeamDto;
 export type TeamQueryDTO = TeamQueryDto;
 
-import type { TeamFields, TeamAuctionStats } from "./team.types.js";
-import type { PlayerPublicDTO } from "../players/player.types.js";
+import type { TeamFields } from "./team.types.js";
 
 export interface TeamBriefDTO {
   _id: string;
@@ -39,22 +38,3 @@ export interface TeamDTO extends TeamFields {
   updatedAt: string;
 }
 
-export interface TeamAuctionCardDTO {
-  team: TeamDTO;
-  players: PlayerPublicDTO[];
-  stats: TeamAuctionStats;
-}
-
-export interface TeamAuctionTotalsDTO {
-  activeAuctionPlayers: number;
-  pendingPlayers: number;
-  soldPlayers: number;
-  unsoldPlayers: number;
-  totalAuctionSpend: number;
-  activeTeams: number;
-}
-
-export interface TeamAuctionSummaryDTO {
-  totals: TeamAuctionTotalsDTO;
-  teams: TeamAuctionCardDTO[];
-}

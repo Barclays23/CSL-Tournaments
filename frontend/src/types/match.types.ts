@@ -7,10 +7,7 @@ export type GoalType = "normal" | "own_goal";
 export interface PlayerBrief {
   _id: string;
   name: string;
-  position: "GK" | "DF" | "MF" | "FW";
-  jerseyNo: number | null;
   profilePic: { url: string; publicId: string } | null;
-  teamRef: string | null;
 }
 
 export interface Goal {

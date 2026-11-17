@@ -64,7 +64,7 @@ function populatedLot(db: SeasonMockDatabase, lot: MockAuctionLot): AuctionLot {
     _id: lot._id, seasonRef: lot.seasonRef, seasonTeamRef,
     playerRef: { _id: player._id, name: player.name, profilePic: player.profilePic },
     lotNumber: lot.lotNumber, auctionStatus: lot.auctionStatus, purchasePrice: lot.purchasePrice,
-    playerPosition: lot.playerPosition, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.playerPosition === "goalkeeper",
+    playerPosition: lot.playerPosition, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper,
     jerseyNo: lot.jerseyNo, nominatedAt: lot.nominatedAt, soldAt: lot.soldAt,
   };
 }
@@ -84,7 +84,7 @@ function summaryFor(db: SeasonMockDatabase, season: MockSeason): AuctionSummary 
       balance: settings.budgetPerTeam - totalSpent,
       averagePrice: teamLots.length ? Math.round(totalSpent / teamLots.length) : 0,
       iconCount: teamLots.filter((lot) => lot.isIconPlayer).length,
-      goalkeeperCount: teamLots.filter((lot) => lot.playerPosition === "goalkeeper").length,
+      goalkeeperCount: teamLots.filter((lot) => lot.isGoalkeeper).length,
       lots: teamLots.map((lot) => populatedLot(db, lot)),
     };
   });
@@ -626,7 +626,7 @@ export const seasonPreviewRepository = {
     lots.sort((a, b) => (a.lotNumber ?? 0) - (b.lotNumber ?? 0));
     return ok("Auction lots loaded", lots.map((lot) => populatedLot(db, lot)));
   },
-  async nominatePlayer(input: { seasonId: string; playerId: string; playerPosition: MockAuctionLot["playerPosition"]; isIconPlayer: boolean }) {
+  async nominatePlayer(input: { seasonId: string; playerId: string; playerPosition: MockAuctionLot["playerPosition"]; isIconPlayer: boolean; isGoalkeeper?: boolean }) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, input.seasonId);
@@ -640,7 +640,7 @@ export const seasonPreviewRepository = {
     const lot: MockAuctionLot = {
       _id: newId(), seasonRef: season._id, seasonTeamRef: null, playerRef: player._id,
       lotNumber: seasonLots.length + 1, auctionStatus: "pending", purchasePrice: null,
-      playerPosition: input.playerPosition, isIconPlayer: input.isIconPlayer, isGoalkeeper: input.playerPosition === "goalkeeper",
+      playerPosition: input.playerPosition, isIconPlayer: input.isIconPlayer, isGoalkeeper: Boolean(input.isGoalkeeper),
       jerseyNo: null, nominatedAt: date, soldAt: null, createdAt: date, updatedAt: date,
     };
     db.auctionLots.push(lot);
@@ -665,12 +665,12 @@ export const seasonPreviewRepository = {
     if (existing.length >= settings.teamSquadSize) fail(422, "Team squad size limit reached");
     if (spent + input.purchasePrice > settings.budgetPerTeam) fail(422, "Team auction budget exceeded");
     if (lot.isIconPlayer && existing.filter((item) => item.isIconPlayer).length >= settings.iconPlayerLimit) fail(422, "Icon player limit reached");
-    if (lot.playerPosition === "goalkeeper" && existing.filter((item) => item.playerPosition === "goalkeeper").length >= settings.goalkeeperLimit) fail(422, "Goalkeeper limit reached");
+    if (lot.isGoalkeeper && existing.filter((item) => item.isGoalkeeper).length >= settings.goalkeeperLimit) fail(422, "Goalkeeper limit reached");
     if (input.jerseyNo != null && (!Number.isInteger(input.jerseyNo) || input.jerseyNo < 1)) fail(422, "Jersey number must be a positive whole number");
     if (input.jerseyNo != null && existing.some((item) => item.jerseyNo === input.jerseyNo)) fail(409, "Jersey number is already used by this team in this season");
     const date = now();
     lot.seasonTeamRef = st._id; lot.auctionStatus = "sold"; lot.purchasePrice = input.purchasePrice;
-    lot.jerseyNo = input.jerseyNo ?? null; lot.isGoalkeeper = lot.playerPosition === "goalkeeper"; lot.soldAt = date; lot.updatedAt = date;
+    lot.jerseyNo = input.jerseyNo ?? null; lot.soldAt = date; lot.updatedAt = date;
     season.auctionRevision += 1;
     commitSeasonDb(db);
     return ok("Auction sale completed", populatedLot(db, lot));
@@ -685,6 +685,7 @@ export const seasonPreviewRepository = {
 
     const nextPosition = input.playerPosition ?? lot.playerPosition;
     const nextIconStatus = input.isIconPlayer ?? lot.isIconPlayer;
+    const nextGoalkeeperStatus = input.isGoalkeeper ?? lot.isGoalkeeper;
     if (input.auctionStatus === "sold") {
       const selectedSeasonTeamId = input.seasonTeamId ?? (lot.auctionStatus === "sold" ? lot.seasonTeamRef : null);
       const purchasePrice = input.purchasePrice ?? (lot.auctionStatus === "sold" ? lot.purchasePrice : null);
@@ -710,8 +711,7 @@ export const seasonPreviewRepository = {
       if (nextIconStatus && existing.filter((item) => item.isIconPlayer).length >= settings.iconPlayerLimit) {
         fail(422, "Icon player limit reached");
       }
-      const isGoalkeeper = nextPosition === "goalkeeper";
-      if (isGoalkeeper && existing.filter((item) => item.playerPosition === "goalkeeper").length >= settings.goalkeeperLimit) {
+      if (nextGoalkeeperStatus && existing.filter((item) => item.isGoalkeeper).length >= settings.goalkeeperLimit) {
         fail(422, "Goalkeeper limit reached");
       }
 
@@ -742,7 +742,7 @@ export const seasonPreviewRepository = {
 
     lot.playerPosition = nextPosition;
     lot.isIconPlayer = nextIconStatus;
-    lot.isGoalkeeper = nextPosition === "goalkeeper";
+    lot.isGoalkeeper = nextGoalkeeperStatus;
     lot.updatedAt = now();
     season.auctionRevision += 1;
     commitSeasonDb(db);
@@ -764,7 +764,7 @@ export const seasonPreviewRepository = {
     const stats = teamRecord(db, seasonId, st._id);
     const squad = soldLots(db, seasonId, st._id).map((lot) => {
       const player = playerById(db, lot.playerRef);
-      return { player: { _id: player._id, name: player.name, profilePic: player.profilePic }, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.playerPosition === "goalkeeper" };
+      return { player: { _id: player._id, name: player.name, profilePic: player.profilePic }, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper };
     });
     const related = db.matches.filter((m) => m.seasonRef === seasonId && (m.homeSeasonTeamRef === st._id || m.awaySeasonTeamRef === st._id));
     const recentFixtures = related.filter((m) => m.status === "completed").sort((a, b) => b.kickoffAt.localeCompare(a.kickoffAt)).slice(0, 5).map((m) => fixture(db, m));
@@ -783,11 +783,11 @@ export const seasonPreviewRepository = {
       const bSeason = seasonById(db, b.seasonRef).seasonNumber;
       return aSeason - bSeason;
     });
-    const currentSeason = db.seasons.find((s) => s.status === "active") ?? [...db.seasons].sort((a, b) => b.seasonNumber - a.seasonNumber)[0] ?? null;
+    const currentSeason = db.seasons.find((s) => s.status === "active") ?? null;
     const mapHistory = (lot: MockAuctionLot) => {
       const season = seasonById(db, lot.seasonRef);
       const st = lot.seasonTeamRef ? db.seasonTeams.find((item) => item._id === lot.seasonTeamRef) ?? null : null;
-      return { season: seasonBrief(season), status: lot.auctionStatus, team: st ? teamBrief(db, st) : null, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.playerPosition === "goalkeeper", soldAt: lot.soldAt };
+      return { season: seasonBrief(season), status: lot.auctionStatus, team: st ? teamBrief(db, st) : null, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper, soldAt: lot.soldAt };
     };
     const goalCounts = new Map<string, number>();
     for (const match of db.matches) if (match.status === "completed") for (const goal of match.goals) {
@@ -799,7 +799,7 @@ export const seasonPreviewRepository = {
     return ok("Player history loaded", {
       player: { _id: player._id, name: player.name, mobile: player.mobile, email: player.email, dateOfBirth: player.dateOfBirth, profilePic: player.profilePic, status: player.status },
       currentSeason: currentSeason ? seasonBrief(currentSeason) : null,
-      currentSeasonTeam: currentLot && currentSt ? { seasonTeamId: currentSt._id, team: teamBrief(db, currentSt), position: currentLot.playerPosition, jerseyNo: currentLot.jerseyNo, purchasePrice: currentLot.purchasePrice, isIconPlayer: currentLot.isIconPlayer, isGoalkeeper: currentLot.playerPosition === "goalkeeper" } : null,
+      currentSeasonTeam: currentLot && currentSt ? { seasonTeamId: currentSt._id, team: teamBrief(db, currentSt), position: currentLot.playerPosition, jerseyNo: currentLot.jerseyNo, purchasePrice: currentLot.purchasePrice, isIconPlayer: currentLot.isIconPlayer, isGoalkeeper: currentLot.isGoalkeeper } : null,
       auctionHistory: orderedLots.map(mapHistory), teamMovementHistory: orderedLots.filter((lot) => lot.auctionStatus === "sold").map(mapHistory),
       goalHistory, totalNormalGoals: [...goalCounts.values()].reduce((sum, count) => sum + count, 0),
     } as PlayerHistory);

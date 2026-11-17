@@ -1,7 +1,7 @@
 import type { AdminUser } from "@/types/auth.types";
 import type { Asset } from "@/types/api.types";
 import type { GoalType, MatchStage, MatchStatus, PenaltyShootout } from "@/types/match.types";
-import type { AuctionStatus, PlayerStatus, Position } from "@/types/player.types";
+import type { PlayerStatus } from "@/types/player.types";
 import type { Settings } from "@/types/settings.types";
 import type { SponsorStatus } from "@/types/sponsor.types";
 import type { TeamStatus } from "@/types/team.types";
@@ -11,18 +11,16 @@ import { resetSeasonPreviewData } from "@/mocks/seasonStore";
 
 export interface StoredPlayer {
   _id: string;
+  __v: number;
   name: string;
-  mobile: string;
+  mobile: string | null;
   email: string | null;
   dateOfBirth: string | null;
-  position: Position;
-  isIconPlayer: boolean;
-  teamRef: string | null;
-  jerseyNo: number | null;
-  auctionPrice: number;
-  auctionStatus: AuctionStatus;
   status: PlayerStatus;
   profilePic: Asset | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StoredManager {
@@ -111,7 +109,19 @@ function loadStored() {
   try {
     const raw = localStorage.getItem(DB_KEY);
     if (raw) {
-      memory = JSON.parse(raw) as Database;
+      const stored = JSON.parse(raw) as Database;
+      memory = {
+        ...stored,
+        players: (stored.players ?? []).map((player) => ({
+          _id: player._id, __v: player.__v ?? 0, name: player.name, mobile: player.mobile ?? null,
+          email: player.email ?? null, dateOfBirth: player.dateOfBirth ?? null,
+          status: player.status === "inactive" ? "inactive" : "active",
+          profilePic: player.profilePic ?? null, notes: player.notes ?? null,
+          createdAt: player.createdAt ?? new Date().toISOString(),
+          updatedAt: player.updatedAt ?? new Date().toISOString(),
+        })),
+      };
+      localStorage.setItem(DB_KEY, JSON.stringify(memory));
       return memory;
     }
   } catch {

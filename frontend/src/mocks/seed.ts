@@ -1,4 +1,3 @@
-import type { Position } from "@/types/player.types";
 import type { Database, StoredGoal, StoredMatch, StoredPlayer, StoredTeam } from "@/mocks/store";
 import { createSeasonDatabase } from "@/mocks/seasonSeed";
 
@@ -13,22 +12,11 @@ export function createSeed(): Database {
     logo: team.logo, poster: team.poster, status: team.status,
     createdAt: team.createdAt, updatedAt: team.updatedAt,
   }));
-  const players: StoredPlayer[] = source.players.map((player) => {
-    const lot = source.auctionLots.find((item) => item.seasonRef === activeSeason._id && item.playerRef === player._id);
-    const seasonTeam = lot?.seasonTeamRef ? seasonTeams.find((item) => item._id === lot.seasonTeamRef) : null;
-    const legacyPosition: Position = lot
-      ? ({ goalkeeper: "GK", defender: "DF", midfielder: "MF", forward: "FW" } as const)[lot.playerPosition]
-      : player.position;
-    return {
-      _id: player._id, name: player.name, mobile: player.mobile, email: player.email,
-      dateOfBirth: player.dateOfBirth, position: legacyPosition,
-      isIconPlayer: lot?.isIconPlayer ?? false, teamRef: lot?.auctionStatus === "sold" ? seasonTeam?.teamRef ?? null : null,
-      jerseyNo: lot?.auctionStatus === "sold" ? lot.jerseyNo : null,
-      auctionPrice: lot?.auctionStatus === "sold" ? lot.purchasePrice ?? 0 : 0,
-      auctionStatus: lot?.auctionStatus === "unsold" ? "unsold" : lot?.auctionStatus === "sold" ? "sold" : "pending",
-      status: player.status, profilePic: player.profilePic,
-    };
-  });
+  const players: StoredPlayer[] = source.players.map((player) => ({
+    _id: player._id, __v: player.__v, name: player.name, mobile: player.mobile, email: player.email,
+    dateOfBirth: player.dateOfBirth, status: player.status, profilePic: player.profilePic,
+    notes: player.notes, createdAt: player.createdAt, updatedAt: player.updatedAt,
+  }));
   const managers = source.managers.map((manager) => {
     const assigned = seasonTeams.find((item) => item.managerRefs.includes(manager._id));
     return { _id: manager._id, name: manager.name, mobile: manager.mobile, email: manager.email, dateOfBirth: manager.dateOfBirth, teamRef: assigned?.teamRef ?? null, role: "Manager", profilePic: manager.profilePic, status: manager.status };

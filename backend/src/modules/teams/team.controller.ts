@@ -5,7 +5,7 @@ import { getRequiredRouteParam } from "../../shared/utils/routeParams.js";
 import { TEAM_MESSAGES } from "../../shared/constants/messages.constants.js";
 import type { PaginatedResult } from "../../shared/types/common.types.js";
 import type { ITeamController, ITeamService } from "./team.interfaces.js";
-import type { TeamDTO, TeamAuctionSummaryDTO } from "./team.types.js";
+import type { TeamDTO } from "./team.types.js";
 import type { IStatisticsService, TeamStatisticsDTO } from "../statistics/statistics.types.js";
 import {
   teamCreateSchema,
@@ -64,27 +64,6 @@ export class TeamController implements ITeamController {
       response
         .status(HTTP_STATUS.OK)
         .json(ApiResponse.success<TeamDTO>(TEAM_MESSAGES.TEAM_FETCHED, team));
-    } catch (error: unknown) {
-      next(error);
-    }
-  };
-
-  getTeamAuctionSummary = async (
-    _request: Request,
-    response: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    try {
-      const summary: TeamAuctionSummaryDTO =
-        await this._teamService.getTeamAuctionSummary();
-      response
-        .status(HTTP_STATUS.OK)
-        .json(
-          ApiResponse.success<TeamAuctionSummaryDTO>(
-            TEAM_MESSAGES.AUCTION_SUMMARY_FETCHED,
-            summary,
-          ),
-        );
     } catch (error: unknown) {
       next(error);
     }

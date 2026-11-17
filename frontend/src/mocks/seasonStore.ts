@@ -16,7 +16,13 @@ function loadDatabase(): SeasonMockDatabase {
       const seeded = createSeasonDatabase();
       const availableSeasons = Array.isArray(stored.seasons) ? stored.seasons : seeded.seasons;
       const availableSeasonTeams = Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams;
-      const availablePlayers = Array.isArray(stored.players) ? stored.players : seeded.players;
+      const availablePlayers = Array.isArray(stored.players) ? stored.players.map((player: any) => ({
+        _id: player._id, __v: player.__v ?? 0, name: player.name,
+        mobile: player.mobile ?? null, email: player.email ?? null, dateOfBirth: player.dateOfBirth ?? null,
+        profilePic: player.profilePic ?? null, status: player.status === "inactive" ? "inactive" : "active",
+        notes: player.notes ?? null, createdAt: player.createdAt ?? new Date().toISOString(),
+        updatedAt: player.updatedAt ?? new Date().toISOString(),
+      })) : seeded.players;
       // v4 previews created before awards were introduced have no "awards" key.
       // Migrate in place and seed the sample historical awards without replacing
       // any existing users, teams, registrations, fixtures or auction activity.
@@ -25,7 +31,14 @@ function loadDatabase(): SeasonMockDatabase {
         ...stored,
         users: Array.isArray(stored.users) ? stored.users : seeded.users,
         teams: Array.isArray(stored.teams) ? stored.teams : seeded.teams,
-        players: Array.isArray(stored.players) ? stored.players : seeded.players,
+        players: Array.isArray(stored.players) ? stored.players.map((player: any) => ({
+          _id: player._id, __v: player.__v ?? 0, name: player.name,
+          mobile: player.mobile ?? null, email: player.email ?? null,
+          dateOfBirth: player.dateOfBirth ?? null, profilePic: player.profilePic ?? null,
+          status: player.status === "inactive" ? "inactive" : "active",
+          notes: player.notes ?? null, createdAt: player.createdAt ?? new Date().toISOString(),
+          updatedAt: player.updatedAt ?? new Date().toISOString(),
+        })) : seeded.players,
         managers: Array.isArray(stored.managers) ? stored.managers : seeded.managers,
         sponsors: Array.isArray(stored.sponsors) ? stored.sponsors : seeded.sponsors,
         organizers: Array.isArray(stored.organizers) ? stored.organizers : seeded.organizers,

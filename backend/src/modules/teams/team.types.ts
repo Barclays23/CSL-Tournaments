@@ -1,7 +1,6 @@
 import type { Types } from "mongoose";
-import type { TeamBriefDTO, TeamDTO, TeamAuctionCardDTO, TeamAuctionTotalsDTO, TeamAuctionSummaryDTO } from "./team.dto.js";
+import type { TeamBriefDTO, TeamDTO } from "./team.dto.js";
 import type { Asset } from "../../shared/types/common.types.js";
-import type { PlayerPublicDTO } from "../players/player.types.js";
 import type { TeamCreateInput, TeamQueryInput, TeamUpdateInput } from "./team.dto.js";
 
 export type TeamStatus = "active" | "inactive";
@@ -48,28 +47,8 @@ export interface TeamReferenceCounts {
   seasonTeams: number;
 }
 
-export interface TeamAuctionStats {
-  auctionBudget: number;
-  purchaseCost: number;
-  remainingBalance: number;
-  playerCount: number;
-  remainingSlots: number;
-  averagePurchaseCost: number;
-  iconPlayerCount: number;
-  goalkeeperCount: number;
-  maxPlayers: number;
-  requiredIcons: number;
-  requiredGoalkeepers: number;
-}
-
-
-
-
-
-
-
 export type { ITeamRepository, ITeamService, ITeamController } from "./team.interfaces.js";
 
-export type { TeamBriefDTO, TeamDTO, TeamAuctionCardDTO, TeamAuctionTotalsDTO, TeamAuctionSummaryDTO } from "./team.dto.js";
+export type { TeamBriefDTO, TeamDTO } from "./team.dto.js";
 
 export type { TeamCreateDTO, TeamUpdateDTO, TeamQueryDTO } from "./team.dto.js";

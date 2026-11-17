@@ -3,7 +3,7 @@ import { previewRepository } from "@/mocks/repository";
 import { api, run } from "@/services/api";
 import type { ApiResponse } from "@/types/api.types";
 import type { TeamStatistics } from "@/types/statistics.types";
-import type { AuctionSummary, Team, TeamWrite } from "@/types/team.types";
+import type { Team, TeamWrite } from "@/types/team.types";
 
 export function getTeams() {
   return run(() =>
@@ -18,14 +18,6 @@ export function getTeamById(id: string) {
     USE_MOCK_API
       ? previewRepository.getTeam(id)
       : api.get<ApiResponse<Team>>(`/teams/${id}`).then((response) => response.data),
-  );
-}
-
-export function getAuctionSummary() {
-  return run(() =>
-    USE_MOCK_API
-      ? previewRepository.getAuctionSummary()
-      : api.get<ApiResponse<AuctionSummary>>("/teams/auction-summary").then((response) => response.data),
   );
 }
 

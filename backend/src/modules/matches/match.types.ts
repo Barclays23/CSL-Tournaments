@@ -48,10 +48,7 @@ export interface MatchTeamReferenceEntity {
 export interface MatchPlayerReferenceEntity {
   _id: Types.ObjectId;
   name: string;
-  position: "GK" | "DF" | "MF" | "FW";
-  jerseyNo: number | null;
   profilePic: Asset | null;
-  teamRef: Types.ObjectId | null;
 }
 
 export interface PopulatedGoalEntity extends Omit<GoalFields, "_id" | "scoringTeamRef" | "scorerRef" | "ownGoalPlayerRef"> {

@@ -1,7 +1,6 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import type { ISettingsService } from "../settings/settings.interfaces.js";
-import type { IPlayerRepository } from "../players/player.interfaces.js";
 import type { PlayerPublicDTO, PlayerStatisticsEntity } from "../players/player.types.js";
 import type { ITeamRepository } from "../teams/team.interfaces.js";
 import type { TeamBriefDTO, TeamEntity } from "../teams/team.types.js";
@@ -34,7 +33,6 @@ export class StatisticsService implements IStatisticsService {
   constructor(
     private readonly _statisticsRepository: IStatisticsRepository,
     private readonly _settingsService: ISettingsService,
-    private readonly _playerRepository: IPlayerRepository,
     private readonly _teamRepository: ITeamRepository,
   ) {}
 
@@ -134,7 +132,7 @@ export class StatisticsService implements IStatisticsService {
         previousGoals = entry.goals;
       }
 
-      const scoringTeamId = scoringTeamByPlayerId.get(entry.playerId) ?? (entry.player.teamRef ? String(entry.player.teamRef) : null);
+      const scoringTeamId = scoringTeamByPlayerId.get(entry.playerId) ?? null;
       const scoringTeam = scoringTeamId ? teamById.get(scoringTeamId) ?? null : null;
 
       return {
@@ -251,7 +249,7 @@ export class StatisticsService implements IStatisticsService {
     ] = await Promise.all([
       this._settingsService.getTournamentSettings(),
       this._teamRepository.countActiveTeams(),
-      this._playerRepository.getPlayerAuctionCounts(),
+      this._statisticsRepository.getActiveSeasonAuctionTotals(),
       this._statisticsRepository.findCompletedMatches(),
       this._statisticsRepository.findUpcomingFixtureCards(4),
       this._statisticsRepository.findRecentResultCards(4),
@@ -355,18 +353,10 @@ export class StatisticsService implements IStatisticsService {
     };
   }
 
-  private mapPlayerToPublicDTO(player: PlayerStatisticsEntity, scoringTeam: TeamBriefDTO | null): PlayerPublicDTO {
-    const teamRef = scoringTeam?._id ?? (player.teamRef ? String(player.teamRef) : null);
+  private mapPlayerToPublicDTO(player: PlayerStatisticsEntity, _scoringTeam: TeamBriefDTO | null): PlayerPublicDTO {
     return {
       _id: String(player._id),
       name: player.name,
-      position: player.position,
-      isIconPlayer: player.isIconPlayer,
-      teamRef,
-      team: scoringTeam,
-      jerseyNo: player.jerseyNo,
-      auctionPrice: player.auctionPrice,
-      auctionStatus: player.auctionStatus,
       status: player.status,
       profilePic: player.profilePic,
     };
@@ -416,10 +406,7 @@ export class StatisticsService implements IStatisticsService {
     return {
       _id: String(reference._id),
       name: reference.name,
-      position: reference.position,
-      jerseyNo: reference.jerseyNo,
       profilePic: reference.profilePic,
-      teamRef: reference.teamRef ? String(reference.teamRef) : null,
     };
   }
 

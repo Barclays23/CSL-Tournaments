@@ -37,11 +37,7 @@ export function GoalForm({
   });
   const scoringTeamRef = useWatch({ control: form.control, name: "scoringTeamRef" });
   const goalType = useWatch({ control: form.control, name: "goalType" });
-  const opponent = scoringTeamRef === team1 ? team2 : team1;
-  const choices = useMemo(() => {
-    const teamId = goalType === "own_goal" ? opponent : scoringTeamRef;
-    return players.filter((player) => player.teamRef === teamId && player.status === "active");
-  }, [players, goalType, opponent, scoringTeamRef]);
+  const choices = useMemo(() => players.filter((player) => player.status === "active"), [players]);
   const teamLabel = (id: string) => {
     if (id === team1 && isPopulated(match.team1Ref)) return match.team1Ref.name;
     if (id === team2 && isPopulated(match.team2Ref)) return match.team2Ref.name;
@@ -78,7 +74,6 @@ export function GoalForm({
             <option value="">Not recorded</option>
             {choices.map((player) => (
               <option key={player._id} value={player._id}>
-                {player.jerseyNo ? `#${player.jerseyNo} ` : ""}
                 {player.name}
               </option>
             ))}
