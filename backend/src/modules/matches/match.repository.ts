@@ -8,8 +8,8 @@ const populatedMatchPaths = [
   { path: "team1Ref", select: "name shortName logo groupName" },
   { path: "team2Ref", select: "name shortName logo groupName" },
   { path: "goals.scoringTeamRef", select: "name shortName logo groupName" },
-  { path: "goals.scorerRef", select: "name position jerseyNo profilePic teamRef" },
-  { path: "goals.ownGoalPlayerRef", select: "name position jerseyNo profilePic teamRef" },
+  { path: "goals.scorerRef", select: "name profilePic" },
+  { path: "goals.ownGoalPlayerRef", select: "name profilePic" },
 ];
 
 export class MatchRepository implements IMatchRepository {

@@ -1,5 +1,4 @@
 import type { Asset } from "@/types/api.types";
-import type { PublicPlayer } from "@/types/player.types";
 
 export type TeamStatus = "active" | "inactive";
 
@@ -31,6 +30,7 @@ export interface TeamWrite {
   status: TeamStatus;
 }
 
+
 export interface TeamSquadStats {
   auctionBudget: number;
   purchaseCost: number;
@@ -43,24 +43,4 @@ export interface TeamSquadStats {
   maxPlayers: number;
   requiredIcons: number;
   requiredGoalkeepers: number;
-}
-
-export interface TeamAuctionCard {
-  team: Team;
-  players: PublicPlayer[];
-  stats: TeamSquadStats;
-}
-
-export interface AuctionTotals {
-  activeAuctionPlayers: number;
-  pendingPlayers: number;
-  soldPlayers: number;
-  unsoldPlayers: number;
-  totalAuctionSpend: number;
-  activeTeams: number;
-}
-
-export interface AuctionSummary {
-  totals: AuctionTotals;
-  teams: TeamAuctionCard[];
 }

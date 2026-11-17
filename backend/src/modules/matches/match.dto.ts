@@ -45,10 +45,7 @@ import type { TeamBriefDTO } from "../teams/team.types.js";
 export interface MatchPlayerBriefDTO {
   _id: string;
   name: string;
-  position: "GK" | "DF" | "MF" | "FW";
-  jerseyNo: number | null;
   profilePic: Asset | null;
-  teamRef: string | null;
 }
 
 export interface MatchGoalDTO {

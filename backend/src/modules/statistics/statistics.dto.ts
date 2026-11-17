@@ -34,3 +34,11 @@ export interface TeamStatisticsDTO {
   group: { played: number; won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number; goalDifference: number; points: number; };
   overall: { played: number; goalsFor: number; goalsAgainst: number; cleanSheets: number; };
 }
+
+export interface DashboardAuctionTotalsDTO {
+  activeAuctionPlayers: number;
+  pendingPlayers: number;
+  soldPlayers: number;
+  unsoldPlayers: number;
+  totalAuctionSpend: number;
+}

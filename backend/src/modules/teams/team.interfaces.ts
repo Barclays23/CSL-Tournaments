@@ -1,7 +1,6 @@
-import type { TeamEntity, TeamDTO, TeamCreateDTO, TeamUpdateDTO, TeamQueryDTO, TeamListFilter, TeamReferenceCounts, TeamAuctionSummaryDTO } from "./team.types.js";
-import type { Types } from "mongoose";
-import type { Asset, ControllerMethod } from "../../shared/types/common.types.js";
-import type { PlayerPublicDTO } from "../players/player.types.js";
+import type { TeamEntity, TeamDTO, TeamCreateDTO, TeamUpdateDTO, TeamQueryDTO, TeamListFilter, TeamReferenceCounts } from "./team.types.js";
+import type { ControllerMethod } from "../../shared/types/common.types.js";
+ 
 import type { TeamCreateInput, TeamQueryInput, TeamUpdateInput } from "./team.dto.js";
 
 
@@ -26,7 +25,7 @@ export interface ITeamService {
   createTeam(input: TeamCreateDTO): Promise<TeamDTO>;
   updateTeam(teamId: string, input: TeamUpdateDTO): Promise<TeamDTO>;
   deleteTeam(teamId: string): Promise<void>;
-  getTeamAuctionSummary(): Promise<TeamAuctionSummaryDTO>;
+ 
 }
 
 
@@ -34,7 +33,7 @@ export interface ITeamService {
 export interface ITeamController {
   getTeams: ControllerMethod;
   getTeamById: ControllerMethod;
-  getTeamAuctionSummary: ControllerMethod;
+ 
   getTeamStatistics: ControllerMethod;
   createTeam: ControllerMethod;
   updateTeam: ControllerMethod;

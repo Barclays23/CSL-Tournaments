@@ -1,4 +1,4 @@
-import type { GroupStandingDTO, TopScorerDTO, DashboardSummaryDTO, OverallTeamStatisticsDTO, TeamStatisticsDTO } from "./statistics.types.js";
+import type { GroupStandingDTO, TopScorerDTO, DashboardSummaryDTO, OverallTeamStatisticsDTO, TeamStatisticsDTO, DashboardAuctionTotalsDTO } from "./statistics.types.js";
 import type { MatchEntity, MatchResponseDTO, PopulatedMatchEntity } from "../matches/match.types.js";
 import type { PlayerPublicDTO, PlayerStatisticsEntity } from "../players/player.types.js";
 import type { TeamBriefDTO, TeamEntity } from "../teams/team.types.js";
@@ -15,6 +15,7 @@ export interface IStatisticsRepository {
   findUpcomingFixtureCards(limit: number): Promise<PopulatedMatchEntity[]>;
   findRecentResultCards(limit: number): Promise<PopulatedMatchEntity[]>;
   countScheduledFixtures(): Promise<number>;
+  getActiveSeasonAuctionTotals(): Promise<DashboardAuctionTotalsDTO>;
 }
 
 

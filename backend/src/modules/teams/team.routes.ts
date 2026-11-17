@@ -14,7 +14,6 @@ export const teamRouter = Router();
 
 
 
-teamRouter.get("/auction-summary", optionalAuthenticate, teamController.getTeamAuctionSummary);
 teamRouter.get("/:id/dashboard", seasonStatisticsController.getTeamDashboard);
 teamRouter.get("/:id/statistics", teamController.getTeamStatistics);
 teamRouter.get("/", optionalAuthenticate, validate(teamQuerySchema, "query"), teamController.getTeams);

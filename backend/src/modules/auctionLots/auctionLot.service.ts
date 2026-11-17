@@ -42,6 +42,14 @@ export class AuctionLotService implements IAuctionLotService{
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
     const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]}},{$inc:{auctionRevision:1}},{session}).exec();
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
+    // Write the Player master document in the same transaction as the new reference.
+    // This serializes nomination against safe hard deletion of an otherwise unreferenced player.
+    const playerLock=await PlayerModel.collection.updateOne(
+     {_id:new Types.ObjectId(input.playerId),status:"active"},
+     {$inc:{__v:1}},
+     {session},
+    );
+    if(playerLock.modifiedCount!==1)throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
     const count=await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId)},session);
     if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
     created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);

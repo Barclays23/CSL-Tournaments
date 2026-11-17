@@ -1,10 +1,10 @@
 import { Types, type QueryFilter } from "mongoose";
 import { TeamModel } from "./team.model.js";
 import type { TeamRecord } from "./team.model.js";
-import { PlayerModel } from "../players/player.model.js";
 import { ManagerModel } from "../managers/manager.model.js";
 import { MatchModel } from "../matches/match.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
+import { PlayerModel } from "../players/player.model.js";
 import type { ITeamRepository } from "./team.interfaces.js";
 import type { TeamCreateDTO, TeamEntity, TeamFields, TeamListFilter, TeamReferenceCounts, TeamUpdateDTO } from "./team.types.js";
 
@@ -44,7 +44,7 @@ export class TeamRepository implements ITeamRepository {
   async findTeamReferenceCounts(teamId: string): Promise<TeamReferenceCounts> {
     const objectId = new Types.ObjectId(teamId);
     const [players, managers, matches, seasonTeams] = await Promise.all([
-      PlayerModel.countDocuments({ teamRef: objectId }).exec(),
+      PlayerModel.collection.countDocuments({ teamRef: objectId }),
       ManagerModel.countDocuments({ teamRef: objectId }).exec(),
       MatchModel.countDocuments({ $or: [{ team1Ref: objectId }, { team2Ref: objectId }] }).exec(),
       SeasonTeamModel.countDocuments({ teamRef: objectId }).exec(),
