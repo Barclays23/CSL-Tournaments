@@ -26,6 +26,8 @@ import { errorMessage } from "@/utils/errorHandler";
 import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from "@/types/season.types";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
 import { Badge } from "@/components/ui/Badge";
+import { Modal } from "@/components/ui/Modal";
+import { CalendarDays, Layers3, Plus, Settings2, ShieldCheck, Trophy, Users } from "lucide-react";
 
 type SeasonFormState = {
   seasonNumber: number; name: string; year: number; startDate: string; endDate: string; groupStageEnabled: boolean;
@@ -68,6 +70,8 @@ function SeasonsBody() {
   const permanentTeams = useServiceQuery(() => getTeams(), []);
   const managersQuery = useServiceQuery(() => getManagers({page:1,limit:100,status:"active"}), []);
   const [selectedSeasonId, setSelectedSeasonId] = useState("");
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [createForm, setCreateForm] = useState<SeasonFormState>(() => defaultForm());
   const [editForm, setEditForm] = useState<SeasonFormState>(() => defaultForm());
   const [initialTeamIds, setInitialTeamIds] = useState<string[]>([]);
@@ -175,6 +179,7 @@ function SeasonsBody() {
       const result = await createSeason(payload(createForm, initialTeamIds));
       toast.success("Draft season created");
       setSelectedSeasonId(result.data._id); setInitialTeamIds([]);
+      setCreateOpen(false);
       setCreateForm(defaultForm((seasons.data?.data.reduce((max, season) => Math.max(max, season.seasonNumber), 0) ?? 0) + 1));
       refreshSelected(); seasons.reload();
     } catch (error) { toast.error(errorMessage(error)); }
@@ -200,7 +205,7 @@ function SeasonsBody() {
         },
       } : {}),
     };
-    try { await updateSeason(selected._id, patch); toast.success("Season configuration saved"); refreshSelected(); }
+    try { await updateSeason(selected._id, patch); toast.success("Season configuration saved"); setEditOpen(false); refreshSelected(); }
     catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
   };
@@ -348,13 +353,34 @@ function SeasonsBody() {
 
   return (
     <PageContainer>
-      <PageHeader eyebrow="Admin · tournament setup" title="Season management" description="Manage each tournament edition, its rules, participating teams, season groups and lifecycle. Season data remains isolated from permanent Team records." />
+      <PageHeader
+        eyebrow="Admin · tournament setup"
+        title="Seasons"
+        description="A dedicated workspace for each tournament edition, from initial setup through completion and archive."
+        actions={
+          <Button onClick={() => {
+            const nextNumber = (seasons.data?.data.reduce((max, season) => Math.max(max, season.seasonNumber), 0) ?? 0) + 1;
+            setCreateForm(defaultForm(nextNumber));
+            setInitialTeamIds([]);
+            setCreateOpen(true);
+          }}>
+            <Plus className="h-4 w-4" /> Create season
+          </Button>
+        }
+      />
       {seasons.loading ? <Skeleton className="h-32" /> : null}
       {seasons.error ? <ErrorState message={seasons.error} onRetry={seasons.reload} /> : null}
 
-      <GlassCard className="mb-5 p-5">
-        <h2 className="mb-3 font-display text-2xl text-fg">Season list</h2>
-        <div className="grid gap-3 sm:grid-cols-3">
+      <GlassCard className="mb-6 overflow-hidden p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Your tournament editions</p>
+            <h2 className="mt-1 font-display text-2xl text-fg">Season library</h2>
+            <p className="mt-1 text-sm text-muted">{seasons.data?.data.length ?? 0} season(s) · Select an edition to manage its setup and history.</p>
+          </div>
+          <Badge>{filteredSeasons.length} shown</Badge>
+        </div>
+        <div className="grid gap-3 lg:grid-cols-[minmax(0,1.6fr)_minmax(10rem,0.8fr)_minmax(10rem,0.8fr)]">
           <Input aria-label="Search seasons" placeholder="Search season name or edition…" value={search} onChange={(event) => setSearch(event.target.value)} />
           <Select aria-label="Filter by year" value={yearFilter} onChange={(event) => setYearFilter(event.target.value)}>
             <option value="all">All years</option>{years.map((year) => <option key={year} value={year}>{year}</option>)}
@@ -363,74 +389,53 @@ function SeasonsBody() {
             <option value="all">All statuses</option>{statuses.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
           </Select>
         </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {filteredSeasons.map((season) => (
             <button type="button" key={season._id} onClick={() => setSelectedSeasonId(season._id)}
-              className={"rounded-xl border p-3 text-left transition " + (selectedSeasonId === season._id ? "border-accent bg-surface" : "border-line hover:border-accent")}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-fg">{season.name}</span>
-                <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{statusLabel(season.status)}</span>
+              className={"group rounded-2xl border p-4 text-left transition duration-200 " + (selectedSeasonId === season._id ? "border-accent bg-primary/10 shadow-glass" : "border-line bg-surface/60 hover:border-accent hover:bg-surface")}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className={"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl " + (selectedSeasonId === season._id ? "bg-primary text-primary-fg" : "bg-glass-strong text-accent")}>
+                    <CalendarDays className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <span className="block truncate font-semibold text-fg">{season.name}</span>
+                    <span className="mt-0.5 block text-xs text-muted">Edition {season.seasonNumber} · {season.year}</span>
+                  </div>
+                </div>
+                <Badge tone={season.status === "active" ? "accent" : season.status === "completed" ? "gold" : season.status === "archived" ? "neutral" : "info"}>{statusLabel(season.status)}</Badge>
               </div>
-              <p className="mt-1 text-xs text-muted">Edition {season.seasonNumber} · {season.year}</p>
-              <p className="mt-1 text-xs text-muted">{season.startDate ? toDateInput(season.startDate) : "Start date not set"} – {season.endDate ? toDateInput(season.endDate) : "End date not set"}</p>
+              <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-muted">
+                <span>{season.startDate ? toDateInput(season.startDate) : "No start date"}</span>
+                <span>{season.endDate ? toDateInput(season.endDate) : "No end date"}</span>
+              </div>
             </button>
           ))}
           {!filteredSeasons.length ? <p className="text-sm text-muted">No seasons match the selected filters.</p> : null}
         </div>
       </GlassCard>
 
-      <div className="grid items-start gap-5 xl:grid-cols-2">
-        <GlassCard className="p-5">
-          <h2 className="mb-4 font-display text-2xl text-fg">Create a season</h2>
-          <form className="grid gap-3" onSubmit={handleCreate}>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm text-fg">Edition number<Input className="mt-1" type="number" min="1" required value={createForm.seasonNumber} onChange={(e) => setCreate("seasonNumber", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Year<Input className="mt-1" type="number" min="2000" max="2200" required value={createForm.year} onChange={(e) => setCreate("year", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Season name<Input className="mt-1" required minLength={2} maxLength={100} value={createForm.name} onChange={(e) => setCreate("name", e.target.value)} /></label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm text-fg">Start date<Input className="mt-1" type="date" value={createForm.startDate} onChange={(e) => setCreate("startDate", e.target.value)} /></label>
-              <label className="text-sm text-fg">End date<Input className="mt-1" type="date" value={createForm.endDate} onChange={(e) => setCreate("endDate", e.target.value)} /></label>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.groupStageEnabled} onChange={(e) => setCreate("groupStageEnabled", e.target.checked)} /> Group stage enabled</label>
-            <h3 className="mt-2 font-semibold text-fg">Auction settings</h3>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm text-fg">Budget (INR)<Input className="mt-1" type="number" min="0" required value={createForm.budgetPerTeam} onChange={(e) => setCreate("budgetPerTeam", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Player nominations<Input className="mt-1" type="number" min="1" required value={createForm.playersCount} onChange={(e) => setCreate("playersCount", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Team limit<Input className="mt-1" type="number" min="2" required value={createForm.seasonTeamCount} onChange={(e) => setCreate("seasonTeamCount", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Squad size<Input className="mt-1" type="number" min="1" required value={createForm.teamSquadSize} onChange={(e) => setCreate("teamSquadSize", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Icon player limit<Input className="mt-1" type="number" min="0" required value={createForm.iconPlayerLimit} onChange={(e) => setCreate("iconPlayerLimit", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Goalkeeper limit<Input className="mt-1" type="number" min="0" required value={createForm.goalkeeperLimit} onChange={(e) => setCreate("goalkeeperLimit", Number(e.target.value))} /></label>
-            </div>
-            <h3 className="mt-2 font-semibold text-fg">Points and match rules</h3>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="text-sm text-fg">Win points<Input className="mt-1" type="number" min="0" value={createForm.win} onChange={(e) => setCreate("win", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Draw points<Input className="mt-1" type="number" min="0" value={createForm.draw} onChange={(e) => setCreate("draw", Number(e.target.value))} /></label>
-              <label className="text-sm text-fg">Loss points<Input className="mt-1" type="number" min="0" value={createForm.loss} onChange={(e) => setCreate("loss", Number(e.target.value))} /></label>
-            </div>
-            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.groupStageDrawAllowed} onChange={(e) => setCreate("groupStageDrawAllowed", e.target.checked)} /> Allow draws in group-stage matches</label>
-            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.knockoutDrawRequiresShootout} onChange={(e) => setCreate("knockoutDrawRequiresShootout", e.target.checked)} /> Require shootout for tied knockout matches</label>
-            <div className="mt-2">
-              <h3 className="mb-2 font-semibold text-fg">Initial participating teams (optional)</h3>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {permanentTeams.data?.data.filter((team) => team.status === "active").map((team) => (
-                  <label key={team._id} className="flex items-center gap-2 rounded-xl border border-line p-2 text-sm text-fg">
-                    <input type="checkbox" checked={initialTeamIds.includes(team._id)} disabled={!initialTeamIds.includes(team._id) && initialTeamIds.length >= createForm.seasonTeamCount} onChange={() => toggleTeam(team._id, initialTeamIds, setInitialTeamIds)} />{team.name}
-                  </label>
-                ))}
-              </div>
-              <p className="mt-1 text-xs text-muted">{initialTeamIds.length} selected · a Draft season may also be created with no teams</p>
-            </div>
-            <Button type="submit" disabled={saving || !createForm.name.trim() || initialTeamIds.length > createForm.seasonTeamCount || createForm.iconPlayerLimit > createForm.teamSquadSize || createForm.goalkeeperLimit > createForm.teamSquadSize}>Create Draft season</Button>
-          </form>
-        </GlassCard>
-
+      <div className="space-y-5">
         {selected ? (
-          <div className="grid gap-5">
-            <GlassCard className="p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><h2 className="font-display text-2xl text-fg">{selected.name}</h2><p className="text-sm text-muted">Edition {selected.seasonNumber} · {selected.year} · {statusLabel(selected.status)}</p></div>
-                <span className="rounded-full bg-surface px-3 py-1 text-xs text-muted">{selected.status === "active" ? "Current Active Season" : "Season workspace"}</span>
+          <div className="grid items-start gap-5 lg:grid-cols-2">
+            <GlassCard className="p-5 lg:col-span-2">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-accent">
+                    <Trophy className="h-6 w-6" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="font-display text-2xl text-fg sm:text-3xl">{selected.name}</h2>
+                      <Badge tone={selected.status === "active" ? "accent" : selected.status === "completed" ? "gold" : selected.status === "archived" ? "neutral" : "info"}>{statusLabel(selected.status)}</Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted">Edition {selected.seasonNumber} · {selected.year}</p>
+                    <p className="mt-1 text-xs text-muted">{selected.startDate ? toDateInput(selected.startDate) : "Start date not set"} – {selected.endDate ? toDateInput(selected.endDate) : "End date not set"}</p>
+                  </div>
+                </div>
+                <Button variant="surface" size="sm" disabled={!editable} onClick={() => { setEditForm(fromSeason(selected)); setEditOpen(true); }}>
+                  <Settings2 className="h-4 w-4" /> Edit configuration
+                </Button>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {selected.status === "draft" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("upcoming")}>Move to Upcoming</Button> : null}
@@ -441,59 +446,26 @@ function SeasonsBody() {
               </div>
               {selected.status === "draft" && dependenciesExist ? <p className="mt-2 text-xs text-muted">Deletion is disabled because this Draft season has linked teams, groups, auction lots or fixtures. Remove only unused setup records first.</p> : null}
             </GlassCard>
+            <div className="grid gap-3 grid-cols-2 xl:grid-cols-4 lg:col-span-2">
+              {[
+                { label: "Participating teams", value: registeredTeams.length, icon: Users },
+                { label: "Season groups", value: seasonGroups.length, icon: Layers3 },
+                { label: "Auction lots", value: seasonLots.length, icon: ShieldCheck },
+                { label: "Fixtures", value: fixtureCount, icon: CalendarDays },
+              ].map(({ label, value, icon: Icon }) => (
+                <GlassCard key={label} className="flex items-center gap-3 p-4">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface text-accent"><Icon className="h-5 w-5" /></span>
+                  <div><p className="text-xs text-muted">{label}</p><p className="mt-0.5 font-display text-2xl text-fg">{value}</p></div>
+                </GlassCard>
+              ))}
+            </div>
 
-            <GlassCard className="p-5">
-              <h3 className="mb-3 font-display text-xl text-fg">Edit season configuration</h3>
-              <form className="grid gap-3" onSubmit={handleEdit}>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm text-fg">Season number<Input type="number" min="1" value={editForm.seasonNumber} disabled={identityLocked} onChange={(e) => setEdit("seasonNumber", Number(e.target.value))} /></label>
-                  <label className="text-sm text-fg">Year<Input type="number" min="2000" max="2200" value={editForm.year} disabled={identityLocked} onChange={(e) => setEdit("year", Number(e.target.value))} /></label>
-                </div>
-                {identityLocked ? <p className="text-xs text-muted">Season number and year are locked after the season leaves Draft or dependent setup records exist.</p> : null}
-                <label className="text-sm text-fg">Season name<Input value={editForm.name} disabled={!editable} onChange={(e) => setEdit("name", e.target.value)} /></label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="text-sm text-fg">Start date<Input type="date" value={editForm.startDate} disabled={!editable} onChange={(e) => setEdit("startDate", e.target.value)} /></label>
-                  <label className="text-sm text-fg">End date<Input type="date" value={editForm.endDate} disabled={!editable} onChange={(e) => setEdit("endDate", e.target.value)} /></label>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.groupStageEnabled} disabled={matchRulesLocked} onChange={(e) => setEdit("groupStageEnabled", e.target.checked)} /> Group stage enabled</label>
-                <p className="mt-1 text-sm font-semibold text-fg">Auction settings</p>
-                {auctionRulesLocked ? <p className="text-xs text-muted">Auction fields are locked because at least one AuctionLot exists in this season (including pending or unsold lots).</p> : null}
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {([
-                    ["budgetPerTeam","Budget (INR)"],["playersCount","Player nominations"],["seasonTeamCount","Team limit"],
-                    ["teamSquadSize","Squad size"],["iconPlayerLimit","Icon player limit"],["goalkeeperLimit","Goalkeeper limit"],
-                  ] as const).map(([key,label]) => <label key={key} className="text-sm text-fg">{label}<Input className="mt-1" type="number" min="0" value={editForm[key]} disabled={auctionRulesLocked} onChange={(e) => setEdit(key, Number(e.target.value))} /></label>)}
-                </div>
-                <p className="mt-1 text-sm font-semibold text-fg">Points, standings and match rules</p>
-                {matchRulesLocked ? <p className="text-xs text-muted">Points, tiebreaker, match and group-stage rules are locked because fixtures already exist.</p> : null}
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="text-sm text-fg">Win points<Input className="mt-1" type="number" min="0" value={editForm.win} disabled={matchRulesLocked} onChange={(e) => setEdit("win", Number(e.target.value))} /></label>
-                  <label className="text-sm text-fg">Draw points<Input className="mt-1" type="number" min="0" value={editForm.draw} disabled={matchRulesLocked} onChange={(e) => setEdit("draw", Number(e.target.value))} /></label>
-                  <label className="text-sm text-fg">Loss points<Input className="mt-1" type="number" min="0" value={editForm.loss} disabled={matchRulesLocked} onChange={(e) => setEdit("loss", Number(e.target.value))} /></label>
-                </div>
-                <div className="grid gap-2 rounded-xl border border-line p-3">
-                  <p className="text-sm font-semibold text-fg">Standings tiebreaker order</p>
-                  {([
-                    ["points", "Points"], ["goalDifference", "Goal difference"], ["goalsScored", "Goals scored"], ["teamNameAsc", "Team name (A–Z)"],
-                  ] as const).map(([key, label]) => (
-                    <label key={key} className="flex items-center gap-2 text-sm text-fg">
-                      <input type="checkbox" checked={editForm.standingsTieBreakers.includes(key)} disabled={matchRulesLocked}
-                        onChange={(event) => setEdit("standingsTieBreakers", event.target.checked
-                          ? [...editForm.standingsTieBreakers, key]
-                          : editForm.standingsTieBreakers.filter((value) => value !== key))} />
-                      {label}
-                    </label>
-                  ))}
-                  <p className="text-xs text-muted">Choose the rules used to rank teams when points are tied. At least one rule is required and each rule can appear once.</p>
-                </div>
-                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.groupStageDrawAllowed} disabled={matchRulesLocked} onChange={(e) => setEdit("groupStageDrawAllowed", e.target.checked)} /> Allow group-stage draws</label>
-                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.knockoutDrawRequiresShootout} disabled={matchRulesLocked} onChange={(e) => setEdit("knockoutDrawRequiresShootout", e.target.checked)} /> Require knockout shootout</label>
-                <Button type="submit" disabled={saving || !editable}>Save configuration</Button>
-              </form>
-            </GlassCard>
-
-            <GlassCard className="p-5">
-              <h3 className="mb-3 font-display text-xl text-fg">Participating teams</h3>
+            <GlassCard className="p-5 sm:p-6">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface text-accent"><Users className="h-5 w-5" /></span>
+                <div><h3 className="font-display text-xl text-fg">Participating teams</h3>
+                <p className="mt-1 text-xs text-muted">Season-only registrations, group assignments and managers.</p></div>
+              </div>
               <p className="mb-3 text-xs text-muted">Permanent Teams stay separate. Registration is available in Draft and Upcoming; it freezes when the season becomes Active.</p>
               {seasonTeams.loading ? <Skeleton className="h-20" /> : null}              {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
               {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
@@ -540,8 +512,12 @@ function SeasonsBody() {
               <p className="mt-4 text-xs text-muted">Award records are saved against this season. Completed and archived seasons remain available as read-only history.</p>
             </GlassCard>
 
-            <GlassCard className="p-5">
-              <h3 className="mb-3 font-display text-xl text-fg">Season groups</h3>
+            <GlassCard className="p-5 sm:p-6">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface text-accent"><Layers3 className="h-5 w-5" /></span>
+                <div><h3 className="font-display text-xl text-fg">Season groups</h3>
+                <p className="mt-1 text-xs text-muted">Configure groups and assign teams before fixtures are created.</p></div>
+              </div>
               <p className="mb-3 text-xs text-muted">Groups belong to this Season only. Assign participants before creating group-stage fixtures. Group names can be reused in other seasons.</p>
               {preActivation && !hasFixtures ? <form className="mb-4 grid gap-2 sm:grid-cols-[1fr_7rem_auto]" onSubmit={createGroup}>
                 <Input aria-label="New group name" placeholder="Group A" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} />
@@ -564,8 +540,12 @@ function SeasonsBody() {
               </div>
             </GlassCard>
 
-            <GlassCard className="p-5">
-              <h3 className="mb-2 font-display text-xl text-fg">Dependency and lock summary</h3>
+            <GlassCard className="p-5 sm:p-6">
+              <div className="mb-4 flex items-start gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-surface text-accent"><ShieldCheck className="h-5 w-5" /></span>
+                <div><h3 className="font-display text-xl text-fg">Setup status & locks</h3>
+                <p className="mt-1 text-xs text-muted">Live dependency counts and configuration lock rules.</p></div>
+              </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><p className="text-muted">SeasonTeams</p><p className="font-semibold text-fg">{registeredTeams.length}</p></div>
                 <div><p className="text-muted">Groups</p><p className="font-semibold text-fg">{seasonGroups.length}</p></div>
@@ -579,6 +559,107 @@ function SeasonsBody() {
           <GlassCard className="p-5"><h2 className="font-display text-2xl text-fg">Season workspace</h2><p className="mt-2 text-sm text-muted">Select an existing season above, or create a new Draft season.</p></GlassCard>
         )}
       </div>
+      <Modal
+        open={createOpen}
+        title="Create a season"
+        description="Set up a new Draft edition. You can register teams now or complete setup later."
+        onClose={() => setCreateOpen(false)}
+      >
+        <form className="grid gap-3" onSubmit={handleCreate}>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="text-sm text-fg">Edition number<Input className="mt-1" type="number" min="1" required value={createForm.seasonNumber} onChange={(e) => setCreate("seasonNumber", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Year<Input className="mt-1" type="number" min="2000" max="2200" required value={createForm.year} onChange={(e) => setCreate("year", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Season name<Input className="mt-1" required minLength={2} maxLength={100} value={createForm.name} onChange={(e) => setCreate("name", e.target.value)} /></label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-sm text-fg">Start date<Input className="mt-1" type="date" value={createForm.startDate} onChange={(e) => setCreate("startDate", e.target.value)} /></label>
+              <label className="text-sm text-fg">End date<Input className="mt-1" type="date" value={createForm.endDate} onChange={(e) => setCreate("endDate", e.target.value)} /></label>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.groupStageEnabled} onChange={(e) => setCreate("groupStageEnabled", e.target.checked)} /> Group stage enabled</label>
+            <h3 className="mt-2 font-semibold text-fg">Auction settings</h3>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="text-sm text-fg">Budget (INR)<Input className="mt-1" type="number" min="0" required value={createForm.budgetPerTeam} onChange={(e) => setCreate("budgetPerTeam", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Player nominations<Input className="mt-1" type="number" min="1" required value={createForm.playersCount} onChange={(e) => setCreate("playersCount", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Team limit<Input className="mt-1" type="number" min="2" required value={createForm.seasonTeamCount} onChange={(e) => setCreate("seasonTeamCount", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Squad size<Input className="mt-1" type="number" min="1" required value={createForm.teamSquadSize} onChange={(e) => setCreate("teamSquadSize", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Icon player limit<Input className="mt-1" type="number" min="0" required value={createForm.iconPlayerLimit} onChange={(e) => setCreate("iconPlayerLimit", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Goalkeeper limit<Input className="mt-1" type="number" min="0" required value={createForm.goalkeeperLimit} onChange={(e) => setCreate("goalkeeperLimit", Number(e.target.value))} /></label>
+            </div>
+            <h3 className="mt-2 font-semibold text-fg">Points and match rules</h3>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="text-sm text-fg">Win points<Input className="mt-1" type="number" min="0" value={createForm.win} onChange={(e) => setCreate("win", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Draw points<Input className="mt-1" type="number" min="0" value={createForm.draw} onChange={(e) => setCreate("draw", Number(e.target.value))} /></label>
+              <label className="text-sm text-fg">Loss points<Input className="mt-1" type="number" min="0" value={createForm.loss} onChange={(e) => setCreate("loss", Number(e.target.value))} /></label>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.groupStageDrawAllowed} onChange={(e) => setCreate("groupStageDrawAllowed", e.target.checked)} /> Allow draws in group-stage matches</label>
+            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.knockoutDrawRequiresShootout} onChange={(e) => setCreate("knockoutDrawRequiresShootout", e.target.checked)} /> Require shootout for tied knockout matches</label>
+            <div className="mt-2">
+              <h3 className="mb-2 font-semibold text-fg">Initial participating teams (optional)</h3>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {permanentTeams.data?.data.filter((team) => team.status === "active").map((team) => (
+                  <label key={team._id} className="flex items-center gap-2 rounded-xl border border-line p-2 text-sm text-fg">
+                    <input type="checkbox" checked={initialTeamIds.includes(team._id)} disabled={!initialTeamIds.includes(team._id) && initialTeamIds.length >= createForm.seasonTeamCount} onChange={() => toggleTeam(team._id, initialTeamIds, setInitialTeamIds)} />{team.name}
+                  </label>
+                ))}
+              </div>
+              <p className="mt-1 text-xs text-muted">{initialTeamIds.length} selected · a Draft season may also be created with no teams</p>
+            </div>
+            <Button type="submit" disabled={saving || !createForm.name.trim() || initialTeamIds.length > createForm.seasonTeamCount || createForm.iconPlayerLimit > createForm.teamSquadSize || createForm.goalkeeperLimit > createForm.teamSquadSize}>Create Draft season</Button>
+          </form>
+      </Modal>
+      <Modal
+        open={editOpen && Boolean(selected)}
+        title="Edit season configuration"
+        description={selected ? "Update " + selected.name + ". Fields are locked automatically when dependent season activity exists." : undefined}
+        onClose={() => setEditOpen(false)}
+      >
+        <form className="grid gap-3" onSubmit={handleEdit}>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm text-fg">Season number<Input type="number" min="1" value={editForm.seasonNumber} disabled={identityLocked} onChange={(e) => setEdit("seasonNumber", Number(e.target.value))} /></label>
+                  <label className="text-sm text-fg">Year<Input type="number" min="2000" max="2200" value={editForm.year} disabled={identityLocked} onChange={(e) => setEdit("year", Number(e.target.value))} /></label>
+                </div>
+                {identityLocked ? <p className="text-xs text-muted">Season number and year are locked after the season leaves Draft or dependent setup records exist.</p> : null}
+                <label className="text-sm text-fg">Season name<Input value={editForm.name} disabled={!editable} onChange={(e) => setEdit("name", e.target.value)} /></label>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm text-fg">Start date<Input type="date" value={editForm.startDate} disabled={!editable} onChange={(e) => setEdit("startDate", e.target.value)} /></label>
+                  <label className="text-sm text-fg">End date<Input type="date" value={editForm.endDate} disabled={!editable} onChange={(e) => setEdit("endDate", e.target.value)} /></label>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.groupStageEnabled} disabled={matchRulesLocked} onChange={(e) => setEdit("groupStageEnabled", e.target.checked)} /> Group stage enabled</label>
+                <p className="mt-1 text-sm font-semibold text-fg">Auction settings</p>
+                {auctionRulesLocked ? <p className="text-xs text-muted">Auction fields are locked because at least one AuctionLot exists in this season (including pending or unsold lots).</p> : null}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {([
+                    ["budgetPerTeam","Budget (INR)"],["playersCount","Player nominations"],["seasonTeamCount","Team limit"],
+                    ["teamSquadSize","Squad size"],["iconPlayerLimit","Icon player limit"],["goalkeeperLimit","Goalkeeper limit"],
+                  ] as const).map(([key,label]) => <label key={key} className="text-sm text-fg">{label}<Input className="mt-1" type="number" min="0" value={editForm[key]} disabled={auctionRulesLocked} onChange={(e) => setEdit(key, Number(e.target.value))} /></label>)}
+                </div>
+                <p className="mt-1 text-sm font-semibold text-fg">Points, standings and match rules</p>
+                {matchRulesLocked ? <p className="text-xs text-muted">Points, tiebreaker, match and group-stage rules are locked because fixtures already exist.</p> : null}
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="text-sm text-fg">Win points<Input className="mt-1" type="number" min="0" value={editForm.win} disabled={matchRulesLocked} onChange={(e) => setEdit("win", Number(e.target.value))} /></label>
+                  <label className="text-sm text-fg">Draw points<Input className="mt-1" type="number" min="0" value={editForm.draw} disabled={matchRulesLocked} onChange={(e) => setEdit("draw", Number(e.target.value))} /></label>
+                  <label className="text-sm text-fg">Loss points<Input className="mt-1" type="number" min="0" value={editForm.loss} disabled={matchRulesLocked} onChange={(e) => setEdit("loss", Number(e.target.value))} /></label>
+                </div>
+                <div className="grid gap-2 rounded-xl border border-line p-3">
+                  <p className="text-sm font-semibold text-fg">Standings tiebreaker order</p>
+                  {([
+                    ["points", "Points"], ["goalDifference", "Goal difference"], ["goalsScored", "Goals scored"], ["teamNameAsc", "Team name (A–Z)"],
+                  ] as const).map(([key, label]) => (
+                    <label key={key} className="flex items-center gap-2 text-sm text-fg">
+                      <input type="checkbox" checked={editForm.standingsTieBreakers.includes(key)} disabled={matchRulesLocked}
+                        onChange={(event) => setEdit("standingsTieBreakers", event.target.checked
+                          ? [...editForm.standingsTieBreakers, key]
+                          : editForm.standingsTieBreakers.filter((value) => value !== key))} />
+                      {label}
+                    </label>
+                  ))}
+                  <p className="text-xs text-muted">Choose the rules used to rank teams when points are tied. At least one rule is required and each rule can appear once.</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.groupStageDrawAllowed} disabled={matchRulesLocked} onChange={(e) => setEdit("groupStageDrawAllowed", e.target.checked)} /> Allow group-stage draws</label>
+                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.knockoutDrawRequiresShootout} disabled={matchRulesLocked} onChange={(e) => setEdit("knockoutDrawRequiresShootout", e.target.checked)} /> Require knockout shootout</label>
+                <Button type="submit" disabled={saving || !editable}>Save configuration</Button>
+              </form>
+      </Modal>
     </PageContainer>
   );
 }
