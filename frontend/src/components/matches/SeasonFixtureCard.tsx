@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
 import type { SeasonMatch, SeasonMatchTeamRef } from "@/types/seasonMatch.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
@@ -25,19 +26,17 @@ const STATUS_LABEL: Record<SeasonMatch["status"], string> = {
 
 function teamDetails(ref: SeasonMatchTeamRef) {
   if (typeof ref === "string") return { id: ref, name: "Team", logo: null };
-  return {
-    id: ref._id,
-    name: ref.displayName,
-    logo: ref.logoSnapshot ?? ref.team?.logo ?? null,
-  };
+  return { id: ref._id, name: ref.displayName, logo: ref.logoSnapshot ?? ref.team?.logo ?? null };
 }
 
 export function SeasonFixtureCard({
   match,
   groupName,
+  onEdit,
 }: {
   match: SeasonMatch;
   groupName?: string | null;
+  onEdit?: (match: SeasonMatch) => void;
 }) {
   const home = teamDetails(match.homeSeasonTeamRef);
   const away = teamDetails(match.awaySeasonTeamRef);
@@ -46,24 +45,22 @@ export function SeasonFixtureCard({
   const showScore = match.status === "live" || match.status === "completed" || match.goals.length > 0;
 
   return (
-    <Link
-      to="/matches/$matchId"
-      params={{ matchId: match._id }}
-      search={{ seasonId: match.seasonRef }}
-      className="block"
-    >
-      <GlassCard className="p-4 transition duration-200 hover:border-accent">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-          <span>Match {match.matchNumber} · {STAGE_LABEL[match.stage]}{groupName ? ` · ${groupName}` : ""}</span>
-          <span>{STATUS_LABEL[match.status]}</span>
-        </div>
+    <GlassCard className="p-4 transition duration-200 hover:border-accent">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+        <span>Match {match.matchNumber} · {STAGE_LABEL[match.stage]}{groupName ? ` · ${groupName}` : ""}</span>
+        <span>{STATUS_LABEL[match.status]}</span>
+      </div>
+      <Link
+        to="/matches/$matchId"
+        params={{ matchId: match._id }}
+        search={{ seasonId: match.seasonRef }}
+        className="block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      >
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
           <Avatar name={home.name} asset={home.logo} className="h-12 w-12 rounded-xl" />
           <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 text-center">
             <p className="truncate text-right font-semibold text-fg">{home.name}</p>
-            <p className="font-display text-3xl tabular text-fg">
-              {showScore ? `${homeScore} – ${awayScore}` : "vs"}
-            </p>
+            <p className="font-display text-3xl tabular text-fg">{showScore ? `${homeScore} – ${awayScore}` : "vs"}</p>
             <p className="truncate text-left font-semibold text-fg">{away.name}</p>
           </div>
           <Avatar name={away.name} asset={away.logo} className="h-12 w-12 rounded-xl" />
@@ -74,10 +71,10 @@ export function SeasonFixtureCard({
           </p>
         ) : null}
         <p className="mt-3 text-center text-xs text-muted">
-          {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}
-          {match.venue ? ` · ${match.venue}` : ""}
+          {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}{match.venue ? ` · ${match.venue}` : ""}
         </p>
-      </GlassCard>
-    </Link>
+      </Link>
+      {onEdit && !["completed", "cancelled", "abandoned"].includes(match.status) ? <div className="mt-3 flex justify-end border-t border-line pt-3"><Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button></div> : null}
+    </GlassCard>
   );
 }

@@ -1,4 +1,5 @@
 import {Types} from "mongoose";
+import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
 import {AppError} from "../../shared/errors/appError.js";
 import type {PaginatedResult} from "../../shared/types/common.types.js";
@@ -47,6 +48,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(await this.repo.findByNumber(seasonId,input.matchNumber))throw new AppError("Match number already exists in this season",409,"DUPLICATE_MATCH_NUMBER");
   const homeId=input.homeSeasonTeamRef,awayId=input.awaySeasonTeamRef;
   await this.validateSeasonTeams(seasonId,homeId,awayId,input.stage,input.groupRef??null);
+  await this.validateKnockoutQualification(seasonId,input.stage,homeId,awayId,season);
   const fields:SeasonMatchFields={seasonRef:new Types.ObjectId(seasonId),matchNumber:input.matchNumber,stage:input.stage,groupRef:input.stage==="group"&&input.groupRef?new Types.ObjectId(input.groupRef):null,kickoffAt:input.kickoffAt,venue:input.venue??null,homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:"scheduled",goals:[],penaltyShootout:null,winnerSeasonTeamRef:null,notes:input.notes??null,resolutionHistory:[]};
   if(input.status!==undefined&&input.status!=="scheduled")throw new AppError("New fixtures must start as Scheduled",422,"INVALID_INITIAL_MATCH_STATUS");
   if(fields.status==="completed")throw new AppError("Create fixtures as scheduled, record goals, then complete the match",422,"INVALID_MATCH_COMPLETION");
@@ -56,17 +58,22 @@ export class SeasonMatchService implements ISeasonMatchService{
   this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
   const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(["completed","archived"].includes(season.status))throw new AppError("Completed or archived season matches are read-only",409,"SEASON_CLOSED");
+  if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Correct goals through goal management; fixture details cannot be rewritten.",409,"MATCH_COMPLETED_READ_ONLY");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const homeId=input.homeSeasonTeamRef??String(existing.homeSeasonTeamRef),awayId=input.awaySeasonTeamRef??String(existing.awaySeasonTeamRef);
   const stage=input.stage??existing.stage,groupId=input.groupRef===undefined?(existing.groupRef?String(existing.groupRef):null):input.groupRef;
   await this.validateSeasonTeams(String(existing.seasonRef),homeId,awayId,stage,groupId);
+  await this.validateKnockoutQualification(String(existing.seasonRef),stage,homeId,awayId,season);
   const kickoffAt=input.kickoffAt??existing.kickoffAt;
   this.assertKickoffWithinSeason(season,kickoffAt);
   if(stage==="group"&&!season.groupStageEnabled)throw new AppError("Group-stage fixtures are disabled for this season",409,"GROUP_STAGE_DISABLED");
-  if((homeId!==String(existing.homeSeasonTeamRef)||awayId!==String(existing.awaySeasonTeamRef))&&existing.goals.length)throw new AppError("Remove or reassign goal events before changing the participating teams",409,"MATCH_HAS_GOALS");
+  const teamsChanged=homeId!==String(existing.homeSeasonTeamRef)||awayId!==String(existing.awaySeasonTeamRef);
+  const structureChanged=stage!==existing.stage||groupId!==(existing.groupRef?String(existing.groupRef):null);
+  if((teamsChanged||structureChanged)&&(existing.goals.length>0||(existing.resolutionHistory??[]).length>0))throw new AppError("Participating teams, stage and group cannot be changed after goal or resolution history has been recorded",409,"MATCH_HAS_HISTORY");
   const number=input.matchNumber??existing.matchNumber;
   if(number!==existing.matchNumber){const duplicate=await this.repo.findByNumber(String(existing.seasonRef),number);if(duplicate&&String(duplicate._id)!==id)throw new AppError("Match number already exists in this season",409,"DUPLICATE_MATCH_NUMBER");}
   const nextStatus=input.status??existing.status;
+  if(["cancelled","abandoned"].includes(existing.status)&&nextStatus!==existing.status)throw new AppError("A cancelled or abandoned fixture cannot be reopened; create a replacement fixture with a new match number",409,"FIXTURE_RESOLUTION_LOCKED");
   const resolutionHistory=[...(existing.resolutionHistory??[])];
   if(input.resolutionReason!==undefined&&(nextStatus!=="cancelled"&&nextStatus!=="abandoned"))throw new AppError("A resolution reason is only valid when cancelling or abandoning a fixture",422,"INVALID_FIXTURE_RESOLUTION");
   if(nextStatus==="cancelled"||nextStatus==="abandoned"){
@@ -89,6 +96,31 @@ export class SeasonMatchService implements ISeasonMatchService{
  async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules);const saved=await this.repo.appendGoalWithWinner(id,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.updateGoalWithWinner(id,goalId,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  async deleteGoal(id:string,goalId:string):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");const goals=match.goals.filter(g=>String(g._id)!==goalId);if(goals.length===match.goals.length)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.removeGoalWithWinner(id,goalId,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
+ private async validateKnockoutQualification(seasonId:string,stage:SeasonMatchFields["stage"],homeId:string,awayId:string,season:NonNullable<Awaited<ReturnType<SeasonMatchRepository["findSeason"]>>>):Promise<void>{
+  if(stage==="group")return;
+  const [teams,groupMatches,roundOf16,quarterFinals,semiFinals]=await Promise.all([
+   this.repo.findSeasonTeams(seasonId),
+   this.repo.findByStage(seasonId,"group"),
+   this.repo.findByStage(seasonId,"round_of_16"),
+   this.repo.findByStage(seasonId,"quarter_final"),
+   this.repo.findByStage(seasonId,"semi_final"),
+  ]);
+  let groupQualifiers=new Set<string>();
+  if(season.groupStageEnabled){
+   if(!season.pointsRules)throw new AppError("Season points rules are required to validate group qualification",409,"SEASON_POINTS_RULES_UNAVAILABLE");
+   if(!groupMatches.length||groupMatches.some(match=>!["completed","cancelled","abandoned"].includes(match.status)))throw new AppError("All group-stage fixtures must be resolved before knockout qualification can be confirmed",409,"GROUP_STAGE_NOT_COMPLETE");
+   groupQualifiers=groupStageQualifiers(teams,groupMatches,season.pointsRules,2);
+  }
+  const activeTeamIds=new Set(teams.filter(team=>team.status==="active").map(team=>String(team._id)));
+  const previousMatches=stage==="quarter_final"?roundOf16:stage==="semi_final"?(quarterFinals.length?quarterFinals:roundOf16):stage==="final"||stage==="third_place"?semiFinals:[];
+  if(previousMatches.length){
+   try{assertStageMatchesResolved(previousMatches,stage==="quarter_final"?"Round of 16":stage==="semi_final"?(quarterFinals.length?"Quarter-final":"Round of 16"):"Semi-final");}
+   catch(error){throw new AppError(error instanceof Error?error.message:"Previous knockout fixtures are not complete",409,"KNOCKOUT_STAGE_NOT_COMPLETE");}
+  }
+  if((stage==="final"||stage==="third_place")&&!semiFinals.length)throw new AppError("Semi-final fixtures must be recorded before creating the final or third-place playoff",409,"SEMI_FINALS_REQUIRED");
+  const eligible=qualifiedTeamsForStage(stage,groupQualifiers,activeTeamIds,roundOf16,quarterFinals,semiFinals);
+  if(!eligible.has(homeId)||!eligible.has(awayId))throw new AppError("Both teams must have qualified for this knockout stage based on the completed group standings or previous knockout results",422,"KNOCKOUT_QUALIFICATION_REQUIRED");
+ }
  private assertKickoffWithinSeason(season:NonNullable<Awaited<ReturnType<SeasonMatchRepository["findSeason"]>>>,kickoffAt:Date):void{
   if(!isKickoffWithinSeasonDateWindow(kickoffAt,{startDate:season.startDate,endDate:season.endDate,timeZone:season.timeZone})){
    const day=new Intl.DateTimeFormat("en-CA",{timeZone:season.timeZone}).format(kickoffAt);
@@ -102,6 +134,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(homeId===awayId)throw new AppError("A team cannot play itself",422,"SAME_TEAMS");
   const [home,away]=await Promise.all([this.repo.findSeasonTeam(seasonId,homeId),this.repo.findSeasonTeam(seasonId,awayId)]);
   if(!home||!away||["withdrawn","eliminated","completed"].includes(home.status)||["withdrawn","eliminated","completed"].includes(away.status))throw new AppError("Both teams must be participating in the selected season",422,"INVALID_SEASON_TEAMS");
+  if(stage!=="group"&&(home.status!=="active"||away.status!=="active"))throw new AppError("Only Active season teams can be selected for knockout fixtures",422,"KNOCKOUT_TEAM_NOT_ACTIVE");
   if(stage==="group"){
    if(!groupId)throw new AppError("Group is required for a group-stage fixture",422,"GROUP_REQUIRED");
    const group=await this.repo.findGroup(seasonId,groupId);if(!group)throw new AppError("Select a group from this season",422,"INVALID_GROUP");
@@ -163,6 +196,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   this.id(id,"match");
   const match=await this.repo.findById(id);
   if(!match)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
+  if(["cancelled","abandoned"].includes(match.status))throw new AppError("Goals cannot be changed on a cancelled or abandoned fixture",409,"FIXTURE_RESOLUTION_LOCKED");
   const season=await this.repo.findSeason(String(match.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived season match history is read-only",409,"SEASON_CLOSED");

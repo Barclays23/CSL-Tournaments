@@ -36,6 +36,12 @@ export class SeasonMatchRepository {
     return rows.map((row) => row._id);
   }
   async findById(id: string): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findById(id).lean<SeasonMatchEntity>().exec(); }
+  async findByStage(seasonId: string, stage: SeasonMatchEntity["stage"]): Promise<SeasonMatchEntity[]> {
+    return SeasonMatchModel.find({ seasonRef: new Types.ObjectId(seasonId), stage }).sort({ kickoffAt: 1, matchNumber: 1 }).lean<SeasonMatchEntity[]>().exec();
+  }
+  async findSeasonTeams(seasonId: string): Promise<SeasonTeamEntity[]> {
+    return SeasonTeamModel.find({ seasonRef: new Types.ObjectId(seasonId) }).lean<SeasonTeamEntity[]>().exec();
+  }
   async findPopulatedById(id: string): Promise<PopulatedSeasonMatch | null> { return SeasonMatchModel.findById(id).populate(population).lean<PopulatedSeasonMatch>().exec(); }
   async findByNumber(seasonId: string, number: number): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findOne({ seasonRef: new Types.ObjectId(seasonId), matchNumber: number }).lean<SeasonMatchEntity>().exec(); }
   async findSeason(id: string): Promise<SeasonEntity | null> { return SeasonModel.findById(id).lean<SeasonEntity>().exec(); }

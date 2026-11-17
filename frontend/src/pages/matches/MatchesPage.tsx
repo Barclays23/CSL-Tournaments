@@ -18,8 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getSeasons, getSeasonTeams } from "@/services/seasonService";
-import { createSeasonMatch, getSeasonGroups, getSeasonMatches } from "@/services/seasonMatchService";
-import type { SeasonMatchStage, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
+import { createSeasonMatch, getSeasonGroups, getSeasonMatches, updateSeasonMatch } from "@/services/seasonMatchService";
+import type { SeasonMatch, SeasonMatchStage, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { errorMessage } from "@/utils/errorHandler";
 
 const TABS: { value: SeasonMatchStatus | ""; label: string }[] = [
@@ -57,6 +57,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
+  const [editingMatch, setEditingMatch] = useState<SeasonMatch | null>(null);
   const [saving, setSaving] = useState(false);
   const debounced = useDebounce(search);
 
@@ -128,7 +129,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
         eyebrow="Calendar"
         title="Fixtures"
         description="Choose a season to view its fixtures, match results and penalty shootouts."
-        actions={canCreateFixture ? <Button onClick={() => setOpen(true)}>Create fixture</Button> : null}
+        actions={canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}
       />
       <div className="mb-4 max-w-sm">
         <Select
@@ -172,22 +173,30 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
             key={match._id}
             match={match}
             groupName={(groups.data?.data ?? []).find((group) => group._id === match.groupRef)?.groupName ?? null}
+            onEdit={isAdmin && ["upcoming", "active"].includes(selectedSeason?.status ?? "") ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
           />
         ))}
       </div>
       <Pagination pagination={matches.data?.pagination} onPage={setPage} />
-      <Drawer open={open} title={`Create fixture · ${selectedSeason?.name ?? ""}`} onClose={() => setOpen(false)}>
+      <Drawer open={open} title={`${editingMatch ? "Edit fixture" : "Create fixture"} · ${selectedSeason?.name ?? ""}`} onClose={() => { setOpen(false); setEditingMatch(null); }}>
         <SeasonMatchForm
           seasonTeams={seasonTeams.data?.data ?? []}
           groups={groups.data?.data ?? []}
+          match={editingMatch}
           submitting={saving}
           onSubmit={async (values: SeasonMatchWrite) => {
             if (!seasonId) return;
             setSaving(true);
             try {
-              await createSeasonMatch(seasonId, values);
-              toast.success("Season fixture created");
+              if (editingMatch) {
+                await updateSeasonMatch(seasonId, editingMatch._id, values);
+                toast.success("Season fixture updated");
+              } else {
+                await createSeasonMatch(seasonId, values);
+                toast.success("Season fixture created");
+              }
               setOpen(false);
+              setEditingMatch(null);
               setPage(1);
               matches.reload();
             } catch (error) {
