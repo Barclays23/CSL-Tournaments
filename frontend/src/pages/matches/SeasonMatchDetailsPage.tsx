@@ -3,6 +3,8 @@ import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/Button";
+import { Drawer } from "@/components/ui/Drawer";
+import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { Textarea } from "@/components/ui/Textarea";
 import { Avatar } from "@/components/ui/Avatar";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -10,7 +12,9 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
-import { getSeasonMatchById, updateSeasonMatchResolution } from "@/services/seasonMatchService";
+import { getSeasonMatchById, getSeasonGroups, updateSeasonMatch, updateSeasonMatchResolution } from "@/services/seasonMatchService";
+import { getSeasonTeams } from "@/services/seasonService";
+import type { SeasonMatchWrite } from "@/types/seasonMatch.types";
 import type { SeasonMatch, SeasonMatchTeamRef } from "@/types/seasonMatch.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
@@ -43,6 +47,10 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const [resolutionStatus, setResolutionStatus] = useState<"cancelled" | "abandoned">("cancelled");
   const [resolutionReason, setResolutionReason] = useState("");
   const [savingResolution, setSavingResolution] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [savingMatch, setSavingMatch] = useState(false);
+  const teamsQuery = useServiceQuery(() => getSeasonTeams(seasonId), [seasonId]);
+  const groupsQuery = useServiceQuery(() => getSeasonGroups(seasonId), [seasonId]);
   const matchQuery = useServiceQuery(() => getSeasonMatchById(seasonId, matchId), [seasonId, matchId]);
   const match = matchQuery.data?.data;
 
@@ -77,6 +85,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
     <PageContainer>
       <Link to="/matches" search={{ seasonId }} className="text-sm font-semibold text-accent">Back to fixtures</Link>
       <GlassCard className="mt-4 p-5">
+        {isAdmin ? <div className="mb-3 flex justify-end"><Button variant="surface" onClick={() => setEditing(true)}>Edit fixture</Button></div> : null}
         <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted">
           Match {match.matchNumber} · {STAGE_LABEL[match.stage]} · {STATUS_LABEL[match.status]}
         </p>
@@ -136,6 +145,28 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
           </form>
         </GlassCard>
       ) : null}
+      <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
+        <SeasonMatchForm
+          seasonTeams={teamsQuery.data?.data ?? []}
+          groups={groupsQuery.data?.data ?? []}
+          match={match}
+          submitting={savingMatch}
+          onSubmit={async (values: SeasonMatchWrite) => {
+            setSavingMatch(true);
+            try {
+              await updateSeasonMatch(seasonId, matchId, values);
+              toast.success("Fixture updated");
+              setEditing(false);
+              matchQuery.reload();
+            } catch (error) {
+              toast.error(error instanceof Error ? error.message : "Unable to update fixture");
+              throw error;
+            } finally {
+              setSavingMatch(false);
+            }
+          }}
+        />
+      </Drawer>
       <section className="mt-6">
         <h2 className="mb-3 font-display text-3xl text-fg">Goals</h2>
         {match.goals.length === 0 ? (

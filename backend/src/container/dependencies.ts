@@ -4,7 +4,6 @@ import { PlayerRepository } from "../modules/players/player.repository.js";
 import { TeamRepository } from "../modules/teams/team.repository.js";
 import { ManagerRepository } from "../modules/managers/manager.repository.js";
 import { SponsorRepository } from "../modules/sponsors/sponsor.repository.js";
-import { MatchRepository } from "../modules/matches/match.repository.js";
 import { StatisticsRepository } from "../modules/statistics/statistics.repository.js";
 
 import { AuthService } from "../modules/auth/auth.service.js";
@@ -18,7 +17,6 @@ import { PlayerService } from "../modules/players/player.service.js";
 import { TeamService } from "../modules/teams/team.service.js";
 import { ManagerService } from "../modules/managers/manager.service.js";
 import { SponsorService } from "../modules/sponsors/sponsor.service.js";
-import { MatchService } from "../modules/matches/match.service.js";
 import { StatisticsService } from "../modules/statistics/statistics.service.js";
 import { UploadService } from "../modules/uploads/upload.service.js";
 
@@ -28,7 +26,6 @@ import { PlayerController } from "../modules/players/player.controller.js";
 import { TeamController } from "../modules/teams/team.controller.js";
 import { ManagerController } from "../modules/managers/manager.controller.js";
 import { SponsorController } from "../modules/sponsors/sponsor.controller.js";
-import { MatchController } from "../modules/matches/match.controller.js";
 import { StatisticsController } from "../modules/statistics/statistics.controller.js";
 import { UploadController } from "../modules/uploads/upload.controller.js";
 
@@ -39,7 +36,6 @@ import type { IPlayerRepository, IPlayerService, IPlayerController } from "../mo
 import type { ITeamRepository, ITeamService, ITeamController } from "../modules/teams/team.interfaces.js";
 import type { IManagerRepository, IManagerService, IManagerController } from "../modules/managers/manager.interfaces.js";
 import type { ISponsorRepository, ISponsorService, ISponsorController } from "../modules/sponsors/sponsor.interfaces.js";
-import type { IMatchRepository, IMatchService, IMatchController } from "../modules/matches/match.interfaces.js";
 import type { IStatisticsRepository, IStatisticsService, IStatisticsController } from "../modules/statistics/statistics.interfaces.js";
 import type { IUploadService, IUploadController } from "../modules/uploads/upload.interfaces.js";
 
@@ -56,7 +52,6 @@ const playerRepo: IPlayerRepository         = new PlayerRepository();
 const teamRepo: ITeamRepository             = new TeamRepository();
 const managerRepo: IManagerRepository       = new ManagerRepository();
 const sponsorRepo: ISponsorRepository       = new SponsorRepository();
-const matchRepo: IMatchRepository           = new MatchRepository();
 const statisticsRepo: IStatisticsRepository = new StatisticsRepository();
 const auctionLotRepository = new AuctionLotRepository();
 
@@ -84,7 +79,6 @@ const sponsorService: ISponsorService   = new SponsorService(sponsorRepo);
 const playerService: IPlayerService         = new PlayerService(playerRepo);
 const teamService: ITeamService             = new TeamService(teamRepo);
 const managerService: IManagerService       = new ManagerService(managerRepo, teamRepo);
-const matchService: IMatchService           = new MatchService(matchRepo, teamRepo, playerRepo, auctionLotRepository);
 const statisticsService: IStatisticsService = new StatisticsService(statisticsRepo, settingsService, teamRepo);
 
 
@@ -99,7 +93,6 @@ export const playerController: IPlayerController         = new PlayerController(
 export const teamController: ITeamController             = new TeamController(teamService, statisticsService);
 export const managerController: IManagerController       = new ManagerController(managerService);
 export const sponsorController: ISponsorController       = new SponsorController(sponsorService);
-export const matchController: IMatchController           = new MatchController(matchService);
 export const statisticsController: IStatisticsController = new StatisticsController(statisticsService);
 export const uploadController: IUploadController         = new UploadController(uploadService);
 import { SeasonRepository } from "../modules/seasons/season.repository.js";

@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import type { SeasonTeam } from "@/types/season.types";
-import type { SeasonGroup, SeasonMatchStage, SeasonMatchWrite } from "@/types/seasonMatch.types";
-import { fromDateTimeInput } from "@/utils/formatDate";
+import type { SeasonGroup, SeasonMatch, SeasonMatchStage, SeasonMatchWrite } from "@/types/seasonMatch.types";
+import { fromDateTimeInput, toDateTimeInput } from "@/utils/formatDate";
+import { refId } from "@/utils/refs";
 
 const STAGES: Array<{ value: SeasonMatchStage; label: string }> = [
   { value: "group", label: "Group stage" },
@@ -20,18 +21,20 @@ const STAGES: Array<{ value: SeasonMatchStage; label: string }> = [
 export function SeasonMatchForm({
   seasonTeams,
   groups,
+  match,
   submitting,
   onSubmit,
 }: {
   seasonTeams: SeasonTeam[];
   groups: SeasonGroup[];
+  match?: SeasonMatch | null;
   submitting: boolean;
   onSubmit: (values: SeasonMatchWrite) => Promise<void>;
 }) {
-  const [stage, setStage] = useState<SeasonMatchStage | "">("");
-  const [groupRef, setGroupRef] = useState("");
-  const [homeTeamRef, setHomeTeamRef] = useState("");
-  const [awayTeamRef, setAwayTeamRef] = useState("");
+  const [stage, setStage] = useState<SeasonMatchStage | "">(match?.stage ?? "");
+  const [groupRef, setGroupRef] = useState(match?.groupRef ?? "");
+  const [homeTeamRef, setHomeTeamRef] = useState(refId(match?.homeSeasonTeamRef) ?? "");
+  const [awayTeamRef, setAwayTeamRef] = useState(refId(match?.awaySeasonTeamRef) ?? "");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState("");
 
@@ -87,15 +90,17 @@ export function SeasonMatchForm({
         venue: venue || null,
         homeSeasonTeamRef: homeTeamRef,
         awaySeasonTeamRef: awayTeamRef,
-        status: "scheduled",
+        ...(match ? {} : { status: "scheduled" as const }),
         notes: notes || null,
       });
-      form.reset();
-      setStage("");
-      setGroupRef("");
-      setHomeTeamRef("");
-      setAwayTeamRef("");
-      setErrors({});
+      if (!match) {
+        form.reset();
+        setStage("");
+        setGroupRef("");
+        setHomeTeamRef("");
+        setAwayTeamRef("");
+        setErrors({});
+      }
     } catch (error) {
       const response = (error as { response?: { data?: { details?: Record<string, unknown>; message?: string } } })?.response?.data;
       const details = response?.details;
@@ -107,6 +112,7 @@ export function SeasonMatchForm({
         setErrors(mapped);
       }
       setSubmitError(response?.message || (error instanceof Error ? error.message : "Unable to save fixture. Please review the fields and try again."));
+      throw error;
     }
   };
 
@@ -114,7 +120,7 @@ export function SeasonMatchForm({
     <form className="grid gap-4" noValidate onSubmit={handleSubmit}>
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Match number" required error={errors.matchNumber}>
-          <Input name="matchNumber" type="number" min={1} max={9999} required placeholder="1" aria-invalid={Boolean(errors.matchNumber)} />
+          <Input name="matchNumber" type="number" min={1} max={9999} required defaultValue={match?.matchNumber ?? ""} placeholder="1" aria-invalid={Boolean(errors.matchNumber)} />
         </FormField>
         <FormField label="Stage" required error={errors.stage}>
           <Select name="stage" value={stage} aria-invalid={Boolean(errors.stage)} onChange={(event) => {
@@ -140,10 +146,10 @@ export function SeasonMatchForm({
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Kick-off" required error={errors.kickoffAt}>
-          <Input name="kickoffAt" type="datetime-local" required aria-invalid={Boolean(errors.kickoffAt)} />
+          <Input name="kickoffAt" type="datetime-local" required defaultValue={match ? toDateTimeInput(match.kickoffAt) : ""} aria-invalid={Boolean(errors.kickoffAt)} />
         </FormField>
         <FormField label="Venue" error={errors.venue}>
-          <Input name="venue" maxLength={160} placeholder="Cherukunnu Municipal Ground" aria-invalid={Boolean(errors.venue)} />
+          <Input name="venue" maxLength={160} defaultValue={match?.venue ?? ""} placeholder="Cherukunnu Municipal Ground" aria-invalid={Boolean(errors.venue)} />
         </FormField>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -161,12 +167,12 @@ export function SeasonMatchForm({
         </FormField>
       </div>
       <FormField label="Notes" error={errors.notes}>
-        <Textarea name="notes" maxLength={1000} placeholder="Optional fixture notes" aria-invalid={Boolean(errors.notes)} />
+        <Textarea name="notes" maxLength={1000} defaultValue={match?.notes ?? ""} placeholder="Optional fixture notes" aria-invalid={Boolean(errors.notes)} />
       </FormField>
       {submitError ? <p className="text-sm text-danger" role="alert">{submitError}</p> : null}
-      <p className="text-xs text-muted">The fixture is created as scheduled. Record goals and update its status from its match page.</p>
+      <p className="text-xs text-muted">{match ? "Editing fixture details does not change its recorded goals or current result." : "The fixture is created as scheduled. Record goals and update its status from its match page."}</p>
       <Button type="submit" disabled={submitting || !stage || eligibleTeams.length < 2 || (stage === "group" && (groups.length === 0 || !groupRef))}>
-        {submitting ? "Saving…" : "Save fixture"}
+        {submitting ? "Saving…" : match ? "Save changes" : "Save fixture"}
       </Button>
     </form>
   );

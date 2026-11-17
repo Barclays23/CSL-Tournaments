@@ -410,6 +410,50 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Season fixture created", populatedSeasonMatch(db, match));
   },
+  async updateSeasonMatch(seasonId: string, matchId: string, input: Partial<SeasonMatchWrite>) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
+    const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
+    const stage = input.stage ?? match.stage;
+    const groupRef = stage === "group" ? (input.groupRef === undefined ? match.groupRef : input.groupRef) : null;
+    if (homeId === awayId) fail(422, "A team cannot play itself");
+    if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
+      && (match.goals.length > 0 || (match.resolutionHistory?.length ?? 0) > 0)) {
+      fail(409, "Participating teams and stage cannot be changed after goal or resolution history has been recorded");
+    }
+    const home = db.seasonTeams.find((team) => team._id === homeId && team.seasonRef === seasonId);
+    const away = db.seasonTeams.find((team) => team._id === awayId && team.seasonRef === seasonId);
+    if (!home || !away || ["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
+      fail(422, "Both teams must be eligible participants in this season");
+    }
+    if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
+    if (stage === "group") {
+      const group = groupRef ? db.groups.find((item) => item._id === groupRef && item.seasonRef === seasonId) : null;
+      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) fail(422, "Both teams must belong to the selected group");
+    } else if (groupRef) fail(422, "Knockout fixtures cannot belong to a group");
+    const kickoff = new Date(input.kickoffAt ?? match.kickoffAt);
+    if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
+    if (input.matchNumber !== undefined && db.matches.some((item) => item._id !== matchId && item.seasonRef === seasonId && item.matchNumber === input.matchNumber)) {
+      fail(409, "Match number already exists in this season");
+    }
+    if (input.status !== undefined && input.status !== match.status) fail(422, "Change fixture status through the match status and resolution workflow");
+    match.matchNumber = input.matchNumber ?? match.matchNumber;
+    match.stage = stage;
+    match.groupRef = groupRef;
+    match.kickoffAt = kickoff.toISOString();
+    match.venue = input.venue === undefined ? match.venue : input.venue ?? null;
+    match.homeSeasonTeamRef = homeId;
+    match.awaySeasonTeamRef = awayId;
+    match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Season fixture updated", populatedSeasonMatch(db, match));
+  },
   async getSeasons() {
     const db = readSeasonDb();
     return ok("Seasons loaded", [...db.seasons].sort((a, b) => b.seasonNumber - a.seasonNumber) as unknown as Season[]);

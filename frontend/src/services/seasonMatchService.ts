@@ -69,3 +69,11 @@ export function createSeasonMatch(seasonId: string, data: SeasonMatchWrite) {
       : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches`, data).then((response) => response.data),
   );
 }
+
+export function updateSeasonMatch(seasonId: string, matchId: string, data: Partial<SeasonMatchWrite>) {
+  return run(() =>
+    USE_MOCK_API
+      ? seasonPreviewRepository.updateSeasonMatch(seasonId, matchId, data)
+      : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}`, data).then((response) => response.data),
+  );
+}
