@@ -249,16 +249,17 @@ export const seasonPreviewRepository = {
       const replacement=input.recipients.map((item)=>{
         const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));if(!st)fail(422,"Recipient SeasonTeam is invalid for this season");
         const player=item.playerId?db.players.find((x)=>x._id===item.playerId):null;
+        const currentTeam=teamById(db,st.teamRef);
         if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold")))fail(422,"Player is not rostered for this SeasonTeam");
         if(["champions","runner_up"].includes(nextType)&&(input.recipients!.length!==1||player))fail(422,"Team awards require exactly one SeasonTeam");
         if(!["champions","runner_up","special"].includes(nextType)&&!player)fail(422,"This award requires a player recipient");
-        return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??st.displayName,profileImageSnapshot:player?.profilePic??st.logoSnapshot,teamNameSnapshot:st.displayName,teamLogoSnapshot:st.logoSnapshot};
+        return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??currentTeam.name,profileImageSnapshot:player?.profilePic??currentTeam.logo,teamNameSnapshot:currentTeam.name,teamLogoSnapshot:currentTeam.logo};
       });
       if(new Set(replacement.map((r)=>r.playerRef?r.seasonTeamRef+":"+r.playerRef:r.seasonTeamRef+":team")).size!==replacement.length)fail(422,"Duplicate award recipients are not allowed");
       if(["champions","runner_up"].includes(nextType)){const other=db.awards.find((a)=>a.seasonRef===seasonId&&a._id!==awardId&&["champions","runner_up"].includes(a.awardType));if(other?.recipients[0]?.seasonTeamRef===replacement[0].seasonTeamRef)fail(422,"Champion and Runner-up must be different teams");}
       award.recipients=replacement;
     }
-    if(input.awardType)award.awardType=input.awardType;if(input.title!==undefined)award.title=input.title;if(input.description!==undefined)award.description=input.description;award.updatedAt=now();commitSeasonDb(db);return ok("Season achievement updated",presentAward(award));
+    if(input.awardType)award.awardType=input.awardType;if(input.title!==undefined)award.title=input.title;if(input.description!==undefined)award.description=input.description;award.updatedAt=now();commitSeasonDb(db);return ok("Season achievement updated",presentAward(db, award));
   },
   async deleteSeasonAward(seasonId:string,awardId:string) {
     requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);if(season.status!=="active")fail(409,"Awards can only be changed while a season is Active");
