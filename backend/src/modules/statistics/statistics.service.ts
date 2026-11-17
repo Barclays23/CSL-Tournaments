@@ -4,9 +4,9 @@ import type { ISettingsService } from "../settings/settings.interfaces.js";
 import type { PlayerPublicDTO, PlayerStatisticsEntity } from "../players/player.types.js";
 import type { ITeamRepository } from "../teams/team.interfaces.js";
 import type { TeamBriefDTO, TeamEntity } from "../teams/team.types.js";
-import type { MatchEntity, MatchPlayerBriefDTO, MatchPlayerReferenceEntity, MatchResponseDTO, MatchTeamReferenceEntity, PopulatedGoalEntity, PopulatedMatchEntity } from "../matches/match.types.js";
+import type { MatchEntity, MatchPlayerBriefDTO, MatchPlayerReferenceEntity, MatchResponseDTO, MatchTeamReferenceEntity, PopulatedGoalEntity, PopulatedMatchEntity } from "./statistics.fixture.types.js";
 import type { IStatisticsRepository, IStatisticsService } from "./statistics.interfaces.js";
-import type { DashboardSummaryDTO, GroupStandingDTO, OverallTeamStatisticsDTO, StandingRowDTO, TeamStatisticsDTO, TopScorerDTO } from "./statistics.types.js";
+import type { DashboardSummaryDTO, GroupStandingDTO, MatchResponseDTO, OverallTeamStatisticsDTO, StandingRowDTO, TeamStatisticsDTO, TopScorerDTO } from "./statistics.dto.js";
 
 
 interface MutableStanding {
