@@ -20,7 +20,7 @@ export class PlayerService implements IPlayerService {
     };
   }
 
-  async getPlayerById(playerId: string, isAdmin: boolean): Promise<PlayerResponseDTO> {
+  async getPlayerById(playerId: string): Promise<PlayerResponseDTO> {
     this.ensureValidPlayerId(playerId);
     const player = await this._playerRepository.findPlayerById(playerId);
     if (!player) throw new AppError("Player not found", 404, "PLAYER_NOT_FOUND");

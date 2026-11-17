@@ -78,7 +78,7 @@ function summaryFor(db: SeasonMockDatabase, season: MockSeason): AuctionSummary 
     const totalSpent = teamLots.reduce((sum, lot) => sum + (lot.purchasePrice ?? 0), 0);
     const settings = season.auctionSettings;
     return {
-      seasonTeamId: st._id, teamId: st.teamRef, displayName: st.displayName, logoSnapshot: st.logoSnapshot,
+      seasonTeamId: st._id, teamId: st.teamRef, displayName: teamById(db, st.teamRef).name, logoSnapshot: teamById(db, st.teamRef).logo,
       status: st.status, budget: settings.budgetPerTeam, playersSigned: teamLots.length,
       remainingSlots: Math.max(0, settings.teamSquadSize - teamLots.length), totalSpent,
       balance: settings.budgetPerTeam - totalSpent,
@@ -121,8 +121,8 @@ function populatedMatchTeam(db: SeasonMockDatabase, seasonTeamId: string) {
   const team = teamById(db, seasonTeam.teamRef);
   return {
     _id: seasonTeam._id,
-    displayName: seasonTeam.displayName,
-    logoSnapshot: seasonTeam.logoSnapshot,
+    displayName: teamById(db, seasonTeam.teamRef).name,
+    logoSnapshot: teamById(db, seasonTeam.teamRef).logo,
     team: { _id: team._id, name: team.name, shortName: team.shortName, logo: team.logo },
   };
 }

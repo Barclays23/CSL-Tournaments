@@ -80,7 +80,7 @@ export interface SeasonMockDatabase {
 
 const now = timestamp("2026-11-14T08:00:00.000Z");
 const teamInfo = [
-  ["Cheruppa Stars", "CS", "A fast, attacking side from Cherukunnu", "#b43346"],
+  ["Alpha Stars", "CS", "A fast, attacking side from Cherukunnu", "#b43346"],
   ["Malabar United", "MU", "A disciplined team with a strong midfield", "#2a62d0"],
   ["Kozhikode Rangers", "KR", "A young side known for quick transitions", "#d4841a"],
   ["Calicut Kings", "CK", "A balanced team with experienced players", "#6d4ca8"],

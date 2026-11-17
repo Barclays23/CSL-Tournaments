@@ -141,7 +141,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(!ref)return null;if(ref instanceof Types.ObjectId)return String(ref);
   const r=ref as any;if(!r.displayName)return String(r._id??r);
   const team=r.teamRef&&typeof r.teamRef==="object"&&r.teamRef.name?{_id:String(r.teamRef._id),name:r.teamRef.name,shortName:r.teamRef.shortName,logo:r.teamRef.logo}:null;
-  return {_id:String(r._id),displayName:r.displayName,logoSnapshot:r.logoSnapshot,team};
+  return {_id:String(r._id),displayName:r.teamRef?.name??r.displayName,logoSnapshot:r.teamRef?.logo??r.logoSnapshot,team};
  }
  private mapPlayer(ref:unknown):string|SeasonMatchPlayerDto|null{if(!ref)return null;if(ref instanceof Types.ObjectId)return String(ref);const p=ref as any;if(!p.name)return String(p._id??p);return {_id:String(p._id),name:p.name,profilePic:p.profilePic};}
  private mapGoal(g:PopulatedSeasonGoal):SeasonGoalResponseDto{return {_id:String(g._id),scoringSeasonTeamRef:this.mapTeam(g.scoringSeasonTeamRef)!,scorerPlayerRef:this.mapPlayer(g.scorerPlayerRef),playerSeasonTeamRef:this.mapTeam(g.playerSeasonTeamRef),goalType:g.goalType,createdAt:g.createdAt.toISOString()};}
