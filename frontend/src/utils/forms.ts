@@ -8,10 +8,11 @@ export function applyFieldErrors<T extends FieldValues>(error: unknown, setError
   }
 }
 
-type AdminVariant<T> = Extract<T, { mobile: string }> extends never
-  ? T & { mobile: string }
-  : Extract<T, { mobile: string }>;
+type AdminVariant<T> = Extract<T, { mobile: string | null }>;
 
 export function isAdminRecord<T extends object>(record: T): record is AdminVariant<T> {
-  return "mobile" in record && typeof record.mobile === "string";
+  // AdminPlayer.mobile is nullable. Presence of the field identifies the admin
+  // response shape; its value must not determine whether the other profile
+  // fields (email, dateOfBirth and notes) are displayed.
+  return "mobile" in record;
 }
