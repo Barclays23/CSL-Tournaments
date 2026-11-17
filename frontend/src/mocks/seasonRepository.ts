@@ -129,6 +129,63 @@ function summaryFor(db: SeasonMockDatabase, season: MockSeason): AuctionSummary 
 function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: string) {
   return match.goals.filter((goal) => goal.scoringSeasonTeamRef === seasonTeamId).length;
 }
+
+function mockGroupQualifiers(db: SeasonMockDatabase, season: MockSeason) {
+  const qualified = new Set<string>();
+  for (const group of db.groups.filter((item) => item.seasonRef === season._id)) {
+    const teams = db.seasonTeams.filter((team) => team.seasonRef === season._id && team.groupRef === group._id && team.status === "active");
+    const rows = teams.map((team) => ({ team, points: 0, goalsFor: 0, goalsAgainst: 0 }));
+    const byId = new Map(rows.map((row) => [row.team._id, row]));
+    for (const match of db.matches.filter((item) => item.seasonRef === season._id && item.stage === "group" && item.status === "completed")) {
+      const home = byId.get(match.homeSeasonTeamRef), away = byId.get(match.awaySeasonTeamRef);
+      if (!home || !away) continue;
+      const homeGoals = matchScore(match, home.team._id), awayGoals = matchScore(match, away.team._id);
+      home.goalsFor += homeGoals; home.goalsAgainst += awayGoals;
+      away.goalsFor += awayGoals; away.goalsAgainst += homeGoals;
+      if (homeGoals > awayGoals) { home.points += season.pointsRules.win; away.points += season.pointsRules.loss; }
+      else if (homeGoals < awayGoals) { away.points += season.pointsRules.win; home.points += season.pointsRules.loss; }
+      else { home.points += season.pointsRules.draw; away.points += season.pointsRules.draw; }
+    }
+    rows.sort((a, b) => b.points - a.points ||
+      (b.goalsFor - b.goalsAgainst) - (a.goalsFor - a.goalsAgainst) ||
+      b.goalsFor - a.goalsFor || a.team.displayName.localeCompare(b.team.displayName));
+    rows.slice(0, 2).forEach((row) => qualified.add(row.team._id));
+  }
+  return qualified;
+}
+
+function mockKnockoutEligibleTeams(db: SeasonMockDatabase, season: MockSeason, stage: MockSeasonMatch["stage"]) {
+  const active = new Set(db.seasonTeams.filter((team) => team.seasonRef === season._id && team.status === "active").map((team) => team._id));
+  let groupQualifiers = new Set<string>();
+  if (season.groupStageEnabled) {
+    const groupMatches = db.matches.filter((match) => match.seasonRef === season._id && match.stage === "group");
+    if (!groupMatches.length || groupMatches.some((match) => !["completed", "cancelled", "abandoned"].includes(match.status))) {
+      fail(409, "All group-stage fixtures must be resolved before creating knockout fixtures");
+    }
+    groupQualifiers = mockGroupQualifiers(db, season);
+  }
+  const stageMatches = (name: MockSeasonMatch["stage"]) => db.matches.filter((match) => match.seasonRef === season._id && match.stage === name);
+  const winners = (matches: MockSeasonMatch[], losers = false) => {
+    const result = new Set<string>();
+    for (const match of matches) {
+      if (match.status !== "completed" || !match.winnerSeasonTeamRef) continue;
+      if (!losers) result.add(match.winnerSeasonTeamRef);
+      else result.add(match.winnerSeasonTeamRef === match.homeSeasonTeamRef ? match.awaySeasonTeamRef : match.homeSeasonTeamRef);
+    }
+    return result;
+  };
+  const previous = stage === "quarter_final" ? stageMatches("round_of_16")
+    : stage === "semi_final" ? (stageMatches("quarter_final").length ? stageMatches("quarter_final") : stageMatches("round_of_16"))
+    : stage === "final" || stage === "third_place" ? stageMatches("semi_final") : [];
+  if (previous.length && previous.some((match) => match.status !== "completed")) fail(409, "All fixtures in the previous knockout stage must be completed before advancing");
+  if ((stage === "final" || stage === "third_place") && !stageMatches("semi_final").length) fail(409, "Semi-final fixtures must be recorded before creating the final or third-place playoff");
+  if (stage === "round_of_16") return groupQualifiers.size ? groupQualifiers : active;
+  if (stage === "quarter_final") return stageMatches("round_of_16").length ? winners(stageMatches("round_of_16")) : groupQualifiers.size ? groupQualifiers : active;
+  if (stage === "semi_final") return stageMatches("quarter_final").length ? winners(stageMatches("quarter_final")) : stageMatches("round_of_16").length ? winners(stageMatches("round_of_16")) : groupQualifiers.size ? groupQualifiers : active;
+  if (stage === "final") return winners(stageMatches("semi_final"));
+  if (stage === "third_place") return winners(stageMatches("semi_final"), true);
+  return new Set<string>();
+}
 function fixture(db: SeasonMockDatabase, match: SeasonMockDatabase["matches"][number]) {
   const home = db.seasonTeams.find((st) => st._id === match.homeSeasonTeamRef)!;
   const away = db.seasonTeams.find((st) => st._id === match.awaySeasonTeamRef)!;
@@ -375,6 +432,10 @@ export const seasonPreviewRepository = {
       return fail(422, "Both teams must be participating in this season");
     }
     if (input.stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
+    if (input.stage !== "group") {
+      const eligible = mockKnockoutEligibleTeams(db, season, input.stage);
+      if (!eligible.has(input.homeSeasonTeamRef) || !eligible.has(input.awaySeasonTeamRef)) fail(422, "Both teams must have qualified for this knockout stage");
+    }
     if (input.stage !== "group" && input.groupRef) fail(422, "Knockout fixtures cannot belong to a group");
     if (input.stage === "group") {
       const group = input.groupRef ? db.groups.find((item) => item._id === input.groupRef && item.seasonRef === seasonId) : null;
@@ -410,6 +471,58 @@ export const seasonPreviewRepository = {
     db.matches.push(match);
     commitSeasonDb(db);
     return ok("Season fixture created", populatedSeasonMatch(db, match));
+  },
+  async updateSeasonMatch(seasonId: string, matchId: string, input: Partial<SeasonMatchWrite>) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    if (match.status === "completed") fail(409, "Completed fixtures are historical records and cannot be rewritten");
+    const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
+    const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
+    const stage = input.stage ?? match.stage;
+    const groupRef = stage === "group" ? (input.groupRef === undefined ? match.groupRef : input.groupRef) : null;
+    if (homeId === awayId) fail(422, "A team cannot play itself");
+    if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
+      && (match.goals.length > 0 || (match.resolutionHistory?.length ?? 0) > 0)) {
+      fail(409, "Participating teams, stage and group cannot be changed after goal or resolution history has been recorded");
+    }
+    const home = db.seasonTeams.find((team) => team._id === homeId && team.seasonRef === seasonId);
+    const away = db.seasonTeams.find((team) => team._id === awayId && team.seasonRef === seasonId);
+    if (!home || !away || ["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
+      fail(422, "Both teams must be eligible participants in this season");
+    }
+    if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
+    if (stage !== "group") {
+      const eligible = mockKnockoutEligibleTeams(db, season, stage);
+      if (!eligible.has(homeId) || !eligible.has(awayId)) fail(422, "Both teams must have qualified for this knockout stage");
+    }
+    if (stage === "group") {
+      const group = groupRef ? db.groups.find((item) => item._id === groupRef && item.seasonRef === seasonId) : null;
+      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) fail(422, "Both teams must belong to the selected group");
+    } else if (groupRef) fail(422, "Knockout fixtures cannot belong to a group");
+    const kickoff = new Date(input.kickoffAt ?? match.kickoffAt);
+    if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
+    const start = season.startDate ? new Date(season.startDate) : null;
+    const end = season.endDate ? new Date(season.endDate) : null;
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(kickoff);
+    if (start && day < new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(start)) fail(422, "Fixture date is before the season start date");
+    if (end && day > new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(end)) fail(422, "Fixture date is after the season end date");
+    if (input.matchNumber !== undefined && db.matches.some((item) => item._id !== matchId && item.seasonRef === seasonId && item.matchNumber === input.matchNumber)) fail(409, "Match number already exists in this season");
+    if (input.status !== undefined && input.status !== match.status) fail(422, "Change fixture status through the match status and resolution workflow");
+    match.matchNumber = input.matchNumber ?? match.matchNumber;
+    match.stage = stage;
+    match.groupRef = groupRef;
+    match.kickoffAt = kickoff.toISOString();
+    match.venue = input.venue === undefined ? match.venue : input.venue ?? null;
+    match.homeSeasonTeamRef = homeId;
+    match.awaySeasonTeamRef = awayId;
+    match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Season fixture updated", populatedSeasonMatch(db, match));
   },
   async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }) {
     requireAdmin();
