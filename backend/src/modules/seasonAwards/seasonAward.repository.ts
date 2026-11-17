@@ -14,6 +14,11 @@ export class SeasonAwardRepository {
 
   async findBySeason(seasonId: string): Promise<SeasonAwardEntity[]> {
     return SeasonAwardModel.find({ seasonRef: new Types.ObjectId(seasonId) })
+      .populate({
+        path: "recipients.seasonTeamRef",
+        select: "displayName logoSnapshot teamRef",
+        populate: { path: "teamRef", select: "name logo" },
+      })
       .sort({ awardType: 1, createdAt: 1 }).lean<SeasonAwardEntity[]>().exec();
   }
 

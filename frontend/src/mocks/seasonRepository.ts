@@ -20,7 +20,20 @@ function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   if (!season) return fail(404, "Season not found");
   return season;
 }
-function presentAward(award: MockSeasonAward): SeasonAward { return { ...award, recipients: (Array.isArray(award?.recipients)?award.recipients:[]).filter(Boolean).map((recipient) => ({ ...recipient })) }; }
+function presentAward(db: SeasonMockDatabase, award: MockSeasonAward): SeasonAward {
+  return {
+    ...award,
+    recipients: (Array.isArray(award?.recipients) ? award.recipients : []).filter(Boolean).map((recipient) => {
+      const seasonTeam = db.seasonTeams.find((item) => item._id === recipient.seasonTeamRef);
+      const team = seasonTeam ? teamById(db, seasonTeam.teamRef) : null;
+      return {
+        ...recipient,
+        teamNameSnapshot: team?.name ?? recipient.teamNameSnapshot,
+        teamLogoSnapshot: team?.logo ?? recipient.teamLogoSnapshot,
+      };
+    }),
+  };
+}
 function seasonBrief(season: MockSeason) {
   return { _id: season._id, name: season.name, seasonNumber: season.seasonNumber, year: season.year, status: season.status };
 }
@@ -198,7 +211,7 @@ export const seasonPreviewRepository = {
 
   async getSeasonAwards(seasonId: string) {
     const db=readSeasonDb(); seasonById(db,seasonId);
-    return ok("Season achievements loaded",(Array.isArray(db.awards)?db.awards:[]).filter((award)=>award?.seasonRef===seasonId).map(presentAward));
+    return ok("Season achievements loaded",(Array.isArray(db.awards)?db.awards:[]).filter((award)=>award?.seasonRef===seasonId).map((award)=>presentAward(db, award)));
   },
   async createSeasonAward(seasonId:string,input:SeasonAwardInput) {
     requireAdmin(); const db=readSeasonDb(); const season=seasonById(db,seasonId);

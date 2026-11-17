@@ -461,8 +461,7 @@ export const previewRepository = {
     const db = readDb();
     const player = db.players.find((item) => item._id === id);
     if (!player) fail(404, "Player not found");
-    if (player.status !== "active") fail(404, "Player not found");
-    // Public Player Details includes permanent profile fields in mock mode too.
+    // Public Player Details includes permanent profile fields and historical profiles too.
     return ok("Player loaded", presentPlayer(db, player, true));
   },
   async createPlayer(input: PlayerWrite): Promise<ApiResponse<AdminPlayer>> {

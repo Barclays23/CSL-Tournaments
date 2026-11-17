@@ -188,16 +188,25 @@ export class SeasonAwardService implements ISeasonAwardService {
       awardType: award.awardType,
       title: award.title,
       description: award.description,
-      recipients: award.recipients.map((recipient) => ({
-        _id: String((recipient as typeof recipient & { _id?: Types.ObjectId })._id ?? ""),
-        recipientType: recipient.recipientType,
-        seasonTeamRef: String(recipient.seasonTeamRef),
-        playerRef: recipient.playerRef ? String(recipient.playerRef) : null,
-        displayNameSnapshot: recipient.displayNameSnapshot,
-        profileImageSnapshot: recipient.profileImageSnapshot,
-        teamNameSnapshot: recipient.teamNameSnapshot,
-        teamLogoSnapshot: recipient.teamLogoSnapshot,
-      })),
+      recipients: award.recipients.map((recipient) => {
+        const populatedSeasonTeam = recipient.seasonTeamRef as unknown as {
+          _id?: Types.ObjectId;
+          teamRef?: { name?: string; logo?: unknown } | Types.ObjectId;
+        };
+        const currentTeam = populatedSeasonTeam?.teamRef && typeof populatedSeasonTeam.teamRef === "object"
+          ? populatedSeasonTeam.teamRef as { name?: string; logo?: unknown }
+          : null;
+        return {
+          _id: String((recipient as typeof recipient & { _id?: Types.ObjectId })._id ?? ""),
+          recipientType: recipient.recipientType,
+          seasonTeamRef: String(populatedSeasonTeam?._id ?? recipient.seasonTeamRef),
+          playerRef: recipient.playerRef ? String(recipient.playerRef) : null,
+          displayNameSnapshot: recipient.displayNameSnapshot,
+          profileImageSnapshot: recipient.profileImageSnapshot,
+          teamNameSnapshot: currentTeam?.name ?? recipient.teamNameSnapshot,
+          teamLogoSnapshot: currentTeam?.logo ?? recipient.teamLogoSnapshot,
+        };
+      }),
       createdAt: award.createdAt.toISOString(),
       updatedAt: award.updatedAt.toISOString(),
     };
