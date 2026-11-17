@@ -2,7 +2,7 @@ import { Types, type QueryFilter } from "mongoose";
 import { TeamModel } from "./team.model.js";
 import type { TeamRecord } from "./team.model.js";
 import { ManagerModel } from "../managers/manager.model.js";
-import { MatchModel } from "../matches/match.model.js";
+import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
 import { PlayerModel } from "../players/player.model.js";
@@ -47,7 +47,16 @@ export class TeamRepository implements ITeamRepository {
     const [players, managers, matches, seasonTeams] = await Promise.all([
       PlayerModel.collection.countDocuments({ teamRef: objectId }),
       ManagerModel.countDocuments({ teamRef: objectId }).exec(),
-      MatchModel.countDocuments({ $or: [{ team1Ref: objectId }, { team2Ref: objectId }] }).exec(),
+      (async () => {
+        const seasonTeamIds = await SeasonTeamModel.distinct("_id", { teamRef: objectId }).exec();
+        if (!seasonTeamIds.length) return 0;
+        return SeasonMatchModel.countDocuments({
+          $or: [
+            { homeSeasonTeamRef: { $in: seasonTeamIds } },
+            { awaySeasonTeamRef: { $in: seasonTeamIds } },
+          ],
+        }).exec();
+      })(),
       SeasonTeamModel.countDocuments({ teamRef: objectId }).exec(),
     ]);
     return { players, managers, matches, seasonTeams };

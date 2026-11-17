@@ -1,7 +1,13 @@
-import type { MatchResponseDTO } from "../matches/match.dto.js";
+import type { MatchStage, MatchStatus, MatchPlayerBriefDTO } from "./statistics.fixture.types.js";
 import type { PlayerPublicDTO } from "../players/player.dto.js";
 import type { TeamBriefDTO } from "../teams/team.dto.js";
 
+export interface MatchResponseDTO {
+  _id: string; matchNo: string; stage: MatchStage; groupName: string | null; kickoffAt: string; venue: string | null;
+  team1Ref: string | TeamBriefDTO; team2Ref: string | TeamBriefDTO; status: MatchStatus;
+  goals: Array<{ _id: string; scoringTeamRef: string | TeamBriefDTO; goalType: "normal" | "own_goal"; scorerRef: string | MatchPlayerBriefDTO | null; ownGoalPlayerRef: string | MatchPlayerBriefDTO | null; createdAt: string }>;
+  penaltyShootout: { team1Score: number; team2Score: number } | null; notes: string | null; createdAt: string; updatedAt: string;
+}
 export interface StandingRowDTO {
   position: number;
   team: TeamBriefDTO;

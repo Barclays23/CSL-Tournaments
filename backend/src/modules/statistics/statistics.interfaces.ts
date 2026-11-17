@@ -1,11 +1,8 @@
-import type { GroupStandingDTO, TopScorerDTO, DashboardSummaryDTO, OverallTeamStatisticsDTO, TeamStatisticsDTO, DashboardAuctionTotalsDTO } from "./statistics.types.js";
-import type { MatchEntity, MatchResponseDTO, PopulatedMatchEntity } from "../matches/match.types.js";
-import type { PlayerPublicDTO, PlayerStatisticsEntity } from "../players/player.types.js";
-import type { TeamBriefDTO, TeamEntity } from "../teams/team.types.js";
-import { ControllerMethod } from "../../shared/types/common.types.js";
-
-
-
+import type { GroupStandingDTO, TopScorerDTO, DashboardSummaryDTO, OverallTeamStatisticsDTO, TeamStatisticsDTO, DashboardAuctionTotalsDTO } from "./statistics.dto.js";
+import type { MatchEntity, PopulatedMatchEntity } from "./statistics.fixture.types.js";
+import type { PlayerStatisticsEntity } from "../players/player.types.js";
+import type { TeamEntity } from "../teams/team.types.js";
+import type { ControllerMethod } from "../../shared/types/common.types.js";
 export interface IStatisticsRepository {
   findCompletedMatches(): Promise<MatchEntity[]>;
   findCompletedGroupStageMatches(): Promise<MatchEntity[]>;
@@ -17,9 +14,6 @@ export interface IStatisticsRepository {
   countScheduledFixtures(): Promise<number>;
   getActiveSeasonAuctionTotals(): Promise<DashboardAuctionTotalsDTO>;
 }
-
-
-
 export interface IStatisticsService {
   getDashboardStatistics(): Promise<DashboardSummaryDTO>;
   getGroupStandings(): Promise<GroupStandingDTO[]>;
@@ -27,8 +21,6 @@ export interface IStatisticsService {
   getOverallTeamStatistics(): Promise<OverallTeamStatisticsDTO[]>;
   getTeamStatistics(teamId: string): Promise<TeamStatisticsDTO>;
 }
-
-
 export interface IStatisticsController {
   getDashboardStatistics: ControllerMethod;
   getGroupStandings: ControllerMethod;
