@@ -3,7 +3,7 @@ import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, 
 import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
 import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
-import { requireAdmin } from "@/mocks/store";
+import { readDb as readPrimaryDb, requireAdmin } from "@/mocks/store";
 import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, SeasonMockDatabase } from "@/mocks/seasonSeed";
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
@@ -40,7 +40,19 @@ function seasonBrief(season: MockSeason) {
 function teamById(db: SeasonMockDatabase, id: string) {
   const team = db.teams.find((item) => item._id === id);
   if (!team) return fail(404, "Team not found");
-  return team;
+  // The compatibility mock and season mock keep separate copies of Team records.
+  // Prefer the editable master record so existing season views reflect its current name and logo.
+  const current = readPrimaryDb().teams.find((item) => item._id === id);
+  return current ? {
+    ...team,
+    name: current.name,
+    shortName: current.shortName,
+    description: current.description,
+    logo: current.logo,
+    poster: current.poster,
+    status: current.status,
+    updatedAt: current.updatedAt,
+  } : team;
 }
 function playerById(db: SeasonMockDatabase, id: string) {
   const player = db.players.find((item) => item._id === id);
