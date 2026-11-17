@@ -77,7 +77,7 @@ export class SeasonService implements ISeasonService {
     ]);
     const hasIdentityDependencies = teamCount + groupCount + lotCount + matchCount > 0;
     const identityFields = ["name", "seasonNumber", "year"] as const;
-    const requestedIdentityFields = identityFields.filter((field) => input[field] !== undefined);
+    const requestedIdentityFields = identityFields.filter((field) => input[field] !== undefined && input[field] !== current[field]);
     if (requestedIdentityFields.length && !isSeasonIdentityEditable(current.status, hasIdentityDependencies)) {
       const reason = "Season name, edition number and year can only be changed on an empty Draft season";
       throw new AppError(reason, 409, "SEASON_IDENTITY_LOCKED",

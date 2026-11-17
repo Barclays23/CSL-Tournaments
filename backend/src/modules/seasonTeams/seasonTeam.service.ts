@@ -131,11 +131,35 @@ export class SeasonTeamService implements ISeasonTeamService {
           throw new AppError("Withdrawal is blocked until every fixture is resolved. Completed fixtures remain as history; cancelled or abandoned fixtures need an audited decision.", 409, "WITHDRAWAL_VALIDATION_FAILED",
             Object.fromEntries(blockers.map((message, index) => ["blocker." + (index + 1), message])));
         }
-        await this.repository.updateInSeason(seasonId, id, { status: "withdrawn" }, session);
+        await this.repository.updateInSeason(seasonId, id, { status: "withdrawn", participationHistory: [...(current.participationHistory ?? []), { fromStatus: current.status, toStatus: "withdrawn", reason: "Withdrawn by tournament administrator", changedAt: new Date() }] }, session);
       });
     } finally {
       await session.endSession();
     }
+    const updated = await this.repository.findPopulatedInSeason(seasonId, id);
+    if (!updated) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
+    return this.map(updated);
+  }
+
+  async recall(seasonId: string, id: string, reason: string): Promise<SeasonTeamResponseDto> {
+    this.id(seasonId); this.id(id);
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length < 3 || normalizedReason.length > 500) throw new AppError("Provide a recall reason between 3 and 500 characters", 422, "INVALID_RECALL_REASON");
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const season = await this.repository.findSeasonState(seasonId, session);
+        if (!season || season.status !== "active") throw new AppError("A withdrawn team can only be recalled during an Active season", 409, "SEASON_RECALL_NOT_ALLOWED");
+        if (!await this.repository.lockSeason(seasonId, ["active"], session)) throw new AppError("Season state changed while recalling this team", 409, "SEASON_STATE_CONFLICT");
+        const current = await this.repository.findInSeason(seasonId, id, session);
+        if (!current) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
+        if (current.status !== "withdrawn") throw new AppError("Only a withdrawn SeasonTeam can be recalled", 409, "SEASON_RECALL_NOT_ALLOWED");
+        const fixtures = await this.repository.findUnresolvedTeamFixtures(seasonId, id, session);
+        const blockers = getSeasonTeamWithdrawalBlockers("active", fixtures);
+        if (blockers.length) throw new AppError("This team cannot return until all its fixtures are resolved", 409, "SEASON_RECALL_FIXTURES_UNRESOLVED", Object.fromEntries(blockers.map((item, index) => ["blocker." + (index + 1), item])));
+        if (!await this.repository.recallInSeason(seasonId, id, normalizedReason, session)) throw new AppError("SeasonTeam status changed before recall could be saved", 409, "SEASON_STATE_CONFLICT");
+      });
+    } finally { await session.endSession(); }
     const updated = await this.repository.findPopulatedInSeason(seasonId, id);
     if (!updated) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
     return this.map(updated);
@@ -151,6 +175,7 @@ export class SeasonTeamService implements ISeasonTeamService {
       groupRef: record.groupRef ? String(record.groupRef._id ?? record.groupRef) : null,
       managerRefs: (record.managerRefs ?? []).map((manager: any) => String(manager._id ?? manager)),
       status: record.status,
+      participationHistory: (record.participationHistory ?? []).map((entry: any) => ({ fromStatus: entry.fromStatus, toStatus: entry.toStatus, reason: entry.reason, changedAt: entry.changedAt.toISOString() })),
       team: record.teamRef && typeof record.teamRef === "object" && record.teamRef.name
         ? { _id: String(record.teamRef._id), name: record.teamRef.name, shortName: record.teamRef.shortName, logo: record.teamRef.logo }
         : null,

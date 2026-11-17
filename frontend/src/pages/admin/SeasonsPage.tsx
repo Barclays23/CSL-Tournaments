@@ -17,7 +17,7 @@ import { getSeasonAwards, createSeasonAward, updateSeasonAward, deleteSeasonAwar
 import {
   archiveSeason, completeSeason, createSeason, deleteSeason, getAuctionLots,
   getSeasonTeams, getSeasons, registerSeasonTeams, removeSeasonTeam,
-  transitionSeason, updateSeason, updateSeasonTeam, withdrawSeasonTeam,
+  transitionSeason, updateSeason, updateSeasonTeam, withdrawSeasonTeam, recallSeasonTeam,
 } from "@/services/seasonService";
 import {
   createSeasonGroup, deleteSeasonGroup, getSeasonGroups, getSeasonMatches, updateSeasonGroup,
@@ -152,6 +152,25 @@ function SeasonsBody() {
   const seasonLots = lots.data?.data ?? [];
   const seasonAwards = Array.isArray(awardsQuery.data?.data) ? awardsQuery.data.data.filter((award) => award && Array.isArray(award.recipients)) : [];
   const registeredTeamIds = useMemo(() => new Set(registeredTeams.map((item) => item.teamRef)), [registeredTeams]);
+  const awardReadinessBlockers = useMemo(() => {
+    const blockers: string[] = [];
+    if (seasonFixtures.length === 0) blockers.push("Create fixtures before assigning honours");
+    for (const match of seasonFixtures) {
+      if (["live", "scheduled", "postponed", "abandoned"].includes(match.status)) blockers.push("Match " + match.matchNumber + " is " + match.status);
+      if (match.status === "cancelled" && !match.resolutionHistory?.some((entry) => entry.status === "cancelled" && entry.reason.trim().length >= 3 && Boolean(entry.decidedAt))) blockers.push("Match " + match.matchNumber + " needs an audited cancellation reason");
+      if (match.status === "completed" && match.stage !== "group") {
+        const home = typeof match.homeSeasonTeamRef === "object" ? match.homeSeasonTeamRef._id : match.homeSeasonTeamRef;
+        const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
+        const winner = typeof match.winnerSeasonTeamRef === "object" ? match.winnerSeasonTeamRef._id : match.winnerSeasonTeamRef;
+        if (!winner || (winner !== home && winner !== away)) blockers.push("Knockout match " + match.matchNumber + " has no valid winner");
+      }
+    }
+    const pendingLots = seasonLots.filter((lot) => lot.auctionStatus === "pending").length;
+    if (pendingLots) blockers.push(pendingLots + " pending auction lot(s) remain");
+    return blockers;
+  }, [seasonFixtures, seasonLots]);
+  const awardsEditable = selected?.status === "active" && awardReadinessBlockers.length === 0;
+
   const fixtureCount = fixtures.data?.pagination?.total ?? seasonFixtures.length;
   const dependenciesExist = registeredTeams.length + seasonGroups.length + seasonLots.length + fixtureCount > 0;
   const hasAuctionHistory = seasonLots.length > 0;
@@ -210,8 +229,8 @@ function SeasonsBody() {
     if (editForm.endDate && editForm.startDate && editForm.endDate < editForm.startDate) { toast.error("End date must be on or after start date"); return; }
     setSaving(true);
     const patch: SeasonPatch = {
-      name: editForm.name.trim(), startDate: editForm.startDate || null, endDate: editForm.endDate || null,
-      ...(identityLocked ? {} : { seasonNumber: editForm.seasonNumber, year: editForm.year }),
+      ...(editForm.name.trim() !== selected.name ? { name: editForm.name.trim() } : {}), startDate: editForm.startDate || null, endDate: editForm.endDate || null,
+      ...(identityLocked ? {} : { ...(editForm.seasonNumber !== selected.seasonNumber ? { seasonNumber: editForm.seasonNumber } : {}), ...(editForm.year !== selected.year ? { year: editForm.year } : {}) }),
       ...(!matchRulesLocked ? { groupStageEnabled: editForm.groupStageEnabled } : {}),
       ...(!auctionRulesLocked ? { auctionSettings: payload(editForm, []).auctionSettings } : {}),
       ...(!matchRulesLocked ? {
@@ -382,21 +401,26 @@ function SeasonsBody() {
     finally { setSaving(false); }
   };
 
-  const manageSeasonTeam = async (team: SeasonTeam, action: "remove" | "withdraw") => {
+  const manageSeasonTeam = async (team: SeasonTeam, action: "remove" | "withdraw" | "recall") => {
     if (!selected) return;
     const yes = await confirm({
-      title: action === "remove" ? "Remove unused registration?" : "Withdraw this team?",
+      title: action === "remove" ? "Remove unused registration?" : action === "withdraw" ? "Withdraw this team?" : "Recall this team?",
       description: action === "remove"
         ? "This permanently removes only the unused SeasonTeam registration. Teams with auction or fixture history cannot be deleted."
-        : "Withdrawal is not permanent removal. The SeasonTeam record, auction history and completed match history are preserved. This team cannot participate in future auction sales or fixtures. Finish live matches, reschedule or cancel scheduled/postponed fixtures, and record a reason for every cancelled or abandoned fixture before withdrawing.",
-      confirmLabel: action === "remove" ? "Remove registration" : "Withdraw team", danger: true,
+        : action === "withdraw" ? "Withdrawal is not permanent removal. The SeasonTeam record, auction history and completed match history are preserved. This team cannot participate in future auction sales or fixtures. Finish live matches, reschedule or cancel scheduled/postponed fixtures, and record a reason for every cancelled or abandoned fixture before withdrawing." : "Reinstate this withdrawn team. Its historical auction and completed match records remain unchanged. A recall reason is required, and unresolved fixtures prevent reinstatement.",
+      confirmLabel: action === "remove" ? "Remove registration" : action === "withdraw" ? "Withdraw team" : "Recall team", danger: action !== "recall",
     });
     if (!yes) return;
     setSaving(true);
     try {
       if (action === "remove") await removeSeasonTeam(selected._id, team._id);
-      else await withdrawSeasonTeam(selected._id, team._id);
-      toast.success(action === "remove" ? "Registration removed" : "Team withdrawn");
+      else if (action === "withdraw") await withdrawSeasonTeam(selected._id, team._id);
+      else {
+        const reason = window.prompt("Why is this team being recalled?", "Recalled by tournament administrator after review");
+        if (!reason || reason.trim().length < 3) { toast.error("A recall reason of at least 3 characters is required"); return; }
+        await recallSeasonTeam(selected._id, team._id, reason.trim());
+      }
+      toast.success(action === "remove" ? "Registration removed" : action === "withdraw" ? "Team withdrawn" : "Team recalled");
       refreshSelected();
     } catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
@@ -545,6 +569,7 @@ function SeasonsBody() {
                       {preActivation && team.status !== "withdrawn" ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team,"remove")}>Remove</Button> : null}
                       {preActivation && linked ? <span className="text-xs text-muted">Has auction/fixture history; use withdrawal only after activation</span> : null}
                       {selected.status === "active" && ["registered","active"].includes(team.status) ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team,"withdraw")}>Withdraw</Button> : null}
+                       {selected.status === "active" && team.status === "withdrawn" ? <Button size="sm" disabled={saving} onClick={() => void manageSeasonTeam(team,"recall")}>Recall / Reinstate</Button> : null}
                     </div>
                   </div>;
                 })}
@@ -563,10 +588,11 @@ function SeasonsBody() {
               {awardsQuery.loading?<div className="mt-4 grid gap-3 sm:grid-cols-2"><Skeleton className="h-24"/><Skeleton className="h-24"/></div>:null}
               {awardsQuery.error?<div className="mt-4"><ErrorState message={awardsQuery.error} onRetry={awardsQuery.reload}/></div>:null}
               {!awardsQuery.loading&&!awardsQuery.error&&awardsQuery.data?<div className="mt-5 space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2">{(["champions","runner_up"] as const).map((type)=>{const award=seasonAwards.find((item)=>item.awardType===type);const chosen=award?.recipients?.[0]?.seasonTeamRef??"";return <div key={type} className="rounded-2xl border border-line bg-surface p-4"><p className="text-xs font-semibold uppercase tracking-wide text-muted">{type==="champions"?"Season champions":"Runner-up"}</p>{award?<div className="mt-3 flex items-center gap-3"><img src={award.recipients[0]?.teamLogoSnapshot?.url??"https://placehold.co/96x96?text=CSL"} alt="" className="h-12 w-12 rounded-xl object-cover"/><div className="min-w-0"><p className="truncate font-semibold text-fg">{award.recipients[0]?.displayNameSnapshot??"Team not available"}</p><p className="text-xs text-muted">{award.title}</p></div></div>:<p className="mt-3 text-sm text-muted">Not assigned yet</p>}{selected.status==="active"?<select aria-label={type==="champions"?"Select champion":"Select runner-up"} className="mt-3 w-full rounded-lg border border-line bg-canvas p-2 text-sm text-fg" value={chosen} disabled={saving} onChange={(event)=>void assignTeamAward(type,event.target.value)}><option value="">Select participating team</option>{registeredTeams.filter((team)=>["registered","active"].includes(team.status)).map((team)=><option key={team._id} value={team._id}>{team.displayName}</option>)}</select>:null}</div>;})}</div>
-                {selected.status==="active"?<div className="rounded-2xl border border-line p-4"><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"><label className="text-sm font-medium text-fg">Individual award<select className="mt-1 w-full rounded-lg border border-line bg-surface p-2" value={optionalAwardType} onChange={(event)=>setOptionalAwardType(event.target.value as typeof optionalAwardType)}><option value="golden_boot">Golden Boot / Top Scorer</option><option value="golden_glove">Golden Glove / Best Goalkeeper</option><option value="player_of_the_season">Player of the Season / Best Player</option><option value="best_young_player">Best Young Player</option><option value="best_defender">Best Defender</option><option value="best_midfielder">Best Midfielder</option></select></label><label className="text-sm font-medium text-fg">Winner(s) <span className="font-normal text-muted">· Ctrl/Cmd-click for tied winners</span><select multiple className="mt-1 min-h-28 w-full rounded-lg border border-line bg-surface p-2 text-sm" value={optionalAwardLotIds} onChange={(event)=>setOptionalAwardLotIds(Array.from(event.target.selectedOptions).map((option)=>option.value))}>{seasonLots.filter((lot)=>lot.auctionStatus==="sold"&&typeof lot.playerRef==="object"&&typeof lot.seasonTeamRef==="object").map((lot)=><option key={lot._id} value={lot._id}>{(lot.playerRef as {name:string}).name} · {(lot.seasonTeamRef as {displayName:string}).displayName}</option>)}</select></label></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted">Only players sold to a SeasonTeam in this season are eligible.</p><Button size="sm" disabled={saving||!optionalAwardLotIds.length} onClick={()=>void assignOptionalAward()}>{seasonAwards.some((award)=>award.awardType===optionalAwardType)?"Replace winner(s)":"Save award"}</Button></div></div>:null}
+                <div className="grid gap-3 sm:grid-cols-2">{(["champions","runner_up"] as const).map((type)=>{const award=seasonAwards.find((item)=>item.awardType===type);const chosen=award?.recipients?.[0]?.seasonTeamRef??"";return <div key={type} className="rounded-2xl border border-line bg-surface p-4"><p className="text-xs font-semibold uppercase tracking-wide text-muted">{type==="champions"?"Season champions":"Runner-up"}</p>{award?<div className="mt-3 flex items-center gap-3"><img src={award.recipients[0]?.teamLogoSnapshot?.url??"https://placehold.co/96x96?text=CSL"} alt="" className="h-12 w-12 rounded-xl object-cover"/><div className="min-w-0"><p className="truncate font-semibold text-fg">{award.recipients[0]?.displayNameSnapshot??"Team not available"}</p><p className="text-xs text-muted">{award.title}</p></div></div>:<p className="mt-3 text-sm text-muted">Not assigned yet</p>}{awardsEditable?<select aria-label={type==="champions"?"Select champion":"Select runner-up"} className="mt-3 w-full rounded-lg border border-line bg-canvas p-2 text-sm text-fg" value={chosen} disabled={saving} onChange={(event)=>void assignTeamAward(type,event.target.value)}><option value="">Select participating team</option>{registeredTeams.filter((team)=>["registered","active"].includes(team.status)).map((team)=><option key={team._id} value={team._id}>{team.displayName}</option>)}</select>:null}</div>;})}</div>
+                {awardsEditable?<div className="rounded-2xl border border-line p-4"><div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]"><label className="text-sm font-medium text-fg">Individual award<select className="mt-1 w-full rounded-lg border border-line bg-surface p-2" value={optionalAwardType} onChange={(event)=>setOptionalAwardType(event.target.value as typeof optionalAwardType)}><option value="golden_boot">Golden Boot / Top Scorer</option><option value="golden_glove">Golden Glove / Best Goalkeeper</option><option value="player_of_the_season">Player of the Season / Best Player</option><option value="best_young_player">Best Young Player</option><option value="best_defender">Best Defender</option><option value="best_midfielder">Best Midfielder</option></select></label><label className="text-sm font-medium text-fg">Winner(s) <span className="font-normal text-muted">· Ctrl/Cmd-click for tied winners</span><select multiple className="mt-1 min-h-28 w-full rounded-lg border border-line bg-surface p-2 text-sm" value={optionalAwardLotIds} onChange={(event)=>setOptionalAwardLotIds(Array.from(event.target.selectedOptions).map((option)=>option.value))}>{seasonLots.filter((lot)=>lot.auctionStatus==="sold"&&typeof lot.playerRef==="object"&&typeof lot.seasonTeamRef==="object").map((lot)=><option key={lot._id} value={lot._id}>{(lot.playerRef as {name:string}).name} · {(lot.seasonTeamRef as {displayName:string}).displayName}</option>)}</select></label></div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted">Only players sold to a SeasonTeam in this season are eligible.</p><Button size="sm" disabled={saving||!optionalAwardLotIds.length} onClick={()=>void assignOptionalAward()}>{seasonAwards.some((award)=>award.awardType===optionalAwardType)?"Replace winner(s)":"Save award"}</Button></div></div>:null}
                 <div><div className="mb-3 flex items-center justify-between"><h4 className="font-semibold text-fg">Recorded honours</h4><span className="text-xs text-muted">{seasonAwards.length} award(s)</span></div>{seasonAwards.length?<div className="grid gap-3 sm:grid-cols-2">{seasonAwards.map((award)=><div key={award._id} className="rounded-xl border border-line p-3"><div className="flex items-start justify-between gap-2"><div><p className="font-semibold text-fg">{award.title}</p><p className="text-xs text-muted">{award.awardType.replaceAll("_"," ")}</p></div>{selected.status==="active"&&!["champions","runner_up"].includes(award.awardType)?<Button size="sm" variant="danger" disabled={saving} onClick={async()=>{const yes=await confirm({title:"Remove optional award?",description:"This removes the optional award record for this active season.",confirmLabel:"Remove award",danger:true});if(!yes)return;setSaving(true);try{await deleteSeasonAward(selected._id,award._id);awardsQuery.reload();toast.success("Award removed");}catch(error){toast.error(errorMessage(error));}finally{setSaving(false);}}}>Remove</Button>:null}</div><div className="mt-3 flex flex-wrap gap-2">{award.recipients.map((recipient)=><div key={recipient._id} className="flex min-w-0 items-center gap-2 rounded-lg bg-surface px-2 py-2"><img src={recipient.profileImageSnapshot?.url??recipient.teamLogoSnapshot?.url??"https://placehold.co/64x64?text=CSL"} alt="" className="h-8 w-8 rounded-full object-cover"/><div className="min-w-0"><p className="max-w-44 truncate text-sm font-medium text-fg">{recipient.displayNameSnapshot}</p><p className="max-w-44 truncate text-xs text-muted">{recipient.teamNameSnapshot}</p></div></div>)}</div></div>)}</div>:<p className="rounded-xl bg-surface p-4 text-sm text-muted">No achievements have been recorded yet. Assign the Champion and Runner-up to prepare this season for completion.</p>}</div>
               </div>:null}
+              {awardReadinessBlockers.length>0 && selected.status === "active" ? <div role="status" className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3"><p className="text-sm font-semibold text-fg">Achievements & awards are locked until the competition is finalized</p><ul className="mt-2 list-disc pl-5 text-sm text-muted">{awardReadinessBlockers.map((item,index)=><li key={index}>{item}</li>)}</ul></div> : null}
               {completionBlockers.length>0?<div role="alert" className="mt-4 rounded-lg border border-red-500/30 bg-red-500/5 p-3"><p className="text-sm font-semibold text-fg">Season cannot be completed yet</p><ul className="mt-2 list-disc pl-5 text-sm text-muted">{completionBlockers.map((item,index)=><li key={index}>{item}</li>)}</ul></div>:null}
               <p className="mt-4 text-xs text-muted">Award records are saved against this season. Completed and archived seasons remain available as read-only history.</p>
             </GlassCard>

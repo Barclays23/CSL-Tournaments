@@ -8,3 +8,5 @@ seasonTeamRouter.patch("/:id", authenticate, requireAdmin, seasonTeamController.
 
 seasonTeamRouter.delete("/:id", authenticate, requireAdmin, seasonTeamController.remove);
 seasonTeamRouter.post("/:id/withdraw", authenticate, requireAdmin, seasonTeamController.withdraw);
+
+seasonTeamRouter.post("/:id/recall", authenticate, requireAdmin, seasonTeamController.recall);

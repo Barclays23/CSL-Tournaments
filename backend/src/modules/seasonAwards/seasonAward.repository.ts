@@ -7,6 +7,16 @@ import { PlayerModel } from "../players/player.model.js";
 import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
 
 export class SeasonAwardRepository {
+  async getAwardReadinessSnapshot(seasonId: string) {
+    const seasonRef = new Types.ObjectId(seasonId);
+    const [matches, seasonTeams, pendingAuctionLots] = await Promise.all([
+      SeasonMatchModel.find({ seasonRef }).select("matchNumber stage status homeSeasonTeamRef awaySeasonTeamRef winnerSeasonTeamRef resolutionHistory").lean().exec(),
+      SeasonTeamModel.find({ seasonRef }).select("_id").lean().exec(),
+      AuctionLotModel.countDocuments({ seasonRef, auctionStatus: "pending" }).exec(),
+    ]);
+    return { matches, seasonTeamIds: seasonTeams.map((team) => team._id), pendingAuctionLots };
+  }
+
   async findSeasonStatus(seasonId: string): Promise<string | null> {
     const season = await SeasonModel.findById(seasonId).select("status").lean<{ status: string }>().exec();
     return season?.status ?? null;

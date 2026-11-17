@@ -219,6 +219,20 @@ function groupStandings(db: SeasonMockDatabase, season: MockSeason) {
   });
 }
 
+function mockAwardReadiness(db: SeasonMockDatabase, seasonId: string): string[] {
+  const matches = db.matches.filter((match) => match.seasonRef === seasonId);
+  const blockers: string[] = [];
+  if (!matches.length) blockers.push("Create fixtures before assigning achievements");
+  for (const match of matches) {
+    if (["live", "scheduled", "postponed", "abandoned"].includes(match.status)) blockers.push("Match " + match.matchNumber + " is " + match.status);
+    if (match.status === "cancelled" && !match.resolutionHistory?.some((entry) => entry.status === "cancelled" && entry.reason.trim().length >= 3 && Boolean(entry.decidedAt))) blockers.push("Match " + match.matchNumber + " needs an audited cancellation reason");
+    if (match.status === "completed" && match.stage !== "group" && (!match.winnerSeasonTeamRef || (match.winnerSeasonTeamRef !== match.homeSeasonTeamRef && match.winnerSeasonTeamRef !== match.awaySeasonTeamRef))) blockers.push("Knockout match " + match.matchNumber + " has no valid winner");
+  }
+  const pending = db.auctionLots.filter((lot) => lot.seasonRef === seasonId && lot.auctionStatus === "pending").length;
+  if (pending) blockers.push(pending + " pending auction lot(s) remain");
+  return blockers;
+}
+
 export const seasonPreviewRepository = {
 
   async getSeasonAwards(seasonId: string) {
@@ -228,6 +242,7 @@ export const seasonPreviewRepository = {
   async createSeasonAward(seasonId:string,input:SeasonAwardInput) {
     requireAdmin(); const db=readSeasonDb(); const season=seasonById(db,seasonId);
     if(season.status!=="active") fail(409,"Awards can only be managed while a season is Active");
+    const readiness = mockAwardReadiness(db, seasonId); if (readiness.length) fail(409, readiness.join("; "));
     if(db.awards.some((a)=>a.seasonRef===seasonId&&a.awardType===input.awardType)) fail(409,"This award category already exists");
     if(input.awardType==="special"&&!input.title?.trim()) fail(422,"A title is required for a special award");
     const recipients=input.recipients.map((item)=>{
@@ -246,13 +261,14 @@ export const seasonPreviewRepository = {
       const other=db.awards.find((a)=>a.seasonRef===seasonId&&a.awardType!==input.awardType&&["champions","runner_up"].includes(a.awardType));
       if(other?.recipients[0]?.seasonTeamRef===recipients[0].seasonTeamRef) fail(422,"Champion and Runner-up must be different teams");
     }
-    const labels:Record<SeasonAwardInput["awardType"],string>={champions:"Champions",runner_up:"Runner-up",golden_boot:"Golden Boot / Top Scorer",golden_glove:"Golden Glove",player_of_the_season:"Player of the Season",best_young_player:"Best Young Player",best_defender:"Best Defender",best_midfielder:"Best Midfielder",special:input.title!.trim()};
+    const labels:Record<SeasonAwardInput["awardType"],string>={champions:"Champions",runner_up:"Runner-up",golden_boot:"Golden Boot / Top Scorer",golden_glove:"Golden Glove",player_of_the_season:"Player of the Season",best_young_player:"Best Young Player",best_defender:"Best Defender",best_midfielder:"Best Midfielder",special:input.title?.trim() || "Special Award"};
     const stamp=now(); const award:MockSeasonAward={_id:newId(),seasonRef:seasonId,awardType:input.awardType,title:input.title?.trim()||labels[input.awardType],description:input.description?.trim()||null,recipients,createdAt:stamp,updatedAt:stamp};
     db.awards.push(award);commitSeasonDb(db);return ok("Season achievement saved",presentAward(db, award));
   },
   async updateSeasonAward(seasonId:string,awardId:string,input:Partial<SeasonAwardInput>) {
     requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);
     if(season.status!=="active") fail(409,"Awards can only be edited while a season is Active");
+    const readiness = mockAwardReadiness(db, seasonId); if (readiness.length) fail(409, readiness.join("; "));
     const award=db.awards.find((a)=>a._id===awardId&&a.seasonRef===seasonId);if(!award)fail(404,"Season award not found");
     const nextType=input.awardType??award.awardType;
     if(input.awardType&&db.awards.some((a)=>a._id!==awardId&&a.seasonRef===seasonId&&a.awardType===input.awardType))fail(409,"This award category already exists");
@@ -275,6 +291,7 @@ export const seasonPreviewRepository = {
   },
   async deleteSeasonAward(seasonId:string,awardId:string) {
     requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);if(season.status!=="active")fail(409,"Awards can only be changed while a season is Active");
+    const readiness = mockAwardReadiness(db, seasonId); if (readiness.length) fail(409, readiness.join("; "));
     const index=db.awards.findIndex((a)=>a._id===awardId&&a.seasonRef===seasonId);if(index<0)fail(404,"Season award not found");
     if(["champions","runner_up"].includes(db.awards[index].awardType))fail(409,"Mandatory team achievements cannot be deleted");
     db.awards.splice(index,1);commitSeasonDb(db);return ok("Optional award deleted",null);
@@ -598,6 +615,26 @@ export const seasonPreviewRepository = {
     db.seasonTeams = db.seasonTeams.filter((st) => st._id !== id);
     commitSeasonDb(db); return ok("Unused registration removed", null);
   },
+  async recallSeasonTeam(seasonId: string, id: string, reason: string) {
+    requireAdmin(); const db = readSeasonDb(); const season = seasonById(db, seasonId);
+    if (season.status !== "active") fail(409, "A withdrawn team can only be recalled during an Active season");
+    const team = db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonId);
+    if (!team) fail(404, "SeasonTeam not found");
+    if (team.status !== "withdrawn") fail(409, "Only a withdrawn SeasonTeam can be recalled");
+    const normalizedReason = reason.trim();
+    if (normalizedReason.length < 3 || normalizedReason.length > 500) fail(422, "Provide a recall reason between 3 and 500 characters");
+    const related = db.matches.filter((match) => match.seasonRef === seasonId && (match.homeSeasonTeamRef === id || match.awaySeasonTeamRef === id));
+    const blockers = related.filter((match) => {
+      if (match.status === "completed") return false;
+      if (match.status === "cancelled") return !match.resolutionHistory?.some((entry) => entry.status === "cancelled" && entry.reason.trim().length >= 3 && Boolean(entry.decidedAt));
+      return true;
+    });
+    if (blockers.length) fail(409, "Resolve every fixture before recalling this team");
+    team.status = "active"; team.participationHistory ??= [];
+    team.participationHistory.push({ fromStatus: "withdrawn", toStatus: "active", reason: normalizedReason, changedAt: now() });
+    team.updatedAt = now(); commitSeasonDb(db);
+    return ok("Season team reinstated", populatedSeasonTeam(db, team));
+  },
   async withdrawSeasonTeam(seasonId: string, id: string) {
     requireAdmin();
     const db = readSeasonDb();
@@ -618,7 +655,7 @@ export const seasonPreviewRepository = {
       return ["Match " + match.matchNumber + " has an unsupported status: " + match.status];
     });
     if (blockers.length) fail(409, blockers.join("; "));
-    team.status = "withdrawn"; team.updatedAt = now();
+    const previousStatus = team.status; team.status = "withdrawn"; team.participationHistory ??= []; team.participationHistory.push({ fromStatus: previousStatus, toStatus: "withdrawn", reason: "Withdrawn by tournament administrator", changedAt: now() }); team.updatedAt = now();
     commitSeasonDb(db); return ok("SeasonTeam withdrawn; history preserved", populatedSeasonTeam(db, team));
   },
   async createSeasonGroup(seasonId: string, input: { groupName: string; displayOrder?: number }) {

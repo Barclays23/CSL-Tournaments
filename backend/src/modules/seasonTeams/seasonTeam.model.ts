@@ -2,6 +2,7 @@ import { Schema, model } from "mongoose";
 import type { SeasonTeamFields } from "./seasonTeam.types.js";
 
 const assetSchema = new Schema({ url: { type: String, required: true }, publicId: { type: String, required: true } }, { _id: false });
+const participationHistorySchema = new Schema({ fromStatus: { type: String, required: true }, toStatus: { type: String, required: true }, reason: { type: String, required: true, trim: true, minlength: 3, maxlength: 500 }, changedAt: { type: Date, required: true } }, { _id: false });
 const seasonTeamSchema = new Schema<SeasonTeamFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   teamRef: { type: Schema.Types.ObjectId, ref: "Team", required: true, immutable: true },
@@ -10,6 +11,7 @@ const seasonTeamSchema = new Schema<SeasonTeamFields>({
   groupRef: { type: Schema.Types.ObjectId, ref: "Group", default: null },
   managerRefs: [{ type: Schema.Types.ObjectId, ref: "Manager" }],
   status: { type: String, enum: ["registered", "active", "withdrawn", "eliminated", "completed"], default: "registered" },
+  participationHistory: { type: [participationHistorySchema], default: [] },
 }, { timestamps: true, versionKey: false });
 seasonTeamSchema.index({ seasonRef: 1, teamRef: 1 }, { unique: true });
 seasonTeamSchema.index({ seasonRef: 1, status: 1 });

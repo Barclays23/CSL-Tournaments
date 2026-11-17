@@ -102,6 +102,15 @@ export class SeasonTeamRepository {
       .lean<Array<{ matchNumber: number; status: string; resolutionHistory?: Array<{ status: string; reason: string; decidedAt: Date }> }>>().exec();
   }
 
+  async recallInSeason(seasonId: string, id: string, reason: string, session: ClientSession): Promise<boolean> {
+    const result = await SeasonTeamModel.updateOne(
+      { _id: new Types.ObjectId(id), seasonRef: new Types.ObjectId(seasonId), status: "withdrawn" },
+      { $set: { status: "active" }, $push: { participationHistory: { fromStatus: "withdrawn", toStatus: "active", reason, changedAt: new Date() } } },
+      { session, runValidators: true },
+    ).exec();
+    return result.modifiedCount === 1;
+  }
+
   async updateInSeason(seasonId: string, id: string, patch: Record<string, unknown>, session?: ClientSession): Promise<any | null> {
     return SeasonTeamModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), seasonRef: new Types.ObjectId(seasonId) },
