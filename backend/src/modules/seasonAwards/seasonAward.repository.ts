@@ -14,6 +14,11 @@ export class SeasonAwardRepository {
 
   async findBySeason(seasonId: string): Promise<SeasonAwardEntity[]> {
     return SeasonAwardModel.find({ seasonRef: new Types.ObjectId(seasonId) })
+      .populate({
+        path: "recipients.seasonTeamRef",
+        select: "displayName logoSnapshot teamRef",
+        populate: { path: "teamRef", select: "name logo" },
+      })
       .sort({ awardType: 1, createdAt: 1 }).lean<SeasonAwardEntity[]>().exec();
   }
 
@@ -31,7 +36,7 @@ export class SeasonAwardRepository {
     return SeasonTeamModel.findOne({
       _id: new Types.ObjectId(seasonTeamId),
       seasonRef: new Types.ObjectId(seasonId),
-    }).lean().exec();
+    }).populate({ path: "teamRef", select: "name logo" }).lean().exec();
   }
 
   async findPlayerForSeasonTeam(seasonId: string, seasonTeamId: string, playerId: string) {

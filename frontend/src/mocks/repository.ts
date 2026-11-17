@@ -461,8 +461,8 @@ export const previewRepository = {
     const db = readDb();
     const player = db.players.find((item) => item._id === id);
     if (!player) fail(404, "Player not found");
-    if (!isAdmin() && player.status !== "active") fail(404, "Player not found");
-    return ok("Player loaded", presentPlayer(db, player, isAdmin()));
+    // Public Player Details includes permanent profile fields and historical profiles too.
+    return ok("Player loaded", presentPlayer(db, player, true));
   },
   async createPlayer(input: PlayerWrite): Promise<ApiResponse<AdminPlayer>> {
     requireAdmin();
@@ -562,6 +562,7 @@ export const previewRepository = {
       fail(409, "A team with this name already exists", { name: "Team name must be unique" });
     }
     const current = db.teams[index];
+    const seasonDb = readSeasonDb();
     if (
       input.status === "active" &&
       current.status !== "active" &&
@@ -580,7 +581,32 @@ export const previewRepository = {
       updatedAt: new Date().toISOString(),
     };
     db.teams[index] = team;
+    const seasonTeamMaster = seasonDb.teams.find((item) => item._id === id);
+    if (seasonTeamMaster) {
+      seasonTeamMaster.name = team.name;
+      seasonTeamMaster.shortName = team.shortName;
+      seasonTeamMaster.description = team.description;
+      seasonTeamMaster.logo = team.logo;
+      seasonTeamMaster.poster = team.poster;
+      seasonTeamMaster.status = team.status;
+      seasonTeamMaster.updatedAt = team.updatedAt;
+    }
+    const affectedSeasonTeamIds = new Set<string>();
+    for (const seasonTeam of seasonDb.seasonTeams) {
+      if (seasonTeam.teamRef !== id) continue;
+      seasonTeam.displayName = team.name;
+      seasonTeam.logoSnapshot = team.logo;
+      affectedSeasonTeamIds.add(seasonTeam._id);
+    }
+    for (const award of seasonDb.awards) {
+      for (const recipient of award.recipients) {
+        if (!affectedSeasonTeamIds.has(recipient.seasonTeamRef)) continue;
+        recipient.teamNameSnapshot = team.name;
+        recipient.teamLogoSnapshot = team.logo;
+      }
+    }
     commit(db);
+    commitSeasonDb(seasonDb);
     return ok("Team updated", presentTeam(team));
   },
   async deleteTeam(id: string) {

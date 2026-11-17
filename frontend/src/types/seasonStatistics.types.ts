@@ -77,7 +77,6 @@ export interface SeasonTeamDashboard {
     goalsConceded: number;
     goalDifference: number;
     cleanSheets: number;
-    points: number;
     topScorer: { player: { _id: string; name: string; profilePic: unknown }; goals: number } | null;
   };
   recentFixtures: SeasonFixture[];

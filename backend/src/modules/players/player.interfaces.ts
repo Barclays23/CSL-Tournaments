@@ -14,7 +14,7 @@ export interface IPlayerRepository {
 }
 export interface IPlayerService {
   getPlayers(query: PlayerQueryDTO, isAdmin: boolean): Promise<PaginatedResult<PlayerResponseDTO>>;
-  getPlayerById(playerId: string, isAdmin: boolean): Promise<PlayerResponseDTO>;
+  getPlayerById(playerId: string): Promise<PlayerResponseDTO>;
   createPlayer(input: PlayerCreateDTO): Promise<PlayerAdminDTO>;
   updatePlayer(playerId: string, input: PlayerUpdateDTO): Promise<PlayerAdminDTO>;
   deactivatePlayer(playerId: string): Promise<PlayerAdminDTO>;

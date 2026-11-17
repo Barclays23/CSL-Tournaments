@@ -120,18 +120,18 @@ export class SeasonAwardService implements ISeasonAwardService {
           playerRef: new Types.ObjectId(playerId),
           displayNameSnapshot: player.name,
           profileImageSnapshot: player.profilePic ?? null,
-          teamNameSnapshot: team.displayName,
-          teamLogoSnapshot: team.logoSnapshot ?? null,
+          teamNameSnapshot: team.teamRef?.name ?? team.displayName,
+          teamLogoSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
         });
       } else {
         results.push({
           recipientType: "season_team" as const,
           seasonTeamRef: new Types.ObjectId(recipient.seasonTeamId),
           playerRef: null,
-          displayNameSnapshot: team.displayName,
-          profileImageSnapshot: team.logoSnapshot ?? null,
-          teamNameSnapshot: team.displayName,
-          teamLogoSnapshot: team.logoSnapshot ?? null,
+          displayNameSnapshot: team.teamRef?.name ?? team.displayName,
+          profileImageSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
+          teamNameSnapshot: team.teamRef?.name ?? team.displayName,
+          teamLogoSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
         });
       }
     }
@@ -188,16 +188,25 @@ export class SeasonAwardService implements ISeasonAwardService {
       awardType: award.awardType,
       title: award.title,
       description: award.description,
-      recipients: award.recipients.map((recipient) => ({
-        _id: String((recipient as typeof recipient & { _id?: Types.ObjectId })._id ?? ""),
-        recipientType: recipient.recipientType,
-        seasonTeamRef: String(recipient.seasonTeamRef),
-        playerRef: recipient.playerRef ? String(recipient.playerRef) : null,
-        displayNameSnapshot: recipient.displayNameSnapshot,
-        profileImageSnapshot: recipient.profileImageSnapshot,
-        teamNameSnapshot: recipient.teamNameSnapshot,
-        teamLogoSnapshot: recipient.teamLogoSnapshot,
-      })),
+      recipients: award.recipients.map((recipient) => {
+        const populatedSeasonTeam = recipient.seasonTeamRef as unknown as {
+          _id?: Types.ObjectId;
+          teamRef?: { name?: string; logo?: SeasonAwardFields["recipients"][number]["teamLogoSnapshot"] } | Types.ObjectId;
+        };
+        const currentTeam = populatedSeasonTeam?.teamRef && typeof populatedSeasonTeam.teamRef === "object"
+          ? populatedSeasonTeam.teamRef as { name?: string; logo?: SeasonAwardFields["recipients"][number]["teamLogoSnapshot"] }
+          : null;
+        return {
+          _id: String((recipient as typeof recipient & { _id?: Types.ObjectId })._id ?? ""),
+          recipientType: recipient.recipientType,
+          seasonTeamRef: String(populatedSeasonTeam?._id ?? recipient.seasonTeamRef),
+          playerRef: recipient.playerRef ? String(recipient.playerRef) : null,
+          displayNameSnapshot: recipient.displayNameSnapshot,
+          profileImageSnapshot: recipient.profileImageSnapshot,
+          teamNameSnapshot: currentTeam?.name ?? recipient.teamNameSnapshot,
+          teamLogoSnapshot: currentTeam?.logo ?? recipient.teamLogoSnapshot,
+        };
+      }),
       createdAt: award.createdAt.toISOString(),
       updatedAt: award.updatedAt.toISOString(),
     };

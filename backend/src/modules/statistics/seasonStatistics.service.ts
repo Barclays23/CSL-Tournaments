@@ -6,7 +6,7 @@ import type {SeasonStandingsDto,SeasonGroupStandingDto,SeasonStandingRowDto,Seas
 import type {PopulatedSeasonMatch,SeasonMatchEntity} from "../matches/seasonMatch.types.js";
 
 interface Standing{team:SeasonTeamBriefDto;played:number;won:number;drawn:number;lost:number;goalsScored:number;goalsConceded:number;goalDifference:number;points:number;}
-interface TeamTotals{played:number;won:number;drawn:number;lost:number;goalsScored:number;goalsConceded:number;cleanSheets:number;points:number;}
+interface TeamTotals{played:number;won:number;drawn:number;lost:number;goalsScored:number;goalsConceded:number;cleanSheets:number;}
 export class SeasonStatisticsService implements ISeasonStatisticsService{
  constructor(private readonly repo:SeasonStatisticsRepository){}
  async getStandings(seasonId:string):Promise<SeasonStandingsDto>{
@@ -63,18 +63,18 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
   this.id(teamId,"team");this.id(seasonId,"season");const [season,team,participation]=await Promise.all([this.requireSeason(seasonId),this.repo.findTeam(teamId),this.repo.findSeasonTeam(seasonId,teamId)]);
   if(!team||team.status!=="active")throw new AppError("Team not found",404,"TEAM_NOT_FOUND");
   const teamInfo={_id:String(team._id),name:team.name,shortName:team.shortName,logo:team.logo};
-  if(!participation)return {participates:false,season:this.seasonBrief(season),team:teamInfo,seasonTeam:null,managers:[],squad:[],stats:{played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,goalDifference:0,cleanSheets:0,points:0,topScorer:null},recentFixtures:[],upcomingFixtures:[]};
+  if(!participation)return {participates:false,season:this.seasonBrief(season),team:teamInfo,seasonTeam:null,managers:[],squad:[],stats:{played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,goalDifference:0,cleanSheets:0,topScorer:null},recentFixtures:[],upcomingFixtures:[]};
   const [lots,matches]=await Promise.all([this.repo.findSoldLots(seasonId),this.repo.findMatchesForSeasonTeam(seasonId,String(participation._id))]);
   const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(participation._id));
   const squad=teamLots.map(l=>({player:{_id:String(l.playerRef._id),name:l.playerRef.name,profilePic:l.playerRef.profilePic},position:l.playerPosition,jerseyNo:l.jerseyNo,purchasePrice:l.purchasePrice,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper}));
-  const stats:TeamTotals={played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,cleanSheets:0,points:0};const playerGoals=new Map<string,number>();
+  const stats:TeamTotals={played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,cleanSheets:0};const playerGoals=new Map<string,number>();
   const signedPlayers=new Map(teamLots.map(l=>[String(l.playerRef._id),l.playerRef]));
   for(const match of matches.filter(m=>m.status==="completed")){
    const id=String(participation._id),other=this.refId(match.homeSeasonTeamRef)===id?this.refId(match.awaySeasonTeamRef):this.refId(match.homeSeasonTeamRef);
    const scored=this.score(match,id),conceded=this.score(match,other);stats.played++;stats.goalsScored+=scored;stats.goalsConceded+=conceded;if(conceded===0)stats.cleanSheets++;
-   if(scored>conceded){stats.won++;if(match.stage==="group")stats.points+=season.pointsRules.win;}
-   else if(scored<conceded){stats.lost++;if(match.stage==="group")stats.points+=season.pointsRules.loss;}
-   else{stats.drawn++;if(match.stage==="group")stats.points+=season.pointsRules.draw;}
+   if(scored>conceded){stats.won++;}
+   else if(scored<conceded){stats.lost++;}
+   else{stats.drawn++;}
    for(const goal of match.goals){if(goal.goalType==="normal"&&goal.scorerPlayerRef&&goal.playerSeasonTeamRef&&this.refId(goal.playerSeasonTeamRef)===id){const pid=this.refId(goal.scorerPlayerRef);playerGoals.set(pid,(playerGoals.get(pid)??0)+1);}}
   }
   const leader=[...playerGoals.entries()].sort((a,b)=>b[1]-a[1]||(signedPlayers.get(a[0])?.name??"").localeCompare(signedPlayers.get(b[0])?.name??""))[0];
@@ -98,7 +98,7 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
  private compare(a:Standing,b:Standing,keys:readonly string[]):number{for(const key of keys){let d=0;if(key==="points")d=b.points-a.points;else if(key==="goalDifference")d=b.goalDifference-a.goalDifference;else if(key==="goalsScored")d=b.goalsScored-a.goalsScored;else if(key==="teamNameAsc")d=a.team.displayName.localeCompare(b.team.displayName);if(d)return d;}return a.team.displayName.localeCompare(b.team.displayName);}
  private score(match:PopulatedSeasonMatch,teamId:string):number{return match.goals.filter(g=>this.refId(g.scoringSeasonTeamRef)===teamId).length;}
  private fixture(m:PopulatedSeasonMatch):SeasonFixtureDto{const home=this.teamBrief(m.homeSeasonTeamRef as any),away=this.teamBrief(m.awaySeasonTeamRef as any);return {_id:String(m._id),matchNumber:m.matchNumber,stage:m.stage,kickoffAt:m.kickoffAt.toISOString(),status:m.status,home,away,homeScore:this.score(m,String((m.homeSeasonTeamRef as any)._id)),awayScore:this.score(m,String((m.awaySeasonTeamRef as any)._id)),winnerSeasonTeamRef:m.winnerSeasonTeamRef?this.refId(m.winnerSeasonTeamRef):null,penaltyShootout:m.penaltyShootout?{homeTeamScore:m.penaltyShootout.homeTeamScore,awayTeamScore:m.penaltyShootout.awayTeamScore,status:m.penaltyShootout.status}:null};}
- private teamBrief(st:PopulatedSeasonTeam|any):SeasonTeamBriefDto{return {_id:String(st._id),teamId:String(st.teamRef?._id??st.teamRef),displayName:st.displayName,shortName:st.teamRef?.shortName??null,logo:st.logoSnapshot??st.teamRef?.logo??null,groupRef:st.groupRef?String(st.groupRef._id??st.groupRef):null,groupName:st.groupRef?.groupName??null};}
+ private teamBrief(st:PopulatedSeasonTeam|any):SeasonTeamBriefDto{return {_id:String(st._id),teamId:String(st.teamRef?._id??st.teamRef),displayName:st.teamRef?.name??st.displayName,shortName:st.teamRef?.shortName??null,logo:st.teamRef?.logo??st.logoSnapshot??null,groupRef:st.groupRef?String(st.groupRef._id??st.groupRef):null,groupName:st.groupRef?.groupName??null};}
  private seasonBrief(s:any):SeasonBriefDto{return {_id:String(s._id),name:s.name,seasonNumber:s.seasonNumber,year:s.year,status:s.status};}
  private async requireSeason(id:string):Promise<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>> & {
   pointsRules: NonNullable<NonNullable<Awaited<ReturnType<SeasonStatisticsRepository["findSeason"]>>>["pointsRules"]>;
