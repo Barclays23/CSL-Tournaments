@@ -128,10 +128,10 @@ export class SeasonAwardService implements ISeasonAwardService {
           recipientType: "season_team" as const,
           seasonTeamRef: new Types.ObjectId(recipient.seasonTeamId),
           playerRef: null,
-          displayNameSnapshot: team.displayName,
-          profileImageSnapshot: team.logoSnapshot ?? null,
-          teamNameSnapshot: team.displayName,
-          teamLogoSnapshot: team.logoSnapshot ?? null,
+          displayNameSnapshot: team.teamRef?.name ?? team.displayName,
+          profileImageSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
+          teamNameSnapshot: team.teamRef?.name ?? team.displayName,
+          teamLogoSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
         });
       }
     }
