@@ -1,7 +1,7 @@
 import type { TeamBrief } from "@/types/team.types";
 
-export type MatchStage = "group" | "quarter_final" | "semi_final" | "final";
-export type MatchStatus = "scheduled" | "live" | "completed" | "postponed" | "cancelled";
+export type MatchStage = "group" | "round_of_16" | "quarter_final" | "semi_final" | "third_place" | "final";
+export type MatchStatus = "scheduled" | "live" | "completed" | "postponed" | "cancelled" | "abandoned";
 export type GoalType = "normal" | "own_goal";
 
 export interface PlayerBrief {

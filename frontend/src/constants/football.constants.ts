@@ -28,15 +28,19 @@ export const PLAYER_STATUSES: { value: PlayerStatus; label: string }[] = [
 
 export const STAGES: { value: MatchStage; label: string }[] = [
   { value: "group", label: "Group" },
+  { value: "round_of_16", label: "Round of 16" },
   { value: "quarter_final", label: "Quarter-final" },
   { value: "semi_final", label: "Semi-final" },
+  { value: "third_place", label: "Third-place playoff" },
   { value: "final", label: "Final" },
 ];
 
 export const STAGE_LABEL: Record<MatchStage, string> = {
   group: "Group",
+  round_of_16: "Round of 16",
   quarter_final: "Quarter-final",
   semi_final: "Semi-final",
+  third_place: "Third-place playoff",
   final: "Final",
 };
 
@@ -46,6 +50,7 @@ export const MATCH_STATUSES: { value: MatchStatus; label: string }[] = [
   { value: "completed", label: "Completed" },
   { value: "postponed", label: "Postponed" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "abandoned", label: "Abandoned" },
 ];
 
 export const STATUS_LABEL: Record<MatchStatus, string> = {
@@ -54,9 +59,10 @@ export const STATUS_LABEL: Record<MatchStatus, string> = {
   completed: "Full time",
   postponed: "Postponed",
   cancelled: "Cancelled",
+  abandoned: "Abandoned",
 };
 
-export const KNOCKOUT_STAGES: MatchStage[] = ["quarter_final", "semi_final", "final"];
+export const KNOCKOUT_STAGES: MatchStage[] = ["round_of_16", "quarter_final", "semi_final", "third_place", "final"];
 
 export function isKnockout(stage: MatchStage) {
   return KNOCKOUT_STAGES.includes(stage);
