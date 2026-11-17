@@ -74,7 +74,7 @@ export function SeasonFixtureCard({
           {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}{match.venue ? ` · ${match.venue}` : ""}
         </p>
       </Link>
-      {onEdit ? <div className="mt-3 flex justify-end border-t border-line pt-3"><Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button></div> : null}
+      {onEdit && !["completed", "cancelled", "abandoned"].includes(match.status) ? <div className="mt-3 flex justify-end border-t border-line pt-3"><Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button></div> : null}
     </GlassCard>
   );
 }
