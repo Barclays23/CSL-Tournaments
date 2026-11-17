@@ -105,7 +105,8 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
         : eligibleSeasonTeams.length < 2
           ? "At least two eligible participating teams are required."
           : null;
-  const canCreateFixture = Boolean(isAdmin && !seasons.loading && !seasonTeams.loading && !fixtureBlockReason);
+  const fixtureCreationAllowed = Boolean(!seasons.loading && !seasonTeams.loading && !fixtureBlockReason);
+  const canCreateFixture = Boolean(isAdmin && fixtureCreationAllowed);
   const pagination = matches.data?.pagination;
   const resultStart = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
   const resultEnd = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
