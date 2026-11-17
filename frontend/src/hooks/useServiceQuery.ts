@@ -13,6 +13,7 @@ export function useServiceQuery<T>(loader: () => Promise<T>, deps: readonly unkn
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setData(null);
     loader()
       .then((result) => {
         if (!cancelled) setData(result);

@@ -21,6 +21,12 @@ const shootoutSchema = new Schema({
   kicks: { type: [kickSchema], default: [] },
 }, { _id: false });
 
+const resolutionSchema = new Schema({
+  status: { type: String, enum: ["cancelled", "abandoned"], required: true },
+  reason: { type: String, required: true, trim: true, minlength: 3, maxlength: 500 },
+  decidedAt: { type: Date, required: true },
+}, { _id: false, timestamps: false });
+
 const schema = new Schema<SeasonMatchFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   matchNumber: { type: Number, required: true, min: 1 },
@@ -35,6 +41,7 @@ const schema = new Schema<SeasonMatchFields>({
   penaltyShootout: { type: shootoutSchema, default: null },
   winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
   notes: { type: String, default: null, trim: true },
+  resolutionHistory: { type: [resolutionSchema], default: [] },
 }, { timestamps: true, versionKey: false });
 
 schema.index({ seasonRef:  1, matchNumber: 1 }, { unique: true });

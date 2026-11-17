@@ -34,9 +34,9 @@ export class SeasonTeamRepository {
     }).lean<SeasonTeamEntity>().exec();
   }
 
-  async findSeasonState(seasonId: string, session?: ClientSession): Promise<{ _id: Types.ObjectId; status: string } | null> {
-    return SeasonModel.findById(seasonId).select("_id status").session(session ?? null)
-      .lean<{ _id: Types.ObjectId; status: string }>().exec();
+  async findSeasonState(seasonId: string, session?: ClientSession): Promise<{ _id: Types.ObjectId; status: string; groupStageEnabled: boolean } | null> {
+    return SeasonModel.findById(seasonId).select("_id status groupStageEnabled").session(session ?? null)
+      .lean<{ _id: Types.ObjectId; status: string; groupStageEnabled: boolean }>().exec();
   }
 
   async lockSeason(seasonId: string, statuses: string[], session: ClientSession): Promise<boolean> {
@@ -93,14 +93,13 @@ export class SeasonTeamRepository {
     }).session(session ?? null).exec();
   }
 
-  async findUnresolvedTeamFixtures(seasonId: string, seasonTeamId: string, session?: ClientSession): Promise<Array<{ matchNumber: number; status: string }>> {
+  async findUnresolvedTeamFixtures(seasonId: string, seasonTeamId: string, session?: ClientSession): Promise<Array<{ matchNumber: number; status: string; resolutionHistory?: Array<{ status: string; reason: string; decidedAt: Date }> }>> {
     const teamRef = new Types.ObjectId(seasonTeamId);
     return SeasonMatchModel.find({
       seasonRef: new Types.ObjectId(seasonId),
       $or: [{ homeSeasonTeamRef: teamRef }, { awaySeasonTeamRef: teamRef }],
-      status: { $in: ["live", "scheduled", "postponed"] },
-    }).select("matchNumber status").session(session ?? null)
-      .lean<Array<{ matchNumber: number; status: string }>>().exec();
+    }).select("matchNumber status resolutionHistory").session(session ?? null)
+      .lean<Array<{ matchNumber: number; status: string; resolutionHistory?: Array<{ status: string; reason: string; decidedAt: Date }> }>>().exec();
   }
 
   async updateInSeason(seasonId: string, id: string, patch: Record<string, unknown>, session?: ClientSession): Promise<any | null> {

@@ -15,7 +15,7 @@ export function normalizeGroupName(name: string): string {
 export class GroupRepository implements IGroupRepository {
   async findBySeason(seasonId: string): Promise<GroupEntity[]> {
     return GroupModel.find({ seasonRef: new Types.ObjectId(seasonId) })
-      .sort({ displayOrder: 1, groupName: 1 })
+      .sort({ displayOrder: 1, groupName: 1, _id: 1 })
       .lean<GroupEntity[]>()
       .exec();
   }
