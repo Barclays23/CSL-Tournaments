@@ -36,7 +36,7 @@ export class SeasonAwardRepository {
     return SeasonTeamModel.findOne({
       _id: new Types.ObjectId(seasonTeamId),
       seasonRef: new Types.ObjectId(seasonId),
-    }).lean().exec();
+    }).populate({ path: "teamRef", select: "name logo" }).lean().exec();
   }
 
   async findPlayerForSeasonTeam(seasonId: string, seasonTeamId: string, playerId: string) {

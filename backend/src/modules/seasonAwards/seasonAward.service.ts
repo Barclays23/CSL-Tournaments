@@ -120,8 +120,8 @@ export class SeasonAwardService implements ISeasonAwardService {
           playerRef: new Types.ObjectId(playerId),
           displayNameSnapshot: player.name,
           profileImageSnapshot: player.profilePic ?? null,
-          teamNameSnapshot: team.displayName,
-          teamLogoSnapshot: team.logoSnapshot ?? null,
+          teamNameSnapshot: team.teamRef?.name ?? team.displayName,
+          teamLogoSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
         });
       } else {
         results.push({
