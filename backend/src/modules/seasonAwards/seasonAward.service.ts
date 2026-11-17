@@ -191,10 +191,10 @@ export class SeasonAwardService implements ISeasonAwardService {
       recipients: award.recipients.map((recipient) => {
         const populatedSeasonTeam = recipient.seasonTeamRef as unknown as {
           _id?: Types.ObjectId;
-          teamRef?: { name?: string; logo?: unknown } | Types.ObjectId;
+          teamRef?: { name?: string; logo?: SeasonAwardFields["recipients"][number]["teamLogoSnapshot"] } | Types.ObjectId;
         };
         const currentTeam = populatedSeasonTeam?.teamRef && typeof populatedSeasonTeam.teamRef === "object"
-          ? populatedSeasonTeam.teamRef as { name?: string; logo?: unknown }
+          ? populatedSeasonTeam.teamRef as { name?: string; logo?: SeasonAwardFields["recipients"][number]["teamLogoSnapshot"] }
           : null;
         return {
           _id: String((recipient as typeof recipient & { _id?: Types.ObjectId })._id ?? ""),

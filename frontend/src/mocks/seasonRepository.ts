@@ -222,10 +222,11 @@ export const seasonPreviewRepository = {
       const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));
       if(!st) fail(422,"Recipient SeasonTeam is invalid for this season");
       const player=item.playerId?db.players.find((x)=>x._id===item.playerId):null;
+      const currentTeam=teamById(db,st.teamRef);
       if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold"))) fail(422,"Player is not rostered for this SeasonTeam");
       if(["champions","runner_up"].includes(input.awardType)&&(input.recipients.length!==1||player)) fail(422,"Team awards require exactly one SeasonTeam");
       if(!["champions","runner_up","special"].includes(input.awardType)&&!player) fail(422,"This award requires a player recipient");
-      return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??st.displayName,profileImageSnapshot:player?.profilePic??st.logoSnapshot,teamNameSnapshot:st.displayName,teamLogoSnapshot:st.logoSnapshot};
+      return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??currentTeam.name,profileImageSnapshot:player?.profilePic??currentTeam.logo,teamNameSnapshot:currentTeam.name,teamLogoSnapshot:currentTeam.logo};
     });
     if(!recipients.length||recipients.length>20) fail(422,"An award must have one to twenty recipients");
     if(new Set(recipients.map((r)=>r.playerRef?r.seasonTeamRef+":"+r.playerRef:r.seasonTeamRef+":team")).size!==recipients.length) fail(422,"Duplicate award recipients are not allowed");
@@ -235,7 +236,7 @@ export const seasonPreviewRepository = {
     }
     const labels:Record<SeasonAwardInput["awardType"],string>={champions:"Champions",runner_up:"Runner-up",golden_boot:"Golden Boot / Top Scorer",golden_glove:"Golden Glove",player_of_the_season:"Player of the Season",best_young_player:"Best Young Player",best_defender:"Best Defender",best_midfielder:"Best Midfielder",special:input.title!.trim()};
     const stamp=now(); const award:MockSeasonAward={_id:newId(),seasonRef:seasonId,awardType:input.awardType,title:input.title?.trim()||labels[input.awardType],description:input.description?.trim()||null,recipients,createdAt:stamp,updatedAt:stamp};
-    db.awards.push(award);commitSeasonDb(db);return ok("Season achievement saved",presentAward(award));
+    db.awards.push(award);commitSeasonDb(db);return ok("Season achievement saved",presentAward(db, award));
   },
   async updateSeasonAward(seasonId:string,awardId:string,input:Partial<SeasonAwardInput>) {
     requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);
