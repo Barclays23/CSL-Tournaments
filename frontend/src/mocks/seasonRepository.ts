@@ -410,49 +410,93 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Season fixture created", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatch(seasonId: string, matchId: string, input: Partial<SeasonMatchWrite>) {
+  async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
-    const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
-    const stage = input.stage ?? match.stage;
-    const groupRef = stage === "group" ? (input.groupRef === undefined ? match.groupRef : input.groupRef) : null;
-    if (homeId === awayId) fail(422, "A team cannot play itself");
-    if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
-      && (match.goals.length > 0 || (match.resolutionHistory?.length ?? 0) > 0)) {
-      fail(409, "Participating teams and stage cannot be changed after goal or resolution history has been recorded");
+    if (["cancelled", "abandoned"].includes(match.status)) fail(409, "Goals cannot be changed on a cancelled or abandoned fixture");
+    const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
+    if (scoring !== home && scoring !== away) fail(422, "Credited team must be one of the match participants");
+    const scorerId = input.scorerPlayerRef ?? null;
+    if (input.goalType === "normal" && !scorerId) fail(422, "Select the goal scorer");
+    let playerSeasonTeamRef: string | null = null;
+    if (scorerId) {
+      const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
+      const expectedTeam = input.goalType === "normal" ? scoring : (scoring === home ? away : home);
+      if (!lot || lot.seasonTeamRef !== expectedTeam) fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
+      playerSeasonTeamRef = lot.seasonTeamRef;
     }
-    const home = db.seasonTeams.find((team) => team._id === homeId && team.seasonRef === seasonId);
-    const away = db.seasonTeams.find((team) => team._id === awayId && team.seasonRef === seasonId);
-    if (!home || !away || ["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
-      fail(422, "Both teams must be eligible participants in this season");
-    }
-    if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
-    if (stage === "group") {
-      const group = groupRef ? db.groups.find((item) => item._id === groupRef && item.seasonRef === seasonId) : null;
-      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) fail(422, "Both teams must belong to the selected group");
-    } else if (groupRef) fail(422, "Knockout fixtures cannot belong to a group");
-    const kickoff = new Date(input.kickoffAt ?? match.kickoffAt);
-    if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
-    if (input.matchNumber !== undefined && db.matches.some((item) => item._id !== matchId && item.seasonRef === seasonId && item.matchNumber === input.matchNumber)) {
-      fail(409, "Match number already exists in this season");
-    }
-    if (input.status !== undefined && input.status !== match.status) fail(422, "Change fixture status through the match status and resolution workflow");
-    match.matchNumber = input.matchNumber ?? match.matchNumber;
-    match.stage = stage;
-    match.groupRef = groupRef;
-    match.kickoffAt = kickoff.toISOString();
-    match.venue = input.venue === undefined ? match.venue : input.venue ?? null;
-    match.homeSeasonTeamRef = homeId;
-    match.awaySeasonTeamRef = awayId;
-    match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
+    match.goals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, createdAt: now() });
+    this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
-    return ok("Season fixture updated", populatedSeasonMatch(db, match));
+    return ok("Goal added", populatedSeasonMatch(db, match));
+  },
+  async updateSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    if (["cancelled", "abandoned"].includes(match.status)) fail(409, "Goals cannot be changed on a cancelled or abandoned fixture");
+    const index = match.goals.findIndex((goal) => goal._id === goalId);
+    if (index < 0) return fail(404, "Goal not found");
+    const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
+    if (scoring !== home && scoring !== away) fail(422, "Credited team must be one of the match participants");
+    const scorerId = input.scorerPlayerRef ?? null;
+    if (input.goalType === "normal" && !scorerId) fail(422, "Select the goal scorer");
+    let playerSeasonTeamRef: string | null = null;
+    if (scorerId) {
+      const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
+      const expectedTeam = input.goalType === "normal" ? scoring : (scoring === home ? away : home);
+      if (!lot || lot.seasonTeamRef !== expectedTeam) fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
+      playerSeasonTeamRef = lot.seasonTeamRef;
+    }
+    match.goals[index] = { ...match.goals[index], scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType };
+    this.recalculateMockWinner(season, match);
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Goal updated", populatedSeasonMatch(db, match));
+  },
+  async deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    if (["cancelled", "abandoned"].includes(match.status)) fail(409, "Goals cannot be changed on a cancelled or abandoned fixture");
+    const index = match.goals.findIndex((goal) => goal._id === goalId);
+    if (index < 0) return fail(404, "Goal not found");
+    match.goals.splice(index, 1);
+    this.recalculateMockWinner(season, match);
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Goal deleted", populatedSeasonMatch(db, match));
+  },
+  recalculateMockWinner(season: MockSeason, match: MockSeasonMatch) {
+    if (match.status !== "completed") { match.winnerSeasonTeamRef = null; return; }
+    const homeScore = matchScore(match, match.homeSeasonTeamRef);
+    const awayScore = matchScore(match, match.awaySeasonTeamRef);
+    if (match.stage === "group") {
+      if (homeScore === awayScore && season.matchRules?.groupStageDrawAllowed === false) fail(422, "Draws are not allowed by this season's group-stage rules");
+      match.winnerSeasonTeamRef = homeScore === awayScore ? null : homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
+      return;
+    }
+    if (homeScore === awayScore) {
+      if (season.matchRules?.knockoutDrawRequiresShootout && (!match.penaltyShootout || match.penaltyShootout.status !== "completed" || match.penaltyShootout.homeTeamScore === match.penaltyShootout.awayTeamScore)) {
+        fail(422, "A tied completed knockout match requires a completed penalty shootout");
+      }
+      match.winnerSeasonTeamRef = match.penaltyShootout && match.penaltyShootout.homeTeamScore !== match.penaltyShootout.awayTeamScore
+        ? (match.penaltyShootout.homeTeamScore > match.penaltyShootout.awayTeamScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef) : null;
+      return;
+    }
+    if (match.penaltyShootout) fail(422, "A shootout is only allowed when normal-time scores are tied");
+    match.winnerSeasonTeamRef = homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
   },
   async getSeasons() {
     const db = readSeasonDb();

@@ -70,10 +70,32 @@ export function createSeasonMatch(seasonId: string, data: SeasonMatchWrite) {
   );
 }
 
-export function updateSeasonMatch(seasonId: string, matchId: string, data: Partial<SeasonMatchWrite>) {
+export type SeasonGoalWrite = {
+  scoringSeasonTeamRef: string;
+  scorerPlayerRef?: string | null;
+  goalType: "normal" | "own_goal";
+};
+
+export function addSeasonMatchGoal(seasonId: string, matchId: string, data: SeasonGoalWrite) {
   return run(() =>
     USE_MOCK_API
-      ? seasonPreviewRepository.updateSeasonMatch(seasonId, matchId, data)
-      : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}`, data).then((response) => response.data),
+      ? seasonPreviewRepository.addSeasonMatchGoal(seasonId, matchId, data)
+      : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals`, data).then((response) => response.data),
+  );
+}
+
+export function updateSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, data: SeasonGoalWrite) {
+  return run(() =>
+    USE_MOCK_API
+      ? seasonPreviewRepository.updateSeasonMatchGoal(seasonId, matchId, goalId, data)
+      : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`, data).then((response) => response.data),
+  );
+}
+
+export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string) {
+  return run(() =>
+    USE_MOCK_API
+      ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId)
+      : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`).then((response) => response.data),
   );
 }
