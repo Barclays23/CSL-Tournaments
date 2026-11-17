@@ -1,11 +1,16 @@
+import { useState, type FormEvent } from "react";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/Button";
+import { Textarea } from "@/components/ui/Textarea";
 import { Avatar } from "@/components/ui/Avatar";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
-import { getSeasonMatchById } from "@/services/seasonMatchService";
+import { getSeasonMatchById, updateSeasonMatchResolution } from "@/services/seasonMatchService";
 import type { SeasonMatch, SeasonMatchTeamRef } from "@/types/seasonMatch.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
@@ -34,6 +39,10 @@ function teamDetails(ref: SeasonMatchTeamRef) {
 }
 
 export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string; matchId: string }) {
+  const { isAdmin } = useAuth();
+  const [resolutionStatus, setResolutionStatus] = useState<"cancelled" | "abandoned">("cancelled");
+  const [resolutionReason, setResolutionReason] = useState("");
+  const [savingResolution, setSavingResolution] = useState(false);
   const matchQuery = useServiceQuery(() => getSeasonMatchById(seasonId, matchId), [seasonId, matchId]);
   const match = matchQuery.data?.data;
 
@@ -47,6 +56,22 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const homeScore = match.goals.filter((goal) => refId(goal.scoringSeasonTeamRef) === home.id).length;
   const awayScore = match.goals.filter((goal) => refId(goal.scoringSeasonTeamRef) === away.id).length;
   const winnerId = refId(match.winnerSeasonTeamRef);
+  const saveResolution = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const reason = resolutionReason.trim();
+    if (reason.length < 3) { toast.error("Enter a resolution reason"); return; }
+    setSavingResolution(true);
+    try {
+      await updateSeasonMatchResolution(seasonId, matchId, { status: resolutionStatus, resolutionReason: reason });
+      toast.success("Fixture resolution saved");
+      setResolutionReason("");
+      matchQuery.reload();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save fixture resolution");
+    } finally {
+      setSavingResolution(false);
+    }
+  };
 
   return (
     <PageContainer>
@@ -79,7 +104,38 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
           {match.venue ? ` · ${match.venue}` : ""}
         </p>
         {match.notes ? <p className="mt-3 text-center text-sm text-muted">{match.notes}</p> : null}
+        {match.resolutionHistory?.length ? (
+          <div className="mt-4 border-t border-line pt-3">
+            <h3 className="text-sm font-semibold text-fg">Fixture resolution history</h3>
+            <ul className="mt-2 space-y-2">
+              {match.resolutionHistory.map((entry, index) => (
+                <li key={entry.decidedAt + entry.status + index} className="rounded-lg bg-surface p-3 text-sm">
+                  <p className="font-medium text-fg">{entry.status === "cancelled" ? "Cancelled" : "Abandoned"} · {formatDate(entry.decidedAt)}</p>
+                  <p className="mt-1 text-muted">{entry.reason}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </GlassCard>
+      {isAdmin && match.status !== "completed" && (!(match.status === "cancelled" || match.status === "abandoned") || !match.resolutionHistory?.some((entry) => entry.status === match.status && entry.reason.trim().length >= 3)) ? (
+        <GlassCard className="mt-4 p-5">
+          <h2 className="font-semibold text-fg">Resolve or record fixture decision</h2>
+          <p className="mt-1 text-sm text-muted">Cancelling or abandoning a fixture requires an audited reason. This decision remains in the fixture history and is checked before a participating team can withdraw.</p>
+          <form className="mt-3 grid gap-3" onSubmit={saveResolution}>
+            <label className="text-sm font-medium text-fg">Decision
+              <select className="mt-1 w-full rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={resolutionStatus} onChange={(event) => setResolutionStatus(event.target.value as "cancelled" | "abandoned")}>
+                <option value="cancelled">Cancel fixture</option>
+                <option value="abandoned">Abandon fixture</option>
+              </select>
+            </label>
+            <label className="text-sm font-medium text-fg">Reason for decision
+              <Textarea className="mt-1" required minLength={3} maxLength={500} value={resolutionReason} onChange={(event) => setResolutionReason(event.target.value)} placeholder="Record who decided and why this fixture was cancelled or abandoned." />
+            </label>
+            <Button type="submit" disabled={savingResolution || resolutionReason.trim().length < 3}>{savingResolution ? "Saving…" : "Save fixture decision"}</Button>
+          </form>
+        </GlassCard>
+      ) : null}
       <section className="mt-6">
         <h2 className="mb-3 font-display text-3xl text-fg">Goals</h2>
         {match.goals.length === 0 ? (

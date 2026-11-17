@@ -80,7 +80,7 @@ function SeasonsBody() {
   const [yearFilter, setYearFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupOrder, setNewGroupOrder] = useState(0);
+  const [newGroupOrder, setNewGroupOrder] = useState(1);
   const [groupDrafts, setGroupDrafts] = useState<Record<string, { groupName: string; displayOrder: number }>>({});
   const [saving, setSaving] = useState(false);
   const [optionalAwardType, setOptionalAwardType] = useState<"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder">("golden_boot");
@@ -99,6 +99,13 @@ function SeasonsBody() {
   }, [selectedSeasonId, seasons.data]);
 
   const selected = seasons.data?.data.find((season) => season._id === selectedSeasonId) ?? null;
+  useEffect(() => {
+    // Group edit drafts and form values belong to one selected season only.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setGroupDrafts({});
+    setNewGroupName("");
+    setNewGroupOrder(1);
+  }, [selectedSeasonId]);
   useEffect(() => {
     // Reset the edit draft when the server record changes or another season is selected.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -128,8 +135,19 @@ function SeasonsBody() {
     [selectedSeasonId],
   );
 
-  const registeredTeams = seasonTeams.data?.data ?? [];
-  const seasonGroups = groups.data?.data ?? [];
+  const registeredTeams = (seasonTeams.data?.data ?? []).filter((team) => team.seasonRef === selectedSeasonId);
+  const seasonGroups = useMemo(() => {
+    const currentSeasonGroups = (groups.data?.data ?? []).filter((group) => group.seasonRef === selectedSeasonId);
+    return Array.from(new Map(currentSeasonGroups.map((group) => [group._id, group])).values())
+      .sort((a, b) => a.displayOrder - b.displayOrder || a.groupName.localeCompare(b.groupName) || a._id.localeCompare(b._id));
+  }, [groups.data, selectedSeasonId]);
+  useEffect(() => {
+    if (groups.loading || groups.error || !groups.data) return;
+    const maxOrder = seasonGroups.reduce((max, group) => Math.max(max, group.displayOrder), 0);
+    // Suggest a useful next value without making the user choose it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setNewGroupOrder((current) => Math.max(current, maxOrder + 1));
+  }, [groups.loading, groups.error, groups.data, seasonGroups]);
   const seasonFixtures = fixtures.data?.data ?? [];
   const seasonLots = lots.data?.data ?? [];
   const seasonAwards = Array.isArray(awardsQuery.data?.data) ? awardsQuery.data.data.filter((award) => award && Array.isArray(award.recipients)) : [];
@@ -297,19 +315,60 @@ function SeasonsBody() {
   };
 
   const createGroup = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault(); if (!selected || !newGroupName.trim()) return;
+    event.preventDefault();
+    if (!selected) return;
+    const groupName = newGroupName.trim().replace(/\s+/g, " ");
+    if (!groupName) { toast.error("Enter a group name"); return; }
+    if (groupName.length > 40) { toast.error("Group name must be 40 characters or fewer"); return; }
+    if (!Number.isInteger(newGroupOrder) || newGroupOrder < 0 || newGroupOrder > 1000) {
+      toast.error("Display order must be a whole number between 0 and 1000"); return;
+    }
+    if (!registeredTeams.length) { toast.error("Register participating teams before creating groups"); return; }
+    if (selected.groupStageEnabled === false) { toast.error("Groups are disabled for this season"); return; }
     setSaving(true);
-    try { await createSeasonGroup(selected._id, { groupName: newGroupName.trim(), displayOrder: newGroupOrder }); toast.success("Group created"); setNewGroupName(""); setNewGroupOrder(seasonGroups.length + 1); groups.reload(); }
-    catch (error) { toast.error(errorMessage(error)); }
+    try {
+      await createSeasonGroup(selected._id, { groupName, displayOrder: newGroupOrder });
+      toast.success("Group created");
+      setNewGroupName("");
+      setNewGroupOrder(Math.max(newGroupOrder, ...seasonGroups.map((group) => group.displayOrder), 0) + 1);
+      groups.reload();
+    } catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
+  };
+
+  const editGroup = (group: SeasonGroup) => {
+    setGroupDrafts((current) => ({ ...current, [group._id]: { groupName: group.groupName, displayOrder: group.displayOrder } }));
+  };
+
+  const cancelGroupEdit = (groupId: string) => {
+    setGroupDrafts((current) => {
+      const next = { ...current };
+      delete next[groupId];
+      return next;
+    });
   };
 
   const saveGroup = async (group: SeasonGroup) => {
     if (!selected) return;
-    const draft = groupDrafts[group._id]; if (!draft) return;
+    const draft = groupDrafts[group._id];
+    if (!draft) return;
+    const groupName = draft.groupName.trim().replace(/\s+/g, " ");
+    if (!groupName) { toast.error("Group name cannot be empty"); return; }
+    if (groupName.length > 40) { toast.error("Group name must be 40 characters or fewer"); return; }
+    if (!Number.isInteger(draft.displayOrder) || draft.displayOrder < 0 || draft.displayOrder > 1000) {
+      toast.error("Display order must be a whole number between 0 and 1000"); return;
+    }
+    const patch: { groupName?: string; displayOrder?: number } = {};
+    if (groupName !== group.groupName) patch.groupName = groupName;
+    if (draft.displayOrder !== group.displayOrder) patch.displayOrder = draft.displayOrder;
+    if (!Object.keys(patch).length) { toast.info("There are no changes to save"); return; }
     setSaving(true);
-    try { await updateSeasonGroup(selected._id, group._id, draft); toast.success("Group updated"); setGroupDrafts((current) => { const next = { ...current }; delete next[group._id]; return next; }); groups.reload(); }
-    catch (error) { toast.error(errorMessage(error)); }
+    try {
+      await updateSeasonGroup(selected._id, group._id, patch);
+      toast.success("Group updated");
+      cancelGroupEdit(group._id);
+      groups.reload();
+    } catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
   };
 
@@ -329,7 +388,7 @@ function SeasonsBody() {
       title: action === "remove" ? "Remove unused registration?" : "Withdraw this team?",
       description: action === "remove"
         ? "This permanently removes only the unused SeasonTeam registration. Teams with auction or fixture history cannot be deleted."
-        : "Withdrawal preserves auction and match history. Reschedule or explicitly cancel all scheduled/postponed fixtures before withdrawal; a live match blocks this action.",
+        : "Withdrawal is not permanent removal. The SeasonTeam record, auction history and completed match history are preserved. This team cannot participate in future auction sales or fixtures. Finish live matches, reschedule or cancel scheduled/postponed fixtures, and record a reason for every cancelled or abandoned fixture before withdrawing.",
       confirmLabel: action === "remove" ? "Remove registration" : "Withdraw team", danger: true,
     });
     if (!yes) return;
@@ -480,12 +539,12 @@ function SeasonsBody() {
                     <div className="min-w-40"><p className="font-medium text-fg">{team.displayName}</p><p className="text-xs text-muted">{team.group?.groupName ?? "No group"} · {team.managers.length} manager(s) · {team.status}</p><div className="mt-1 flex flex-wrap gap-1">{team.managers.map((manager) => <span key={manager._id} className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{manager.name}</span>)}</div></div>
                     <div className="flex items-center gap-2">
                       <select aria-label={"Managers for "+team.displayName} multiple className="min-h-20 max-w-52 rounded-lg border border-line bg-surface p-2 text-xs text-fg" value={team.managerRefs} disabled={saving || !["draft","upcoming","active"].includes(selected.status)} onChange={(event) => void assignManagers(team, Array.from(event.target.selectedOptions).map((option) => option.value))}>{(managersQuery.data?.data ?? []).filter((manager) => manager.status === "active").map((manager) => <option key={manager._id} value={manager._id}>{manager.name}</option>)}</select>
-                      <Select className="max-w-40" value={team.groupRef ?? ""} disabled={!preActivation || hasFixtures || team.status === "withdrawn"} onChange={(e) => void changeGroupAssignment(team, e.target.value)}>
+                      <Select className="max-w-40" value={team.groupRef ?? ""} disabled={!preActivation || hasFixtures || team.status === "withdrawn" || selected.groupStageEnabled === false} onChange={(e) => void changeGroupAssignment(team, e.target.value)}>
                         <option value="">Unassigned group</option>{seasonGroups.map((group) => <option key={group._id} value={group._id}>{group.groupName}</option>)}
                       </Select>
                       {preActivation && team.status !== "withdrawn" ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team,"remove")}>Remove</Button> : null}
                       {preActivation && linked ? <span className="text-xs text-muted">Has auction/fixture history; use withdrawal only after activation</span> : null}
-                      {selected.status === "active" && team.status !== "withdrawn" ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team,"withdraw")}>Withdraw</Button> : null}
+                      {selected.status === "active" && ["registered","active"].includes(team.status) ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team,"withdraw")}>Withdraw</Button> : null}
                     </div>
                   </div>;
                 })}
@@ -518,26 +577,75 @@ function SeasonsBody() {
                 <div><h3 className="font-display text-xl text-fg">Season groups</h3>
                 <p className="mt-1 text-xs text-muted">Configure groups and assign teams before fixtures are created.</p></div>
               </div>
-              <p className="mb-3 text-xs text-muted">Groups belong to this Season only. Assign participants before creating group-stage fixtures. Group names can be reused in other seasons.</p>
-              {preActivation && !hasFixtures ? <form className="mb-4 grid gap-2 sm:grid-cols-[1fr_7rem_auto]" onSubmit={createGroup}>
-                <Input aria-label="New group name" placeholder="Group A" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} />
-                <Input aria-label="Display order" type="number" min="0" value={newGroupOrder} onChange={(e) => setNewGroupOrder(Number(e.target.value))} />
-                <Button type="submit" size="sm" disabled={saving || !newGroupName.trim()}>Add group</Button>
-              </form> : <p className="mb-3 text-xs text-muted">Group creation and editing are frozen after activation or fixture creation.</p>}
-              <div className="space-y-2">
-                {seasonGroups.map((group) => {
-                  const draft = groupDrafts[group._id] ?? { groupName: group.groupName, displayOrder: group.displayOrder };
-                  const assignedCount = registeredTeams.filter((team) => team.groupRef === group._id).length;
-                  return <div key={group._id} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-[1fr_7rem_auto_auto]">
-                    <Input aria-label={group.groupName + " name"} value={draft.groupName} disabled={!preActivation || hasFixtures} onChange={(e) => setGroupDrafts((current) => ({...current,[group._id]:{...draft,groupName:e.target.value}}))} />
-                    <Input aria-label={group.groupName + " order"} type="number" min="0" value={draft.displayOrder} disabled={!preActivation || hasFixtures} onChange={(e) => setGroupDrafts((current) => ({...current,[group._id]:{...draft,displayOrder:Number(e.target.value)}}))} />
-                    <Button size="sm" variant="surface" disabled={saving || !preActivation || hasFixtures} onClick={() => void saveGroup(group)}>Save</Button>
-                    <Button size="sm" variant="danger" disabled={saving || assignedCount > 0 || hasFixtures} onClick={() => void removeGroup(group)}>Delete</Button>
-                    <p className="text-xs text-muted sm:col-span-4">{assignedCount} team(s) assigned</p>
-                  </div>;
-                })}
-                {!seasonGroups.length ? <p className="text-sm text-muted">No groups created for this season.</p> : null}
-              </div>
+              <p className="mb-3 text-xs text-muted">Groups belong to this Season only. Counts are based on this season's SeasonTeam registrations. Historical assignments remain included so their group references are not hidden.</p>
+              {preActivation && !hasFixtures && selected.groupStageEnabled !== false ? (
+                <form className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_auto] sm:items-end" onSubmit={createGroup}>
+                  <label className="block text-sm font-medium text-fg" htmlFor="season-group-name">
+                    Group Name
+                    <Input id="season-group-name" className="mt-1" placeholder="For example, Group A" maxLength={40} required value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} />
+                  </label>
+                  <label className="block text-sm font-medium text-fg" htmlFor="season-group-order">
+                    Display Order
+                    <Input id="season-group-order" className="mt-1" type="number" min="0" max="1000" step="1" required value={newGroupOrder} onChange={(e) => setNewGroupOrder(Number(e.target.value))} />
+                  </label>
+                  <Button type="submit" size="sm" disabled={saving || !newGroupName.trim() || !registeredTeams.length}>Add Group</Button>
+                </form>
+              ) : selected.groupStageEnabled === false ? (
+                <p className="mb-3 text-xs text-muted">Group management is disabled for this season's format.</p>
+              ) : (
+                <p className="mb-3 text-xs text-muted">Group creation and editing are frozen after activation or fixture creation.</p>
+              )}
+              {preActivation && !hasFixtures && selected.groupStageEnabled !== false && !registeredTeams.length ? (
+                <p className="mb-3 text-xs text-muted">Register participating teams before creating groups.</p>
+              ) : null}
+              {groups.loading ? <Skeleton className="mb-3 h-20" /> : null}
+              {groups.error ? <ErrorState message={groups.error} onRetry={groups.reload} /> : null}
+              {!groups.loading && !groups.error && groups.data ? (
+                <div className="space-y-2">
+                  {seasonGroups.map((group) => {
+                    const draft = groupDrafts[group._id];
+                    const assigned = registeredTeams.filter((team) => team.groupRef === group._id);
+                    const participatingCount = assigned.filter((team) => ["registered", "active"].includes(team.status)).length;
+                    const historicalCount = assigned.length - participatingCount;
+                    return (
+                      <div key={group._id} className="rounded-xl border border-line p-3">
+                        {!draft ? (
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="font-semibold text-fg">{group.groupName}</p>
+                              <p className="mt-1 text-xs text-muted">Display order: {group.displayOrder}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="surface" disabled={saving || !preActivation || hasFixtures || selected.groupStageEnabled === false} onClick={() => editGroup(group)}>Edit</Button>
+                              <Button size="sm" variant="danger" disabled={saving || assigned.length > 0 || hasFixtures || !preActivation || selected.groupStageEnabled === false} onClick={() => void removeGroup(group)}>Delete</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_9rem_auto_auto] sm:items-end">
+                            <label className="block text-sm font-medium text-fg">
+                              Group Name
+                              <Input className="mt-1" maxLength={40} value={draft.groupName} disabled={saving} onChange={(e) => setGroupDrafts((current) => ({ ...current, [group._id]: { ...draft, groupName: e.target.value } }))} />
+                            </label>
+                            <label className="block text-sm font-medium text-fg">
+                              Display Order
+                              <Input className="mt-1" type="number" min="0" max="1000" step="1" value={draft.displayOrder} disabled={saving} onChange={(e) => setGroupDrafts((current) => ({ ...current, [group._id]: { ...draft, displayOrder: Number(e.target.value) } }))} />
+                            </label>
+                            <Button size="sm" disabled={saving} onClick={() => void saveGroup(group)}>{saving ? "Saving…" : "Save"}</Button>
+                            <Button size="sm" variant="surface" disabled={saving} onClick={() => cancelGroupEdit(group._id)}>Cancel</Button>
+                          </div>
+                        )}
+                        <p className="mt-2 text-xs text-muted">
+                          {assigned.length} {assigned.length === 1 ? "team" : "teams"} assigned · {participatingCount} currently participating
+                          {historicalCount > 0 ? " · " + historicalCount + " historical (withdrawn, eliminated or completed)" : ""}
+                        </p>
+                        {assigned.length > 0 ? <p className="mt-1 text-xs text-muted">Delete is unavailable while any SeasonTeam record refers to this group, including withdrawn or completed registrations.</p> : null}
+                        {hasFixtures ? <p className="mt-1 text-xs text-muted">Groups are locked because this season already has fixtures.</p> : null}
+                      </div>
+                    );
+                  })}
+                  {!seasonGroups.length ? <p className="text-sm text-muted">No groups created for this season.</p> : null}
+                </div>
+              ) : null}
             </GlassCard>
 
             <GlassCard className="p-5 sm:p-6">

@@ -3,6 +3,7 @@ import { AppError } from "../../shared/errors/appError.js";
 import type { ISeasonTeamService } from "./seasonTeam.interfaces.js";
 import type { SeasonTeamResponseDto, UpdateSeasonTeamDto } from "./seasonTeam.dto.js";
 import { SeasonTeamRepository } from "./seasonTeam.repository.js";
+import { getSeasonTeamWithdrawalBlockers } from "./seasonTeam.withdrawal.rules.js";
 
 export class SeasonTeamService implements ISeasonTeamService {
   constructor(private readonly repository: SeasonTeamRepository) {}
@@ -47,6 +48,9 @@ export class SeasonTeamService implements ISeasonTeamService {
         }
 
         if (input.groupId !== undefined) {
+          if (input.groupId !== null && !season.groupStageEnabled) {
+            throw new AppError("Group assignment is unavailable because group-stage play is disabled for this season", 409, "GROUP_STAGE_DISABLED");
+          }
           if (await this.repository.countFixtures(seasonId, session) > 0) {
             throw new AppError("Group assignment is locked after fixtures exist. Use an audited correction workflow for a genuine correction.", 409, "GROUP_ASSIGNMENT_LOCKED");
           }
@@ -121,19 +125,11 @@ export class SeasonTeamService implements ISeasonTeamService {
         }
         const current = await this.repository.findInSeason(seasonId, id, session);
         if (!current) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
-        if (current.status === "withdrawn") {
-          throw new AppError("This team has already withdrawn", 409, "SEASON_TEAM_ALREADY_WITHDRAWN");
-        }
         const fixtures = await this.repository.findUnresolvedTeamFixtures(seasonId, id, session);
-        const live = fixtures.filter((match) => match.status === "live");
-        if (live.length) {
-          throw new AppError("A team cannot withdraw while it has a live match", 409, "WITHDRAWAL_LIVE_MATCH",
-            Object.fromEntries(live.map((match, index) => ["match." + (index + 1), "Match " + match.matchNumber + " is live"])));
-        }
-        const unresolved = fixtures.filter((match) => match.status === "scheduled" || match.status === "postponed");
-        if (unresolved.length) {
-          throw new AppError("Reschedule or explicitly cancel all scheduled/postponed fixtures before withdrawing this team", 409, "WITHDRAWAL_FIXTURES_UNRESOLVED",
-            Object.fromEntries(unresolved.map((match, index) => ["fixture." + (index + 1), "Match " + match.matchNumber + " is " + match.status])));
+        const blockers = getSeasonTeamWithdrawalBlockers(current.status, fixtures);
+        if (blockers.length) {
+          throw new AppError("Withdrawal is blocked until every fixture is resolved. Completed fixtures remain as history; cancelled or abandoned fixtures need an audited decision.", 409, "WITHDRAWAL_VALIDATION_FAILED",
+            Object.fromEntries(blockers.map((message, index) => ["blocker." + (index + 1), message])));
         }
         await this.repository.updateInSeason(seasonId, id, { status: "withdrawn" }, session);
       });

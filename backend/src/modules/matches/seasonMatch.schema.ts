@@ -12,6 +12,9 @@ const fields = {
  notes: z.string().trim().max(1000).nullable().optional(), penaltyShootout: shootout.nullable().optional(),
 };
 export const seasonMatchCreateSchema = z.object(fields).strict().refine(v => v.homeSeasonTeamRef !== v.awaySeasonTeamRef, { path: ["awaySeasonTeamRef"], message: "A team cannot play itself" });
-export const seasonMatchUpdateSchema = z.object({ ...Object.fromEntries(Object.entries(fields).map(([k,v]) => [k,v.optional()])) }).strict().refine(v => Object.keys(v).length > 0, "At least one field is required");
+export const seasonMatchUpdateSchema = z.object({
+ ...Object.fromEntries(Object.entries(fields).map(([k,v]) => [k,v.optional()])),
+ resolutionReason: z.string().trim().min(3).max(500).optional(),
+}).strict().refine(v => Object.keys(v).length > 0, "At least one field is required");
 export const seasonMatchQuerySchema = paginationSchema.extend({ stage: stage.optional(), groupRef: objectId.nullable().optional(), status: status.optional(), dateFrom: z.coerce.date().optional(), dateTo: z.coerce.date().optional(), seasonTeamRef: objectId.optional(), search: z.string().trim().max(100).optional() }).strict();
 export const seasonGoalSchema = z.object({ scoringSeasonTeamRef: objectId, scorerPlayerRef: objectId.nullable().optional(), goalType: z.enum(["normal", "own_goal"]) }).strict();

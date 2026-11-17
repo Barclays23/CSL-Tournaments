@@ -63,7 +63,7 @@ export interface MockSeasonMatch {
   status: "scheduled" | "live" | "completed" | "postponed" | "cancelled" | "abandoned";
   goals: Array<{ _id: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: "normal" | "own_goal"; createdAt: string }>;
   penaltyShootout: null | { status: "pending" | "completed"; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: "scored" | "missed" | "saved" }> };
-  winnerSeasonTeamRef: string | null; notes: string | null; createdAt: string; updatedAt: string;
+  winnerSeasonTeamRef: string | null; notes: string | null; resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>; createdAt: string; updatedAt: string;
 }
 export interface MockSeasonAwardRecipient { _id:string; recipientType:"season_team"|"player"; seasonTeamRef:string; playerRef:string|null; displayNameSnapshot:string; profileImageSnapshot:Asset|null; teamNameSnapshot:string; teamLogoSnapshot:Asset|null; }
 export interface MockSeasonAward { _id:string; seasonRef:string; awardType:"champions"|"runner_up"|"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder"|"special"; title:string; description:string|null; recipients:MockSeasonAwardRecipient[]; createdAt:string; updatedAt:string; }
