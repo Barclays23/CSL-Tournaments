@@ -40,14 +40,14 @@ function groupById(db: SeasonMockDatabase, id: string | null) {
 function teamBrief(db: SeasonMockDatabase, st: MockSeasonTeam) {
   const team = teamById(db, st.teamRef);
   const group = groupById(db, st.groupRef);
-  return { _id: st._id, teamId: team._id, displayName: st.displayName, shortName: team.shortName, logo: st.logoSnapshot, groupRef: st.groupRef, groupName: group?.groupName ?? null };
+  return { _id: st._id, teamId: team._id, displayName: team.name, shortName: team.shortName, logo: team.logo, groupRef: st.groupRef, groupName: group?.groupName ?? null };
 }
 function populatedSeasonTeam(db: SeasonMockDatabase, st: MockSeasonTeam): SeasonTeam {
   const team = teamById(db, st.teamRef);
   const group = groupById(db, st.groupRef);
   return {
-    _id: st._id, seasonRef: st.seasonRef, teamRef: st.teamRef, displayName: st.displayName,
-    logoSnapshot: st.logoSnapshot, groupRef: st.groupRef, managerRefs: [...st.managerRefs], status: st.status,
+    _id: st._id, seasonRef: st.seasonRef, teamRef: st.teamRef, displayName: team.name,
+    logoSnapshot: team.logo, groupRef: st.groupRef, managerRefs: [...st.managerRefs], status: st.status,
     team: { _id: team._id, name: team.name, shortName: team.shortName, logo: team.logo },
     group: group ? { _id: group._id, groupName: group.groupName, displayOrder: group.displayOrder } : null,
     managers: st.managerRefs.map((id) => db.managers.find((m) => m._id === id)).filter((m): m is NonNullable<typeof m> => Boolean(m)).map((m) => ({ _id: m._id, name: m.name, role: m.role, profilePic: m.profilePic })),
@@ -57,7 +57,7 @@ function populatedLot(db: SeasonMockDatabase, lot: MockAuctionLot): AuctionLot {
   const player = playerById(db, lot.playerRef);
   const st = lot.seasonTeamRef ? db.seasonTeams.find((item) => item._id === lot.seasonTeamRef) ?? null : null;
   const seasonTeamRef = st ? {
-    _id: st._id, displayName: st.displayName,
+    _id: st._id, displayName: teamById(db, st.teamRef).name,
     team: (() => { const team = teamById(db, st.teamRef); return { _id: team._id, name: team.name, shortName: team.shortName, logo: team.logo }; })(),
   } : null;
   return {
@@ -756,12 +756,13 @@ export const seasonPreviewRepository = {
     const season = seasonById(db, seasonId);
     const team = teamById(db, teamId);
     const st = db.seasonTeams.find((item) => item.seasonRef === seasonId && item.teamRef === teamId) ?? null;
-    const emptyStats = { played: 0, won: 0, drawn: 0, lost: 0, goalsScored: 0, goalsConceded: 0, goalDifference: 0, cleanSheets: 0, points: 0, topScorer: null };
+    const emptyStats = { played: 0, won: 0, drawn: 0, lost: 0, goalsScored: 0, goalsConceded: 0, goalDifference: 0, cleanSheets: 0, topScorer: null };
     if (!st) return ok("Team season dashboard loaded", {
       participates: false, season: seasonBrief(season), team: { _id: team._id, name: team.name, shortName: team.shortName, logo: team.logo },
       seasonTeam: null, managers: [], squad: [], stats: emptyStats, recentFixtures: [], upcomingFixtures: [],
     } as unknown as SeasonTeamDashboard);
-    const stats = teamRecord(db, seasonId, st._id);
+    const { points: groupStagePoints, ...stats } = teamRecord(db, seasonId, st._id);
+    void groupStagePoints;
     const squad = soldLots(db, seasonId, st._id).map((lot) => {
       const player = playerById(db, lot.playerRef);
       return { player: { _id: player._id, name: player.name, profilePic: player.profilePic }, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper };
