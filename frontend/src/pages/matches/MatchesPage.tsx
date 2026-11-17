@@ -95,7 +95,23 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
     [seasonId, page, status, stage, groupRef, debounced],
   );
 
-  const canCreateFixture = Boolean(isAdmin && selectedSeason && !["completed", "archived"].includes(selectedSeason.status));
+  const eligibleSeasonTeams = (seasonTeams.data?.data ?? []).filter((team) => ["registered", "active"].includes(team.status));
+  const fixtureBlockReason = !selectedSeason
+    ? "Select a season to manage fixtures."
+    : !["upcoming", "active"].includes(selectedSeason.status)
+      ? "Fixtures can only be created for upcoming or active seasons."
+      : !selectedSeason.matchRules
+        ? "Match rules are not configured for this season."
+        : eligibleSeasonTeams.length < 2
+          ? "At least two eligible participating teams are required."
+          : null;
+  const canCreateFixture = Boolean(isAdmin && !seasons.loading && !seasonTeams.loading && !fixtureBlockReason);
+  const pagination = matches.data?.pagination;
+  const resultStart = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
+  const resultEnd = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
+  const dateLabel = (value: string | null) => value
+    ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date(value))
+    : "Not configured";
 
   const resetFilters = () => {
     setStatus("");
