@@ -10,3 +10,30 @@ export function getPairFixtureError(fixtures: PairFixtureRecord[], roundNumber: 
   }
   return null;
 }
+
+export interface LiveFixtureRecord {
+  _id?: unknown;
+  homeSeasonTeamRef: unknown;
+  awaySeasonTeamRef: unknown;
+}
+
+export function getLiveMatchConflictingTeamIds(
+  fixtures: LiveFixtureRecord[],
+  homeId: string,
+  awayId: string,
+  excludeId?: string,
+): string[] {
+  const requestedTeamIds = new Set([homeId, awayId]);
+  const conflicts = new Set<string>();
+
+  for (const fixture of fixtures) {
+    if (String(fixture._id ?? "") === (excludeId ?? "")) continue;
+
+    for (const teamRef of [fixture.homeSeasonTeamRef, fixture.awaySeasonTeamRef]) {
+      const teamId = String(teamRef);
+      if (requestedTeamIds.has(teamId)) conflicts.add(teamId);
+    }
+  }
+
+  return [...conflicts];
+}

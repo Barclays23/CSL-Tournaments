@@ -12,7 +12,7 @@ import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
 import type { PlayerEntity } from "../players/player.types.js";
 import type { AuctionLotEntity } from "../auctionLots/auctionLot.types.js";
 import { AppError } from "../../shared/errors/appError.js";
-import { getPairFixtureError } from "./seasonMatch.fixtureRules.js";
+import { getLiveMatchConflictingTeamIds, getPairFixtureError } from "./seasonMatch.fixtureRules.js";
 
 const population = [
   { path: "homeSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
@@ -111,9 +111,56 @@ export class SeasonMatchRepository {
     if (issue === "DUPLICATE_HOME_AWAY_ORIENTATION") throw new AppError("The return fixture must reverse the home and away teams.", 409, issue, { homeSeasonTeamRef: "Reverse the home and away teams for the return fixture" });
   }
 
+  private async assertNoOtherLiveMatch(
+    data: Pick<SeasonMatchFields, "seasonRef" | "homeSeasonTeamRef" | "awaySeasonTeamRef">,
+    excludeId: string | undefined,
+    session: ClientSession,
+  ): Promise<void> {
+    const requestedTeamIds = [String(data.homeSeasonTeamRef), String(data.awaySeasonTeamRef)];
+    const liveFixtures = await SeasonMatchModel.find({
+      seasonRef: data.seasonRef,
+      status: "live",
+      $or: [
+        { homeSeasonTeamRef: { $in: [data.homeSeasonTeamRef, data.awaySeasonTeamRef] } },
+        { awaySeasonTeamRef: { $in: [data.homeSeasonTeamRef, data.awaySeasonTeamRef] } },
+      ],
+      ...(excludeId ? { _id: { $ne: new Types.ObjectId(excludeId) } } : {}),
+    })
+      .select("_id homeSeasonTeamRef awaySeasonTeamRef")
+      .session(session)
+      .lean<Array<Pick<SeasonMatchEntity, "_id" | "homeSeasonTeamRef" | "awaySeasonTeamRef">>>()
+      .exec();
+
+    const conflictingIds = getLiveMatchConflictingTeamIds(
+      liveFixtures,
+      requestedTeamIds[0],
+      requestedTeamIds[1],
+      excludeId,
+    );
+    if (!conflictingIds.length) return;
+
+    const conflictingTeams = await SeasonTeamModel.find({
+      _id: { $in: conflictingIds.map((id) => new Types.ObjectId(id)) },
+    })
+      .select("displayName")
+      .session(session)
+      .lean<Array<{ _id: Types.ObjectId; displayName: string }>>()
+      .exec();
+    const displayNameById = new Map(conflictingTeams.map((team) => [String(team._id), team.displayName]));
+    const names = conflictingIds.map((id) => displayNameById.get(id) ?? "This team");
+
+    throw new AppError(
+      `${names.join(" and ")} already has another match ongoing. A team can only have one ongoing match at a time in a season.`,
+      409,
+      "TEAM_ALREADY_HAS_LIVE_MATCH",
+      { teams: `${names.join(", ")} already has another ongoing match` },
+    );
+  }
+
   async create(data: SeasonMatchFields, homeAndAway: boolean): Promise<SeasonMatchEntity> {
     return this.withSeasonWriteLock(String(data.seasonRef), async (session) => {
       await this.assertPairRules(data, homeAndAway, undefined, session);
+      if (data.status === "live") await this.assertNoOtherLiveMatch(data, undefined, session);
       const [doc] = await SeasonMatchModel.create([data], { session });
       return doc.toObject() as unknown as SeasonMatchEntity;
     });
@@ -166,6 +213,7 @@ export class SeasonMatchRepository {
       }
 
       const next = { ...current, ...data };
+      if (next.status === "live") await this.assertNoOtherLiveMatch(next, id, session);
       const pairChanged = String(next.homeSeasonTeamRef) !== String(current.homeSeasonTeamRef)
         || String(next.awaySeasonTeamRef) !== String(current.awaySeasonTeamRef)
         || next.stage !== current.stage

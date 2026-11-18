@@ -136,6 +136,34 @@ function assertLiveMatch(match: MockSeasonMatch): void {
   }
 }
 
+function assertNoOtherLiveMatch(
+  db: SeasonMockDatabase,
+  seasonId: string,
+  homeId: string,
+  awayId: string,
+  excludeMatchId?: string,
+) {
+  const requestedTeamIds = new Set([homeId, awayId]);
+  const conflictingTeamIds = new Set<string>();
+
+  for (const fixture of db.matches) {
+    if (fixture.seasonRef !== seasonId || fixture.status !== "live" || fixture._id === excludeMatchId) continue;
+    for (const teamId of [fixture.homeSeasonTeamRef, fixture.awaySeasonTeamRef]) {
+      if (requestedTeamIds.has(teamId)) conflictingTeamIds.add(teamId);
+    }
+  }
+
+  if (!conflictingTeamIds.size) return;
+  const names = [...conflictingTeamIds].map((teamId) =>
+    db.seasonTeams.find((team) => team._id === teamId && team.seasonRef === seasonId)?.displayName ?? "This team",
+  );
+  fail(
+    409,
+    `${names.join(" and ")} already has another match ongoing. A team can only have one ongoing match at a time in a season.`,
+    "TEAM_ALREADY_HAS_LIVE_MATCH",
+  );
+}
+
 function validateMockPair(db: SeasonMockDatabase, season: MockSeason, stage: MockSeasonMatch["stage"], groupRef: string | null, roundNumber: number, homeId: string, awayId: string, excludeId?: string) {
   const fixtures = db.matches.filter((item) => item.seasonRef === season._id && item.stage === stage
     && (stage === "group" ? item.groupRef === groupRef : true)
@@ -471,6 +499,9 @@ export const seasonPreviewRepository = {
       const allowed = transitions[match.status].join(", ") || "none";
       fail(409, `Cannot change match status from ${match.status} to ${nextStatus}. Allowed next statuses: ${allowed}.`);
     }
+    if (nextStatus === "live") {
+      assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
+    }
     if (match.status === "postponed" && nextStatus === "scheduled") {
       fail(409, "Postponed matches must be returned to Scheduled through the reschedule operation with a new kickoff date and time");
     }
@@ -623,6 +654,7 @@ export const seasonPreviewRepository = {
     const kickoff = new Date(input.kickoffAt);
     if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
     const status = input.status ?? "scheduled";
+    if (status === "live") assertNoOtherLiveMatch(db, seasonId, home._id, away._id);
     if (status !== "scheduled") fail(422, "New fixtures must start as Scheduled");
     const date = now();
     const match: MockSeasonMatch = {
@@ -660,6 +692,7 @@ export const seasonPreviewRepository = {
     if (match.status === "completed") fail(409, "Completed fixtures are historical records and cannot be rewritten");
     const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
     const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
+    if (match.status === "live") assertNoOtherLiveMatch(db, seasonId, homeId, awayId, matchId);
     const stage = input.stage ?? match.stage;
     const groupRef = stage === "group" ? (input.groupRef === undefined ? match.groupRef : input.groupRef) : null;
     const roundNumber = input.roundNumber ?? match.roundNumber;
