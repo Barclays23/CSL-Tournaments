@@ -41,8 +41,10 @@ jobs:
       - name: Run backend tests
         run: npm test
       - name: Typecheck backend
+        if: always()
         run: npm run typecheck
       - name: Build backend
+        if: always()
         run: npm run build
 
   frontend:
