@@ -19,8 +19,10 @@ export const seasonMatchCreateSchema = z.object(fields).strict().superRefine((v,
 export const seasonMatchUpdateSchema = z.object({
  ...Object.fromEntries(Object.entries(fields).map(([k,v]) => [k,v.optional()])),
  resolutionReason: z.string().trim().min(3).max(500).optional(),
+ statusReason: z.string().trim().min(3).max(500).optional(),
 }).strict().superRefine((v, context) => {
   if (Object.keys(v).length === 0) context.addIssue({ code: "custom", message: "At least one field is required" });
+  if (v.statusReason !== undefined && v.resolutionReason !== undefined && v.statusReason !== v.resolutionReason) context.addIssue({ code: "custom", path: ["statusReason"], message: "Use one consistent reason for the status change" });
   if (v.homeSeasonTeamRef && v.awaySeasonTeamRef && v.homeSeasonTeamRef === v.awaySeasonTeamRef) context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "A team cannot play itself" });
   if (v.stage === "group" && v.groupRef === null) context.addIssue({ code: "custom", path: ["groupRef"], message: "Choose a group for a group-stage fixture" });
   if (v.stage && v.stage !== "group" && v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
