@@ -52,7 +52,6 @@ export function createSeed(): Database {
       _id: "settings-preview-derived", singletonKey: "CSL_CURRENT", tournamentName: activeSeason.name,
       startDate: activeSeason.startDate ?? "", endDate: activeSeason.endDate ?? "",
       maxActivePlayers: activeSeason.auctionSettings.playersCount,
-      maxActiveTeams: activeSeason.auctionSettings.seasonTeamCount,
       maxPlayersPerTeam: activeSeason.auctionSettings.teamSquadSize,
       auctionBudgetPerTeam: activeSeason.auctionSettings.budgetPerTeam,
       requiredIconPlayers: activeSeason.auctionSettings.iconPlayerLimit,
