@@ -111,9 +111,18 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
   const pagination = matches.data?.pagination;
   const resultStart = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
   const resultEnd = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
-  const dateLabel = (value: string | null) => value
-    ? new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date(value))
-    : "Not configured";
+  const dateLabel = (value?: string | null) => {
+    if (!value) return "Not configured";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "Not configured";
+    return new Intl.DateTimeFormat("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Kolkata",
+    }).format(date);
+  };
+  const seasonDateRange = `${dateLabel(selectedSeason?.startDate)} – ${dateLabel(selectedSeason?.endDate)}`;
 
   const resetFilters = () => {
     setStatus("");
@@ -163,7 +172,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
                 {selectedSeason.name}
               </h2>
               <p className="mt-2 text-sm text-muted">
-                {dateLabel(selectedSeason.startDate)} <span aria-hidden="true">–</span> {dateLabel(selectedSeason.endDate)}
+                {seasonDateRange}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-line bg-surface px-3 py-1.5">
