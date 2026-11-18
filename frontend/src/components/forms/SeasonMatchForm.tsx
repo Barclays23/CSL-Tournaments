@@ -96,7 +96,7 @@ export function SeasonMatchForm({
         roundNumber: values.roundNumber,
         stage: values.stage,
         groupRef: values.stage === "group" ? values.groupRef : null,
-        kickoffAt: fromDateTimeInput(values.kickoffAt),
+        ...(match?.status === "postponed" ? {} : { kickoffAt: fromDateTimeInput(values.kickoffAt) }),
         venueRef: values.venueRef,
         homeSeasonTeamRef: values.homeSeasonTeamRef,
         awaySeasonTeamRef: values.awaySeasonTeamRef,
@@ -151,7 +151,7 @@ export function SeasonMatchForm({
       ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Kick-off" required error={errors.kickoffAt}>
-          <Input name="kickoffAt" type="datetime-local" required defaultValue={match ? toDateTimeInput(match.kickoffAt) : ""} aria-invalid={Boolean(errors.kickoffAt)} />
+          <Input name="kickoffAt" type="datetime-local" required readOnly={match?.status === "postponed"} defaultValue={match ? toDateTimeInput(match.kickoffAt) : ""} aria-invalid={Boolean(errors.kickoffAt)} />
         </FormField>
         <FormField label="Venue / Ground" required error={errors.venueRef}>
           <Select name="venueRef" required value={venueRef} aria-invalid={Boolean(errors.venueRef)} onChange={(event) => setVenueRef(event.target.value)}>
@@ -160,6 +160,7 @@ export function SeasonMatchForm({
           </Select>
         </FormField>
       </div>
+      {match?.status === "postponed" ? <p className="-mt-2 text-xs text-muted">The original kick-off is preserved. Use Reschedule Match in the status manager to set a new date and time.</p> : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Home team" required error={errors.homeSeasonTeamRef}>
           <Select name="homeSeasonTeamRef" required value={homeTeamRef} disabled={!stage || (stage === "group" && !groupRef)} aria-invalid={Boolean(errors.homeSeasonTeamRef)} onChange={(event) => setHomeTeamRef(event.target.value)}>

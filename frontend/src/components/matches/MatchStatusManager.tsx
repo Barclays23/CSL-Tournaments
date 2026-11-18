@@ -180,10 +180,16 @@ export function MatchStatusManager({
 
       onMatchUpdated(response.data);
       toast.success(activeAction === "reschedule" ? "Match rescheduled successfully" : `${ACTION_LABEL[activeAction]} successful`);
-      closeAction();
+      setActiveAction(null);
+      setReason("");
+      setNewKickoff("");
+      setSubmitError("");
     } catch (error) {
       const apiError = error as { message?: string; fieldErrors?: Record<string, string> };
-      const message = apiError.message || (error instanceof Error ? error.message : "Unable to update match status");
+      const fieldMessage = apiError.fieldErrors ? Object.values(apiError.fieldErrors).join(" ") : "";
+      const message = [apiError.message || (error instanceof Error ? error.message : "Unable to update match status"), fieldMessage]
+        .filter(Boolean)
+        .join(" ");
       setSubmitError(message);
       toast.error(message);
     } finally {

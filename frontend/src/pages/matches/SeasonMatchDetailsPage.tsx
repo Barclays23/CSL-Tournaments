@@ -127,6 +127,55 @@ const chipClass =
 const iconBtnClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface/60 text-muted backdrop-blur-md transition-colors hover:bg-glass-strong hover:text-fg";
 
+function TeamSide({ team, side }: { team: ReturnType<typeof teamDetails>; side: "home" | "away" }) {
+  return (
+    <div
+      className={`flex min-w-0 flex-col items-center gap-3 text-center ${
+        side === "home" ? "sm:flex-row-reverse sm:justify-start sm:text-right" : "sm:flex-row sm:justify-start sm:text-left"
+      }`}
+    >
+      <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-line sm:h-16 sm:w-16" />
+      <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">{team.name}</p>
+    </div>
+  );
+}
+
+function EventText({
+  event,
+  side,
+  canManageGoals,
+  onEditGoal,
+  onDeleteGoal,
+}: {
+  event: MatchEvent;
+  side: "home" | "away";
+  canManageGoals: boolean;
+  onEditGoal: (goalId: string) => void;
+  onDeleteGoal: (goalId: string) => void;
+}) {
+  const manage = canManageGoals && event.goalId;
+  const content = (
+    <div className={`min-w-0 ${side === "home" ? "text-right" : "text-left"}`}>
+      <p className="truncate text-sm font-semibold text-fg">
+        {event.playerName}
+        {event.kind === "own_goal" ? <span className="ml-1 font-medium text-danger">(OG)</span> : null}
+      </p>
+      <p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
+    </div>
+  );
+  const actions = manage ? (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button type="button" className={iconBtnClass} aria-label={`Edit goal by ${event.playerName}`} onClick={() => onEditGoal(event.goalId!)}><PencilIcon /></button>
+      <button type="button" className={`${iconBtnClass} hover:text-danger`} aria-label={`Delete goal by ${event.playerName}`} onClick={() => onDeleteGoal(event.goalId!)}><TrashIcon /></button>
+    </div>
+  ) : null;
+  return (
+    <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>
+      {side === "home" ? <>{actions}{content}</> : <>{content}{actions}</>}
+    </div>
+  );
+}
+
 export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string; matchId: string }) {
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
@@ -232,42 +281,6 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
     }
   };
 
-  /** Team name + crest on either side of the score. */
-  const TeamSide = ({ team, side }: { team: ReturnType<typeof teamDetails>; side: "home" | "away" }) => (
-    <div
-      className={`flex min-w-0 flex-col items-center gap-3 text-center ${
-        side === "home" ? "sm:flex-row-reverse sm:justify-start sm:text-right" : "sm:flex-row sm:justify-start sm:text-left"
-      }`}
-    >
-      <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-line sm:h-16 sm:w-16" />
-      <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">{team.name}</p>
-    </div>
-  );
-
-  /** One event, shown under its team. Admin controls sit on the outer edge. */
-  const EventText = ({ event, side }: { event: MatchEvent; side: "home" | "away" }) => {
-    const manage = canManageGoals && event.goalId;
-    const text = (
-      <div className={`min-w-0 ${side === "home" ? "text-right" : "text-left"}`}>
-        <p className="truncate text-sm font-semibold text-fg">
-          {event.playerName}
-          {event.kind === "own_goal" ? <span className="ml-1 font-medium text-danger">(OG)</span> : null}
-        </p>
-        <p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
-      </div>
-    );
-    const actions = manage ? (
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button type="button" className={iconBtnClass} aria-label={`Edit goal by ${event.playerName}`} onClick={() => beginGoalEdit(event.goalId!)}><PencilIcon /></button>
-        <button type="button" className={`${iconBtnClass} hover:text-danger`} aria-label={`Delete goal by ${event.playerName}`} onClick={() => void removeGoal(event.goalId!)}><TrashIcon /></button>
-      </div>
-    ) : null;
-    return (
-      <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>
-        {side === "home" ? <>{actions}{text}</> : <>{text}{actions}</>}
-      </div>
-    );
-  };
 
   return (
     <PageContainer>
@@ -358,11 +371,11 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
                   const side = event.teamId === away.id ? "away" : "home";
                   return (
                     <li key={event.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-                      {side === "home" ? <EventText event={event} side="home" /> : <span />}
+                      {side === "home" ? <EventText event={event} side="home" canManageGoals={canManageGoals} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} /> : <span />}
                       <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-glass backdrop-blur-md">
                         <MatchEventIcon kind={event.kind} className="h-5 w-5" />
                       </span>
-                      {side === "away" ? <EventText event={event} side="away" /> : <span />}
+                      {side === "away" ? <EventText event={event} side="away" canManageGoals={canManageGoals} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} /> : <span />}
                     </li>
                   );
                 })}
