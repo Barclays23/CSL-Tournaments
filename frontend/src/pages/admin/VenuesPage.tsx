@@ -38,8 +38,8 @@ function VenuesBody() {
       else { await createVenue(values); toast.success("Venue created"); }
       setEditing(undefined); venues.reload();
     } catch (error) {
-      const response = (error as { response?: { data?: { fieldErrors?: Record<string, string> } } })?.response?.data;
-      for (const [field, message] of Object.entries(response?.fieldErrors ?? {})) {
+      const apiError = error as { fieldErrors?: Record<string, string> };
+      for (const [field, message] of Object.entries(apiError.fieldErrors ?? {})) {
         if (field === "name" || field === "location" || field === "notes") form.setError(field, { type: "server", message });
       }
       toast.error(errorMessage(error));

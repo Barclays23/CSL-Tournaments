@@ -113,16 +113,9 @@ export function SeasonMatchForm({
         setErrors({});
       }
     } catch (error) {
-      const response = (error as { response?: { data?: { details?: Record<string, unknown>; fieldErrors?: Record<string, unknown>; message?: string } } })?.response?.data;
-      const details = response?.fieldErrors ?? response?.details;
-      if (details && typeof details === "object") {
-        const mapped: Record<string, string> = {};
-        for (const [field, message] of Object.entries(details)) {
-          if (typeof message === "string") mapped[field] = message;
-        }
-        setErrors(mapped);
-      }
-      setSubmitError(response?.message || (error instanceof Error ? error.message : "Unable to save fixture. Please review the fields and try again."));
+      const apiError = error as { fieldErrors?: Record<string, string>; message?: string };
+      if (apiError.fieldErrors) setErrors(apiError.fieldErrors);
+      setSubmitError(apiError.message || (error instanceof Error ? error.message : "Unable to save fixture. Please review the fields and try again."));
       throw error;
     }
   };
