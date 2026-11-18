@@ -10,7 +10,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Drawer } from "@/components/ui/Drawer";
 import { GoalManagementDrawer } from "@/components/matches/GoalManagementDrawer";
-import { FixtureResolutionModal } from "@/components/matches/FixtureResolutionModal";
+import { MatchStatusManager } from "@/components/matches/MatchStatusManager";
 import { MatchEventIcon, type MatchEventKind } from "@/components/matches/MatchEventIcon";
 import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -21,7 +21,6 @@ import {
   getSeasonMatchById,
   updateSeasonMatch,
   updateSeasonMatchGoal,
-  updateSeasonMatchResolution,
 } from "@/services/seasonMatchService";
 import { getSeasonTeams, getAuctionLots } from "@/services/seasonService";
 import { getVenues } from "@/services/venueService";
@@ -131,10 +130,6 @@ const iconBtnClass =
 export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string; matchId: string }) {
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
-  const [resolutionStatus, setResolutionStatus] = useState<"cancelled" | "abandoned">("cancelled");
-  const [resolutionReason, setResolutionReason] = useState("");
-  const [resolutionOpen, setResolutionOpen] = useState(false);
-  const [savingResolution, setSavingResolution] = useState(false);
   const [editing, setEditing] = useState(false);
   const [savingMatch, setSavingMatch] = useState(false);
   const [goalTeamId, setGoalTeamId] = useState("");
@@ -179,29 +174,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
       : null;
   const venueName = match.venueRef && typeof match.venueRef === "object" ? match.venueRef.name : match.venue || null;
 
-  const showDecision =
-    isAdmin &&
-    match.status !== "completed" &&
-    (!(match.status === "cancelled" || match.status === "abandoned") ||
-      !match.resolutionHistory?.some((entry) => entry.status === match.status && entry.reason.trim().length >= 3));
   const showEdit = isAdmin && !["completed", "cancelled", "abandoned"].includes(match.status);
-
-  const saveResolution = async () => {
-    const reason = resolutionReason.trim();
-    if (reason.length < 3) { toast.error("Enter a resolution reason"); return; }
-    setSavingResolution(true);
-    try {
-      await updateSeasonMatchResolution(seasonId, matchId, { status: resolutionStatus, resolutionReason: reason });
-      toast.success("Fixture resolution saved");
-      setResolutionReason("");
-      setResolutionOpen(false);
-      matchQuery.reload();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to save fixture resolution");
-    } finally {
-      setSavingResolution(false);
-    }
-  };
 
   const saveGoal = async () => {
     if (!scoringTeamId || (!goalPlayerId && goalType === "normal")) {
@@ -303,20 +276,21 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         Back to matches
       </Link>
 
-      {/* Admin actions: on top */}
-      {showEdit || showDecision ? (
-        <GlassCard className="mt-4 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-xl">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg text-fg">Fixture decision</h2>
-            <p className="mt-0.5 text-sm text-muted">Edit the fixture, or record an audited reason if it must be cancelled or abandoned.</p>
+      <MatchStatusManager
+        seasonId={seasonId}
+        match={match}
+        isAdmin={isAdmin}
+        onMatchUpdated={(updatedMatch) => {
+          matchQuery.setData((current) => current ? { ...current, data: updatedMatch } : current);
+        }}
+      />
+      {showEdit ? (
+        <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-xl">
+          <div className="min-w-0">
+            <h2 className="font-display text-lg text-fg">Fixture details</h2>
+            <p className="mt-0.5 text-sm text-muted">Update venue, participants or other fixture information.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {showEdit ? <Button size="sm" variant="surface" onClick={() => setEditing(true)}>Edit fixture</Button> : null}
-            {showDecision ? <>
-              <Button size="sm" variant="danger" onClick={() => { setResolutionStatus("cancelled"); setResolutionReason(""); setResolutionOpen(true); }}>Cancel match</Button>
-              <Button size="sm" variant="surface" onClick={() => { setResolutionStatus("abandoned"); setResolutionReason(""); setResolutionOpen(true); }}>Abandon match</Button>
-            </> : null}
-          </div>
+          <Button size="sm" variant="surface" onClick={() => setEditing(true)}>Edit fixture</Button>
         </GlassCard>
       ) : null}
 
@@ -436,16 +410,6 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         saving={savingGoal}
         error={lotsQuery.error}
         onSubmit={saveGoal}
-      />
-      <FixtureResolutionModal
-        open={resolutionOpen}
-        status={resolutionStatus}
-        reason={resolutionReason}
-        saving={savingResolution}
-        onClose={() => setResolutionOpen(false)}
-        onStatusChange={setResolutionStatus}
-        onReasonChange={setResolutionReason}
-        onSubmit={saveResolution}
       />
       <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
         <SeasonMatchForm

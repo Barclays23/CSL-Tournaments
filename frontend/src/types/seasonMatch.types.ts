@@ -70,6 +70,15 @@ export interface SeasonMatch {
   awaySeasonTeamRef: SeasonMatchTeamRef;
   status: SeasonMatchStatus;
   resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
+  statusHistory?: Array<{
+    fromStatus: SeasonMatchStatus;
+    toStatus: SeasonMatchStatus;
+    reason: string | null;
+    changedBy: string;
+    changedAt: string;
+    fromKickoffAt?: string | null;
+    toKickoffAt?: string | null;
+  }>;
   goals: SeasonMatchGoal[];
   penaltyShootout: {
     status: "pending" | "completed";
