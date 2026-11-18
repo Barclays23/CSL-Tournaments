@@ -168,6 +168,8 @@ test("Live to Scheduled requires a reason and records a complete audit entry", a
   assert.equal(String(audit.entry.changedBy), actorId);
   assert.ok(audit.entry.changedAt.getTime() >= before);
   assert.equal(harness.getDocument().status, "scheduled");
+  assert.equal(harness.writes[0]?.data.winnerSeasonTeamRef, null);
+  assert.equal(harness.writes[0]?.data.penaltyShootout, null);
   assert.equal(response.statusHistory.length, 1);
   assert.equal(response.statusHistory[0].reason, "The match was started accidentally");
 });

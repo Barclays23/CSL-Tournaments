@@ -13,7 +13,7 @@ import { createMockObjectId } from "@/mocks/objectId";
 const newId = () => createMockObjectId();
 const now = () => new Date().toISOString();
 const ok = <T>(message: string, data: T): ApiResponse<T> => ({ success: true, message, data });
-const fail = (status: number, message: string): never => { throw new ApiError(status, message, { errorCode: status === 409 ? "CONFLICT" : "RULE" }); };
+const fail = (status: number, message: string, errorCode?: string): never => { throw new ApiError(status, message, { errorCode: errorCode ?? (status === 409 ? "CONFLICT" : "RULE") }); };
 
 function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   const season = db.seasons.find((item) => item._id === id);
@@ -440,7 +440,7 @@ export const seasonPreviewRepository = {
     };
     const nextStatus = input.status;
     if (match.status === "live" && nextStatus === "scheduled" && match.goals.length > 0) {
-      fail(409, "Remove all recorded goal events before reverting this Live match to Scheduled.");
+      fail(409, "Remove all recorded goal events before reverting this Live match to Scheduled.", "MATCH_HAS_GOALS");
     }
     if (match.status !== nextStatus && !transitions[match.status].includes(nextStatus)) {
       const allowed = transitions[match.status].join(", ") || "none";
