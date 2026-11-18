@@ -161,7 +161,7 @@ export function SeasonConfigurationFields({
           <NumberField label="Goalkeeper limit" value={value.goalkeeperLimit} min={0} max={40} required disabled={auctionDisabled} onChange={(next) => onChange("goalkeeperLimit", next)} />
         </div>
         {value.iconPlayerLimit > value.teamSquadSize || value.goalkeeperLimit > value.teamSquadSize
-          ? <p className="mt-3 text-xs text-danger">Icon player and goalkeeper limits cannot exceed the squad size.</p> : null}
+          ? <p className="mt-3 text-xs text-danger-fg">Icon player and goalkeeper limits cannot exceed the squad size.</p> : null}
         {mode === "edit" && auctionLocked ? <p className="mt-3 text-xs text-muted">Auction settings are locked because auction lots already exist for this season.</p> : null}
       </Section>
 
@@ -182,7 +182,7 @@ export function SeasonConfigurationFields({
         </div>
       </Section>
 
-      <Section icon={ListOrdered} title="Standings tiebreakers" description="Select and order the criteria used when teams finish level on points.">
+      <Section icon={ListOrdered} title="Standings tiebreakers" description="Choose the criteria applied when teams finish level on points.">
         <div className="grid gap-2 sm:grid-cols-2">
           {tieBreakers.map(([key, label, description]) => {
             const selected = value.standingsTieBreakers.includes(key);
