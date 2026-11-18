@@ -5,20 +5,28 @@ import { ScoreDisplay, teamLogo, teamName } from "@/components/matches/ScoreDisp
 import type { Match } from "@/types/match.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 
-export function FixtureCard({ match }: { match: Match }) {
-  return (
+export function FixtureCard({ match, seasonId }: { match: Match; seasonId?: string }) {
+  const card = (
+    <GlassCard className="p-4 transition duration-200 hover:border-accent">
+      <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
+        <Avatar name={teamName(match.team1Ref)} asset={teamLogo(match.team1Ref)} className="h-12 w-12 rounded-xl" />
+        <ScoreDisplay match={match} />
+        <Avatar name={teamName(match.team2Ref)} asset={teamLogo(match.team2Ref)} className="h-12 w-12 rounded-xl" />
+      </div>
+      <p className="mt-3 text-center text-xs text-muted">
+        {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}
+        {match.venue ? ` · ${match.venue}` : ""}
+      </p>
+    </GlassCard>
+  );
+
+  return seasonId ? (
+    <Link to="/matches/$matchId" params={{ matchId: match._id }} search={{ seasonId }} className="block">
+      {card}
+    </Link>
+  ) : (
     <Link to="/matches" className="block">
-      <GlassCard className="p-4 transition duration-200 hover:border-accent">
-        <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
-          <Avatar name={teamName(match.team1Ref)} asset={teamLogo(match.team1Ref)} className="h-12 w-12 rounded-xl" />
-          <ScoreDisplay match={match} />
-          <Avatar name={teamName(match.team2Ref)} asset={teamLogo(match.team2Ref)} className="h-12 w-12 rounded-xl" />
-        </div>
-        <p className="mt-3 text-center text-xs text-muted">
-          {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}
-          {match.venue ? ` · ${match.venue}` : ""}
-        </p>
-      </GlassCard>
+      {card}
     </Link>
   );
 }
