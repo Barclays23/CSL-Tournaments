@@ -2,6 +2,7 @@ import {Types} from "mongoose";
 import {getPairFixtureError} from "./seasonMatch.fixtureRules.js";
 import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
+import {assertPenaltyShootoutScore,calculateCompletedMatchWinner} from "./seasonMatch.completionRules.js";
 import {assertMatchStatusTransition} from "./seasonMatch.statusRules.js";
 import {AppError} from "../../shared/errors/appError.js";
 import type {PaginatedResult} from "../../shared/types/common.types.js";
@@ -98,14 +99,14 @@ export class SeasonMatchService implements ISeasonMatchService{
   }
   const merged:SeasonMatchFields={...existing,matchNumber:number,roundNumber,stage,groupRef:stage==="group"&&groupId?new Types.ObjectId(groupId):null,kickoffAt,venueRef:new Types.ObjectId(venueRef),homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:nextStatus,penaltyShootout:input.penaltyShootout===undefined?existing.penaltyShootout:this.buildShootout(input.penaltyShootout),notes:input.notes===undefined?existing.notes:input.notes,winnerSeasonTeamRef:existing.winnerSeasonTeamRef,resolutionHistory};
   if(merged.penaltyShootout)await this.validateShootout(String(existing.seasonRef),merged,merged.penaltyShootout);
-  merged.winnerSeasonTeamRef=this.calculateWinner(merged,season.matchRules);
+  merged.winnerSeasonTeamRef=this.calculateWinner(merged,season.matchRules,season.pointsRules);
   const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,roundNumber:merged.roundNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venueRef:merged.venueRef,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory},season.homeAndAwayFixtures??false);
   if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated fixture could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);
  }
  async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");throw new AppError("Fixtures are retained as tournament history and cannot be physically deleted. Change the fixture status to cancelled or abandoned instead.",409,"MATCH_DELETE_BLOCKED");}
- async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules);const saved=await this.repo.appendGoalWithWinner(id,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
- async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.updateGoalWithWinner(id,goalId,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
- async deleteGoal(id:string,goalId:string):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");const goals=match.goals.filter(g=>String(g._id)!==goalId);if(goals.length===match.goals.length)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules);const saved=await this.repo.removeGoalWithWinner(id,goalId,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
+ async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules,season.pointsRules);const saved=await this.repo.appendGoalWithWinner(id,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
+ async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules,season.pointsRules);const saved=await this.repo.updateGoalWithWinner(id,goalId,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
+ async deleteGoal(id:string,goalId:string):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.id(goalId,"goal");const goals=match.goals.filter(g=>String(g._id)!==goalId);if(goals.length===match.goals.length)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules,season.pointsRules);const saved=await this.repo.removeGoalWithWinner(id,goalId,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  private async validateKnockoutQualification(seasonId:string,stage:SeasonMatchFields["stage"],homeId:string,awayId:string,season:NonNullable<Awaited<ReturnType<SeasonMatchRepository["findSeason"]>>>):Promise<void>{
   if(stage==="group")return;
   const [teams,groupMatches,roundOf16,quarterFinals,semiFinals]=await Promise.all([
@@ -178,28 +179,22 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(!input)return null;return {status:input.status,homeTeamScore:input.homeTeamScore,awayTeamScore:input.awayTeamScore,kicks:input.kicks.map(k=>({seasonTeamRef:new Types.ObjectId(k.seasonTeamRef),playerRef:k.playerRef?new Types.ObjectId(k.playerRef):null,result:k.result}))};
  }
  private async validateShootout(seasonId:string,match:SeasonMatchFields,shootout:NonNullable<SeasonMatchFields["penaltyShootout"]>):Promise<void>{
-  const home=String(match.homeSeasonTeamRef),away=String(match.awaySeasonTeamRef);let homeScore=0,awayScore=0;
+  assertPenaltyShootoutScore(match,shootout);
   for(const kick of shootout.kicks){
-   const team=String(kick.seasonTeamRef);if(team!==home&&team!==away)throw new AppError("Shootout kick team must be part of this fixture",422,"INVALID_SHOOTOUT_TEAM");
-   if(kick.playerRef){const lot=await this.repo.findSoldLot(seasonId,String(kick.playerRef));if(!lot||String(lot.seasonTeamRef)!==team)throw new AppError("Shootout player must belong to the kicking team",422,"INVALID_SHOOTOUT_PLAYER");}
-   if(kick.result==="scored"){if(team===home)homeScore++;else awayScore++;}
+   if(kick.playerRef){
+    const team=String(kick.seasonTeamRef);
+    const lot=await this.repo.findSoldLot(seasonId,String(kick.playerRef));
+    if(!lot||String(lot.seasonTeamRef)!==team)throw new AppError("Shootout player must belong to the kicking team",422,"INVALID_SHOOTOUT_PLAYER");
+   }
   }
-  if(shootout.kicks.length&&(homeScore!==shootout.homeTeamScore||awayScore!==shootout.awayTeamScore))throw new AppError("Shootout scores must match the recorded scored kicks",422,"SHOOTOUT_SCORE_MISMATCH");
-  if(shootout.status==="completed"&&shootout.homeTeamScore===shootout.awayTeamScore)throw new AppError("A completed shootout must have a winner",422,"SHOOTOUT_TIED");
  }
- private calculateWinner(match:SeasonMatchFields,rules:{groupStageDrawAllowed:boolean;knockoutDrawRequiresShootout:boolean}):Types.ObjectId|null{
-  const home=String(match.homeSeasonTeamRef),away=String(match.awaySeasonTeamRef);
-  const homeGoals=match.goals.filter(g=>String(g.scoringSeasonTeamRef)===home).length,awayGoals=match.goals.filter(g=>String(g.scoringSeasonTeamRef)===away).length;
-  if(match.stage==="group"){if(match.status!=="completed")return null;if(match.penaltyShootout)throw new AppError("Group-stage matches cannot have penalty shootouts",422,"GROUP_SHOOTOUT");if(match.status==="completed"&&homeGoals===awayGoals&&!rules.groupStageDrawAllowed)throw new AppError("Draws are not allowed by this season's group-stage rules",422,"GROUP_DRAW_NOT_ALLOWED");return homeGoals===awayGoals?null:new Types.ObjectId(homeGoals>awayGoals?home:away);}
-  if(match.status!=="completed")return null;
-  if(homeGoals===awayGoals){
-   if(!rules.knockoutDrawRequiresShootout)return null;
-   if(!match.penaltyShootout||match.penaltyShootout.status!=="completed")throw new AppError("A tied completed knockout match requires a completed penalty shootout",422,"SHOOTOUT_REQUIRED");
-   if(match.penaltyShootout.homeTeamScore===match.penaltyShootout.awayTeamScore)throw new AppError("Penalty shootout must produce a winner",422,"SHOOTOUT_TIED");
-   return new Types.ObjectId(match.penaltyShootout.homeTeamScore>match.penaltyShootout.awayTeamScore?home:away);
-  }
-  if(match.penaltyShootout)throw new AppError("A shootout is only allowed when normal-time scores are tied",422,"UNNECESSARY_SHOOTOUT");
-  return new Types.ObjectId(homeGoals>awayGoals?home:away);
+ private calculateWinner(
+  match:SeasonMatchFields,
+  rules:{groupStageDrawAllowed:boolean;knockoutDrawRequiresShootout:boolean},
+  pointsRules:import("../seasons/season.types.js").SeasonPointsRules|null,
+ ):Types.ObjectId|null{
+  const winner=calculateCompletedMatchWinner(match,rules,pointsRules);
+  return winner?new Types.ObjectId(winner):null;
  }
  private mapTeam(ref:unknown):string|SeasonMatchTeamDto|null{
   if(!ref)return null;if(ref instanceof Types.ObjectId)return String(ref);
