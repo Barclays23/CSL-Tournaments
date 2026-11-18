@@ -58,6 +58,27 @@ const fromSeason = (season: Season): SeasonFormState => ({
   knockoutDrawRequiresShootout: season.matchRules?.knockoutDrawRequiresShootout ?? true,
   standingsTieBreakers: season.standingsTieBreakers ? [...season.standingsTieBreakers] : ["points", "goalDifference", "goalsScored", "teamNameAsc"],
 });
+const TIE_BREAKER_LABELS: Record<"points" | "goalDifference" | "goalsScored" | "teamNameAsc", string> = {
+  points: "Points",
+  goalDifference: "Goal difference",
+  goalsScored: "Goals scored",
+  teamNameAsc: "Team name (A–Z)",
+};
+const formatInr = (value: number) => new Intl.NumberFormat("en-IN", {
+  style: "currency",
+  currency: "INR",
+  maximumFractionDigits: 0,
+}).format(value);
+
+function ConfigurationRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 border-b border-line/70 py-2 last:border-0 last:pb-0">
+      <span className="text-xs text-muted">{label}</span>
+      <span className="text-right text-xs font-semibold text-fg">{value}</span>
+    </div>
+  );
+}
+
 const statuses: SeasonStatus[] = ["draft", "upcoming", "active", "completed", "archived"];
 const statusLabel = (status: SeasonStatus) => status.charAt(0).toUpperCase() + status.slice(1);
 
@@ -521,6 +542,85 @@ function SeasonsBody() {
                 <Button variant="surface" size="sm" disabled={!editable} onClick={() => { setEditForm(fromSeason(selected)); setEditOpen(true); }}>
                   <Settings2 className="h-4 w-4" /> Edit configuration
                 </Button>
+              </div>
+              <div className="mt-5 border-t border-line pt-5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="font-display text-xl text-fg">Current configuration</h3>
+                    <p className="mt-1 text-xs text-muted">Saved rules and limits currently applied to this season.</p>
+                  </div>
+                  <Badge tone="info">Saved settings</Badge>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <section className="rounded-2xl border border-line bg-surface/60 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-accent"><Layers3 className="h-4 w-4" /></span>
+                      <h4 className="text-sm font-semibold text-fg">Competition format</h4>
+                    </div>
+                    <ConfigurationRow label="Group stage" value={selected.groupStageEnabled === false ? "Disabled" : "Enabled"} />
+                    <ConfigurationRow label="Fixture pairing" value={selected.homeAndAwayFixtures ? "Home and away" : "One fixture per pair"} />
+                    <ConfigurationRow label="Maximum meetings per pair" value={selected.homeAndAwayFixtures ? "2 (reverse home/away)" : "1"} />
+                  </section>
+
+                  <section className="rounded-2xl border border-line bg-surface/60 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-accent"><ShieldCheck className="h-4 w-4" /></span>
+                      <h4 className="text-sm font-semibold text-fg">Auction settings</h4>
+                    </div>
+                    {selected.auctionSettings ? (
+                      <>
+                        <ConfigurationRow label="Budget per team" value={formatInr(selected.auctionSettings.budgetPerTeam)} />
+                        <ConfigurationRow label="Player nominations" value={String(selected.auctionSettings.playersCount)} />
+                        <ConfigurationRow label="Team limit" value={String(selected.auctionSettings.seasonTeamCount)} />
+                        <ConfigurationRow label="Squad size per team" value={String(selected.auctionSettings.teamSquadSize)} />
+                        <ConfigurationRow label="Icon player limit" value={String(selected.auctionSettings.iconPlayerLimit)} />
+                        <ConfigurationRow label="Goalkeeper limit" value={String(selected.auctionSettings.goalkeeperLimit)} />
+                      </>
+                    ) : <p className="py-2 text-xs text-muted">Auction settings are not configured for this season.</p>}
+                  </section>
+
+                  <section className="rounded-2xl border border-line bg-surface/60 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-accent"><Trophy className="h-4 w-4" /></span>
+                      <h4 className="text-sm font-semibold text-fg">Points system</h4>
+                    </div>
+                    {selected.pointsRules ? (
+                      <>
+                        <ConfigurationRow label="Win" value={`${selected.pointsRules.win} points`} />
+                        <ConfigurationRow label="Draw" value={`${selected.pointsRules.draw} points`} />
+                        <ConfigurationRow label="Loss" value={`${selected.pointsRules.loss} points`} />
+                      </>
+                    ) : <p className="py-2 text-xs text-muted">Points rules are not configured for this season.</p>}
+                  </section>
+
+                  <section className="rounded-2xl border border-line bg-surface/60 p-4">
+                    <div className="mb-2 flex items-center gap-2">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-accent"><CalendarDays className="h-4 w-4" /></span>
+                      <h4 className="text-sm font-semibold text-fg">Match and standings rules</h4>
+                    </div>
+                    {selected.matchRules ? (
+                      <>
+                        <ConfigurationRow label="Group-stage draws" value={selected.matchRules.groupStageDrawAllowed ? "Allowed" : "Not allowed"} />
+                        <ConfigurationRow label="Knockout draw" value={selected.matchRules.knockoutDrawRequiresShootout ? "Requires shootout" : "Draw allowed"} />
+                        <ConfigurationRow label="Shootout in match score" value={selected.matchRules.shootoutCountsForMatchScore ? "Included" : "Not included"} />
+                        <ConfigurationRow label="Shootout in player goals" value={selected.matchRules.shootoutCountsForPlayerGoals ? "Included" : "Not included"} />
+                      </>
+                    ) : <p className="py-2 text-xs text-muted">Match rules are not configured for this season.</p>}
+                    <div className="mt-3 border-t border-line pt-3">
+                      <p className="mb-2 text-xs font-semibold text-fg">Standings tiebreaker order</p>
+                      {selected.standingsTieBreakers?.length ? (
+                        <ol className="space-y-1.5">
+                          {selected.standingsTieBreakers.map((rule, index) => (
+                            <li key={rule} className="flex items-center gap-2 text-xs text-muted">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface font-semibold tabular text-fg">{index + 1}</span>
+                              {TIE_BREAKER_LABELS[rule]}
+                            </li>
+                          ))}
+                        </ol>
+                      ) : <p className="text-xs text-muted">No tiebreaker order configured.</p>}
+                    </div>
+                  </section>
+                </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 {selected.status === "draft" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("upcoming")}>Move to Upcoming</Button> : null}
