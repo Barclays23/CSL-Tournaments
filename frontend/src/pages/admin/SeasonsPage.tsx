@@ -822,7 +822,8 @@ function SeasonsBody() {
           onSubmit={handleEdit}
           submitLabel="Save configuration"
           submitDisabled={!editForm.standingsTieBreakers.length || editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize}
-        />     </Modal>
+        />
+      </Modal>
     </PageContainer>
   );
 }

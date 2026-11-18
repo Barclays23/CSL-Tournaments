@@ -243,7 +243,7 @@ export function SeasonConfigurationFields({
           {!value.standingsTieBreakers.length ? <p className="mt-2 text-xs text-danger">Select at least one tiebreaker.</p> : null}
         </div>
         {mode === "edit" && matchRulesLocked ? <p className="mt-3 text-xs text-muted">Match and standings rules are locked because fixtures already exist.</p> : null}
-      </Section>      </Section>
+      </Section>
     </div>
   );
 }
