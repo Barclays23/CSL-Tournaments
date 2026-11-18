@@ -1,15 +1,16 @@
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { Button } from "@/components/ui/Button";
-import { Textarea } from "@/components/ui/Textarea";
 import { Avatar } from "@/components/ui/Avatar";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Drawer } from "@/components/ui/Drawer";
+import { GoalManagementDrawer } from "@/components/matches/GoalManagementDrawer";
+import { FixtureResolutionModal } from "@/components/matches/FixtureResolutionModal";
 import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
@@ -61,10 +62,12 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const confirm = useConfirm();
   const [resolutionStatus, setResolutionStatus] = useState<"cancelled" | "abandoned">("cancelled");
   const [resolutionReason, setResolutionReason] = useState("");
+  const [resolutionOpen, setResolutionOpen] = useState(false);
   const [savingResolution, setSavingResolution] = useState(false);
   const [editing, setEditing] = useState(false);
   const [savingMatch, setSavingMatch] = useState(false);
   const [goalTeamId, setGoalTeamId] = useState("");
+  const [goalOpen, setGoalOpen] = useState(false);
   const [goalType, setGoalType] = useState<"normal" | "own_goal">("normal");
   const [goalPlayerId, setGoalPlayerId] = useState("");
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
@@ -92,8 +95,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const eligibleGoalPlayers = (lotsQuery.data?.data ?? []).filter((lot) => lotTeamId(lot) === playerTeamId && lotPlayer(lot));
   const canManageGoals = isAdmin && !["cancelled", "abandoned"].includes(match.status);
 
-  const saveResolution = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const saveResolution = async () => {
     const reason = resolutionReason.trim();
     if (reason.length < 3) { toast.error("Enter a resolution reason"); return; }
     setSavingResolution(true);
@@ -101,6 +103,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
       await updateSeasonMatchResolution(seasonId, matchId, { status: resolutionStatus, resolutionReason: reason });
       toast.success("Fixture resolution saved");
       setResolutionReason("");
+      setResolutionOpen(false);
       matchQuery.reload();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save fixture resolution");
@@ -109,8 +112,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
     }
   };
 
-  const saveGoal = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const saveGoal = async () => {
     if (!scoringTeamId || !goalPlayerId && goalType === "normal") {
       toast.error("Choose the credited team and goal scorer");
       return;
@@ -129,6 +131,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
       setGoalTeamId("");
       setGoalType("normal");
       setGoalPlayerId("");
+      setGoalOpen(false);
       matchQuery.reload();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Unable to save goal");
@@ -142,6 +145,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
     setGoalTeamId(refId(goal.scoringSeasonTeamRef) ?? home.id);
     setGoalType(goal.goalType);
     setGoalPlayerId(refId(goal.scorerPlayerRef) ?? "");
+    setGoalOpen(true);
   };
 
   const removeGoal = async (goalId: string) => {
@@ -211,27 +215,21 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         ) : null}
       </GlassCard>
       {isAdmin && match.status !== "completed" && (!(match.status === "cancelled" || match.status === "abandoned") || !match.resolutionHistory?.some((entry) => entry.status === match.status && entry.reason.trim().length >= 3)) ? (
-        <GlassCard className="mt-4 p-5">
-          <h2 className="font-semibold text-fg">Resolve or record fixture decision</h2>
-          <p className="mt-1 text-sm text-muted">Cancelling or abandoning a fixture requires an audited reason. This decision remains in the fixture history and is checked before a participating team can withdraw.</p>
-          <form className="mt-3 grid gap-3" onSubmit={saveResolution}>
-            <label className="text-sm font-medium text-fg">Decision
-              <select className="mt-1 w-full rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={resolutionStatus} onChange={(event) => setResolutionStatus(event.target.value as "cancelled" | "abandoned")}>
-                <option value="cancelled">Cancel fixture</option>
-                <option value="abandoned">Abandon fixture</option>
-              </select>
-            </label>
-            <label className="text-sm font-medium text-fg">Reason for decision
-              <Textarea className="mt-1" required minLength={3} maxLength={500} value={resolutionReason} onChange={(event) => setResolutionReason(event.target.value)} placeholder="Record who decided and why this fixture was cancelled or abandoned." />
-            </label>
-            <Button type="submit" disabled={savingResolution || resolutionReason.trim().length < 3}>{savingResolution ? "Saving…" : "Save fixture decision"}</Button>
-          </form>
+        <GlassCard className="mt-4 flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-semibold text-fg">Fixture decision</h2>
+            <p className="mt-1 text-sm text-muted">Record an audited reason if this fixture must be cancelled or abandoned.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="danger" onClick={() => { setResolutionStatus("cancelled"); setResolutionReason(""); setResolutionOpen(true); }}>Cancel match</Button>
+            <Button size="sm" variant="surface" onClick={() => { setResolutionStatus("abandoned"); setResolutionReason(""); setResolutionOpen(true); }}>Abandon match</Button>
+          </div>
         </GlassCard>
       ) : null}
       <section className="mt-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-display text-3xl text-fg">Goals</h2>
-          {canManageGoals ? <Button size="sm" onClick={() => { setEditingGoalId(null); setGoalTeamId(home.id); setGoalType("normal"); setGoalPlayerId(""); }}>Add goal</Button> : null}
+          {canManageGoals ? <Button size="sm" onClick={() => { setEditingGoalId(null); setGoalTeamId(home.id); setGoalType("normal"); setGoalPlayerId(""); setGoalOpen(true); }}>Add goal</Button> : null}
         </div>
         {match.goals.length === 0 ? <p className="text-sm text-muted">No goals recorded.</p> : (
           <ul className="flex flex-col gap-2">
@@ -257,40 +255,36 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
           </ul>
         )}
       </section>
-      {canManageGoals && (editingGoalId !== null || goalTeamId !== "") ? (
-        <GlassCard className="mt-4 p-5">
-          <h3 className="font-semibold text-fg">{editingGoalId ? "Edit goal" : "Record a goal"}</h3>
-          <form className="mt-3 grid gap-3" onSubmit={saveGoal}>
-            <label className="text-sm font-medium text-fg">Team credited
-              <select className="mt-1 w-full rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={scoringTeamId} onChange={(event) => { setGoalTeamId(event.target.value); setGoalPlayerId(""); }}>
-                <option value={home.id}>{home.name}</option>
-                <option value={away.id}>{away.name}</option>
-              </select>
-            </label>
-            <label className="text-sm font-medium text-fg">Goal type
-              <select className="mt-1 w-full rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={goalType} onChange={(event) => { setGoalType(event.target.value as "normal" | "own_goal"); setGoalPlayerId(""); }}>
-                <option value="normal">Normal goal</option>
-                <option value="own_goal">Own goal</option>
-              </select>
-            </label>
-            <label className="text-sm font-medium text-fg">Player
-              <select className="mt-1 w-full rounded-lg border border-line bg-surface p-2 text-sm text-fg" value={goalPlayerId} onChange={(event) => setGoalPlayerId(event.target.value)}>
-                <option value="">{goalType === "own_goal" ? "Player not recorded" : "Choose scorer"}</option>
-                {eligibleGoalPlayers.map((lot) => {
-                  const player = lotPlayer(lot);
-                  return player ? <option key={player._id} value={player._id}>{player.name}</option> : null;
-                })}
-              </select>
-            </label>
-            <p className="text-xs text-muted">{goalType === "own_goal" ? "Choose a player from the opposing team. The goal is credited to the selected team." : "Choose a player sold to the team credited with the goal."}</p>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={savingGoal || (goalType === "normal" && !goalPlayerId)}>{savingGoal ? "Saving…" : editingGoalId ? "Save goal changes" : "Save goal"}</Button>
-              <Button type="button" variant="surface" onClick={() => { setEditingGoalId(null); setGoalTeamId(""); setGoalPlayerId(""); setGoalType("normal"); }}>Cancel</Button>
-            </div>
-          </form>
-          {lotsQuery.error ? <p className="mt-2 text-xs text-danger">{lotsQuery.error}</p> : null}
-        </GlassCard>
-      ) : null}
+      <GoalManagementDrawer
+        open={goalOpen}
+        onClose={() => { setGoalOpen(false); setEditingGoalId(null); setGoalTeamId(""); setGoalPlayerId(""); setGoalType("normal"); }}
+        editing={editingGoalId !== null}
+        home={home}
+        away={away}
+        scoringTeamId={scoringTeamId}
+        onScoringTeamChange={(id) => { setGoalTeamId(id); setGoalPlayerId(""); }}
+        goalType={goalType}
+        onGoalTypeChange={(type) => { setGoalType(type); setGoalPlayerId(""); }}
+        selectedPlayerId={goalPlayerId}
+        onPlayerChange={setGoalPlayerId}
+        players={eligibleGoalPlayers.map((lot) => {
+          const player = lotPlayer(lot);
+          return player ? { id: player._id, name: player.name, profilePic: player.profilePic, jerseyNo: lot.jerseyNo } : null;
+        }).filter((player): player is NonNullable<typeof player> => player !== null)}
+        saving={savingGoal}
+        error={lotsQuery.error}
+        onSubmit={saveGoal}
+      />
+      <FixtureResolutionModal
+        open={resolutionOpen}
+        status={resolutionStatus}
+        reason={resolutionReason}
+        saving={savingResolution}
+        onClose={() => setResolutionOpen(false)}
+        onStatusChange={setResolutionStatus}
+        onReasonChange={setResolutionReason}
+        onSubmit={saveResolution}
+      />
       <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
         <SeasonMatchForm
           seasonTeams={teamsQuery.data?.data ?? []}
