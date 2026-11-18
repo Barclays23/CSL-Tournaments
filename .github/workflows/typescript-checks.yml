@@ -9,6 +9,7 @@ on:
       - feature/season-based-mock-data
       - feature/season-management-complete
       - feature/season-management-final-hardening
+      - feature/match-status-transition-rules
   pull_request:
     branches:
       - main
