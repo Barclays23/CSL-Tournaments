@@ -10,7 +10,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Drawer } from "@/components/ui/Drawer";
 import { GoalManagementDrawer } from "@/components/matches/GoalManagementDrawer";
-import { FixtureResolutionModal } from "@/components/matches/FixtureResolutionModal";
+import { MatchStatusManager } from "@/components/matches/MatchStatusManager";
 import { MatchEventIcon, type MatchEventKind } from "@/components/matches/MatchEventIcon";
 import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -21,7 +21,6 @@ import {
   getSeasonMatchById,
   updateSeasonMatch,
   updateSeasonMatchGoal,
-  updateSeasonMatchResolution,
 } from "@/services/seasonMatchService";
 import { getSeasonTeams, getAuctionLots } from "@/services/seasonService";
 import { getVenues } from "@/services/venueService";
@@ -128,13 +127,58 @@ const chipClass =
 const iconBtnClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface/60 text-muted backdrop-blur-md transition-colors hover:bg-glass-strong hover:text-fg";
 
+function TeamSide({ team, side }: { team: ReturnType<typeof teamDetails>; side: "home" | "away" }) {
+  return (
+    <div
+      className={`flex min-w-0 flex-col items-center gap-3 text-center ${
+        side === "home" ? "sm:flex-row-reverse sm:justify-start sm:text-right" : "sm:flex-row sm:justify-start sm:text-left"
+      }`}
+    >
+      <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-line sm:h-16 sm:w-16" />
+      <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">{team.name}</p>
+    </div>
+  );
+}
+
+function EventText({
+  event,
+  side,
+  canManageGoals,
+  onEditGoal,
+  onDeleteGoal,
+}: {
+  event: MatchEvent;
+  side: "home" | "away";
+  canManageGoals: boolean;
+  onEditGoal: (goalId: string) => void;
+  onDeleteGoal: (goalId: string) => void;
+}) {
+  const manage = canManageGoals && event.goalId;
+  const content = (
+    <div className={`min-w-0 ${side === "home" ? "text-right" : "text-left"}`}>
+      <p className="truncate text-sm font-semibold text-fg">
+        {event.playerName}
+        {event.kind === "own_goal" ? <span className="ml-1 font-medium text-danger">(OG)</span> : null}
+      </p>
+      <p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
+    </div>
+  );
+  const actions = manage ? (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button type="button" className={iconBtnClass} aria-label={`Edit goal by ${event.playerName}`} onClick={() => onEditGoal(event.goalId!)}><PencilIcon /></button>
+      <button type="button" className={`${iconBtnClass} hover:text-danger`} aria-label={`Delete goal by ${event.playerName}`} onClick={() => onDeleteGoal(event.goalId!)}><TrashIcon /></button>
+    </div>
+  ) : null;
+  return (
+    <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>
+      {side === "home" ? <>{actions}{content}</> : <>{content}{actions}</>}
+    </div>
+  );
+}
+
 export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string; matchId: string }) {
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
-  const [resolutionStatus, setResolutionStatus] = useState<"cancelled" | "abandoned">("cancelled");
-  const [resolutionReason, setResolutionReason] = useState("");
-  const [resolutionOpen, setResolutionOpen] = useState(false);
-  const [savingResolution, setSavingResolution] = useState(false);
   const [editing, setEditing] = useState(false);
   const [savingMatch, setSavingMatch] = useState(false);
   const [goalTeamId, setGoalTeamId] = useState("");
@@ -179,29 +223,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
       : null;
   const venueName = match.venueRef && typeof match.venueRef === "object" ? match.venueRef.name : match.venue || null;
 
-  const showDecision =
-    isAdmin &&
-    match.status !== "completed" &&
-    (!(match.status === "cancelled" || match.status === "abandoned") ||
-      !match.resolutionHistory?.some((entry) => entry.status === match.status && entry.reason.trim().length >= 3));
   const showEdit = isAdmin && !["completed", "cancelled", "abandoned"].includes(match.status);
-
-  const saveResolution = async () => {
-    const reason = resolutionReason.trim();
-    if (reason.length < 3) { toast.error("Enter a resolution reason"); return; }
-    setSavingResolution(true);
-    try {
-      await updateSeasonMatchResolution(seasonId, matchId, { status: resolutionStatus, resolutionReason: reason });
-      toast.success("Fixture resolution saved");
-      setResolutionReason("");
-      setResolutionOpen(false);
-      matchQuery.reload();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Unable to save fixture resolution");
-    } finally {
-      setSavingResolution(false);
-    }
-  };
 
   const saveGoal = async () => {
     if (!scoringTeamId || (!goalPlayerId && goalType === "normal")) {
@@ -259,42 +281,6 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
     }
   };
 
-  /** Team name + crest on either side of the score. */
-  const TeamSide = ({ team, side }: { team: ReturnType<typeof teamDetails>; side: "home" | "away" }) => (
-    <div
-      className={`flex min-w-0 flex-col items-center gap-3 text-center ${
-        side === "home" ? "sm:flex-row-reverse sm:justify-start sm:text-right" : "sm:flex-row sm:justify-start sm:text-left"
-      }`}
-    >
-      <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-line sm:h-16 sm:w-16" />
-      <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">{team.name}</p>
-    </div>
-  );
-
-  /** One event, shown under its team. Admin controls sit on the outer edge. */
-  const EventText = ({ event, side }: { event: MatchEvent; side: "home" | "away" }) => {
-    const manage = canManageGoals && event.goalId;
-    const text = (
-      <div className={`min-w-0 ${side === "home" ? "text-right" : "text-left"}`}>
-        <p className="truncate text-sm font-semibold text-fg">
-          {event.playerName}
-          {event.kind === "own_goal" ? <span className="ml-1 font-medium text-danger">(OG)</span> : null}
-        </p>
-        <p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
-      </div>
-    );
-    const actions = manage ? (
-      <div className="flex shrink-0 items-center gap-1.5">
-        <button type="button" className={iconBtnClass} aria-label={`Edit goal by ${event.playerName}`} onClick={() => beginGoalEdit(event.goalId!)}><PencilIcon /></button>
-        <button type="button" className={`${iconBtnClass} hover:text-danger`} aria-label={`Delete goal by ${event.playerName}`} onClick={() => void removeGoal(event.goalId!)}><TrashIcon /></button>
-      </div>
-    ) : null;
-    return (
-      <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>
-        {side === "home" ? <>{actions}{text}</> : <>{text}{actions}</>}
-      </div>
-    );
-  };
 
   return (
     <PageContainer>
@@ -303,20 +289,21 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         Back to matches
       </Link>
 
-      {/* Admin actions: on top */}
-      {showEdit || showDecision ? (
-        <GlassCard className="mt-4 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-xl">
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-lg text-fg">Fixture decision</h2>
-            <p className="mt-0.5 text-sm text-muted">Edit the fixture, or record an audited reason if it must be cancelled or abandoned.</p>
+      <MatchStatusManager
+        seasonId={seasonId}
+        match={match}
+        isAdmin={isAdmin}
+        onMatchUpdated={(updatedMatch) => {
+          matchQuery.setData((current) => current ? { ...current, data: updatedMatch } : current);
+        }}
+      />
+      {showEdit ? (
+        <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-xl">
+          <div className="min-w-0">
+            <h2 className="font-display text-lg text-fg">Fixture details</h2>
+            <p className="mt-0.5 text-sm text-muted">Update venue, participants or other fixture information.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {showEdit ? <Button size="sm" variant="surface" onClick={() => setEditing(true)}>Edit fixture</Button> : null}
-            {showDecision ? <>
-              <Button size="sm" variant="danger" onClick={() => { setResolutionStatus("cancelled"); setResolutionReason(""); setResolutionOpen(true); }}>Cancel match</Button>
-              <Button size="sm" variant="surface" onClick={() => { setResolutionStatus("abandoned"); setResolutionReason(""); setResolutionOpen(true); }}>Abandon match</Button>
-            </> : null}
-          </div>
+          <Button size="sm" variant="surface" onClick={() => setEditing(true)}>Edit fixture</Button>
         </GlassCard>
       ) : null}
 
@@ -384,11 +371,11 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
                   const side = event.teamId === away.id ? "away" : "home";
                   return (
                     <li key={event.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-                      {side === "home" ? <EventText event={event} side="home" /> : <span />}
+                      {side === "home" ? <EventText event={event} side="home" canManageGoals={canManageGoals} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} /> : <span />}
                       <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-glass backdrop-blur-md">
                         <MatchEventIcon kind={event.kind} className="h-5 w-5" />
                       </span>
-                      {side === "away" ? <EventText event={event} side="away" /> : <span />}
+                      {side === "away" ? <EventText event={event} side="away" canManageGoals={canManageGoals} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} /> : <span />}
                     </li>
                   );
                 })}
@@ -436,16 +423,6 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         saving={savingGoal}
         error={lotsQuery.error}
         onSubmit={saveGoal}
-      />
-      <FixtureResolutionModal
-        open={resolutionOpen}
-        status={resolutionStatus}
-        reason={resolutionReason}
-        saving={savingResolution}
-        onClose={() => setResolutionOpen(false)}
-        onStatusChange={setResolutionStatus}
-        onReasonChange={setResolutionReason}
-        onSubmit={saveResolution}
       />
       <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
         <SeasonMatchForm

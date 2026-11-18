@@ -2,7 +2,7 @@ import { USE_MOCK_API } from "@/config/env";
 import { seasonPreviewRepository } from "@/mocks/seasonRepository";
 import { api, run } from "@/services/api";
 import type { ApiResponse, Pagination } from "@/types/api.types";
-import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
+import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
 
 export function getSeasonGroups(seasonId: string) {
   return run(() =>
@@ -105,5 +105,47 @@ export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId:
     USE_MOCK_API
       ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId)
       : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`).then((response) => response.data),
+  );
+}
+
+export interface SeasonMatchStatusWrite {
+  status: SeasonMatchStatus;
+  statusReason?: string;
+  resolutionReason?: string;
+}
+
+export interface SeasonMatchRescheduleWrite {
+  kickoffAt: string;
+  reason?: string;
+}
+
+/**
+ * Status management always uses the authenticated backend API. Keep status
+ * transitions out of preview/mock repositories so UI actions exercise the
+ * same server-side transition, result and audit validation as production.
+ */
+export function updateSeasonMatchStatus(
+  seasonId: string,
+  matchId: string,
+  data: SeasonMatchStatusWrite,
+) {
+  return run(() =>
+    api.patch<ApiResponse<SeasonMatch>>(
+      `/seasons/${seasonId}/matches/${matchId}`,
+      data,
+    ).then((response) => response.data),
+  );
+}
+
+export function rescheduleSeasonMatch(
+  seasonId: string,
+  matchId: string,
+  data: SeasonMatchRescheduleWrite,
+) {
+  return run(() =>
+    api.patch<ApiResponse<SeasonMatch>>(
+      `/seasons/${seasonId}/matches/${matchId}/reschedule`,
+      data,
+    ).then((response) => response.data),
   );
 }
