@@ -120,9 +120,9 @@ export interface SeasonMatchRescheduleWrite {
 }
 
 /**
- * Status management always uses the authenticated backend API. Keep status
- * transitions out of preview/mock repositories so UI actions exercise the
- * same server-side transition, result and audit validation as production.
+ * Keep match lifecycle operations on the same data/authentication adapter as
+ * the rest of the application. Mock mode must never fall through to the real
+ * backend, where the browser's mock session cannot authenticate.
  */
 export function updateSeasonMatchStatus(
   seasonId: string,
@@ -130,10 +130,12 @@ export function updateSeasonMatchStatus(
   data: SeasonMatchStatusWrite,
 ) {
   return run(() =>
-    api.patch<ApiResponse<SeasonMatch>>(
-      `/seasons/${seasonId}/matches/${matchId}`,
-      data,
-    ).then((response) => response.data),
+    USE_MOCK_API
+      ? seasonPreviewRepository.updateSeasonMatchStatus(seasonId, matchId, data)
+      : api.patch<ApiResponse<SeasonMatch>>(
+          `/seasons/${seasonId}/matches/${matchId}`,
+          data,
+        ).then((response) => response.data),
   );
 }
 
@@ -143,9 +145,11 @@ export function rescheduleSeasonMatch(
   data: SeasonMatchRescheduleWrite,
 ) {
   return run(() =>
-    api.patch<ApiResponse<SeasonMatch>>(
-      `/seasons/${seasonId}/matches/${matchId}/reschedule`,
-      data,
-    ).then((response) => response.data),
+    USE_MOCK_API
+      ? seasonPreviewRepository.rescheduleSeasonMatch(seasonId, matchId, data)
+      : api.patch<ApiResponse<SeasonMatch>>(
+          `/seasons/${seasonId}/matches/${matchId}/reschedule`,
+          data,
+        ).then((response) => response.data),
   );
 }

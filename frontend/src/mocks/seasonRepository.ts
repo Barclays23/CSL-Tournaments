@@ -4,7 +4,7 @@ import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, 
 import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
 import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
-import { readDb as readPrimaryDb, requireAdmin } from "@/mocks/store";
+import { readDb as readPrimaryDb, readSession, requireAdmin } from "@/mocks/store";
 import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, MockVenue, SeasonMockDatabase } from "@/mocks/seasonSeed";
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
@@ -412,6 +412,126 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     return ok("Season fixture loaded", populatedSeasonMatch(db, match));
+  },
+  async updateSeasonMatchStatus(
+    seasonId: string,
+    matchId: string,
+    input: { status: MockSeasonMatch["status"]; statusReason?: string; resolutionReason?: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+
+    const transitions: Record<MockSeasonMatch["status"], MockSeasonMatch["status"][]> = {
+      scheduled: ["live", "postponed", "cancelled"],
+      live: ["completed", "postponed", "abandoned"],
+      postponed: ["scheduled", "cancelled"],
+      completed: [],
+      cancelled: [],
+      abandoned: [],
+    };
+    const nextStatus = input.status;
+    if (match.status !== nextStatus && !transitions[match.status].includes(nextStatus)) {
+      const allowed = transitions[match.status].join(", ") || "none";
+      fail(409, `Cannot change match status from ${match.status} to ${nextStatus}. Allowed next statuses: ${allowed}.`);
+    }
+    if (match.status === "postponed" && nextStatus === "scheduled") {
+      fail(409, "Postponed matches must be returned to Scheduled through the reschedule operation with a new kickoff date and time");
+    }
+
+    const statusReason = input.statusReason?.trim();
+    const resolutionReason = input.resolutionReason?.trim();
+    if (statusReason !== undefined && resolutionReason !== undefined && statusReason !== resolutionReason) {
+      fail(422, "Use one consistent reason for the status change");
+    }
+    if (resolutionReason !== undefined && nextStatus !== "cancelled" && nextStatus !== "abandoned") {
+      fail(422, "A resolution reason is only valid when cancelling or abandoning a fixture");
+    }
+    const reason = statusReason ?? resolutionReason;
+    const changed = nextStatus !== match.status;
+    if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes");
+    if (changed && ["postponed", "cancelled", "abandoned"].includes(nextStatus) && !reason) {
+      fail(422, "A reason is required when postponing, cancelling or abandoning a match");
+    }
+    if (reason !== undefined && (reason.length < 3 || reason.length > 500)) {
+      fail(422, "Enter a status-change reason between 3 and 500 characters");
+    }
+
+    const session = readSession();
+    if (changed && !session?._id) fail(401, "An authenticated user is required to change match status");
+    if (changed) {
+      const changedAt = now();
+      match.statusHistory ??= [];
+      match.statusHistory.push({
+        fromStatus: match.status,
+        toStatus: nextStatus,
+        reason: reason ?? null,
+        changedBy: session!._id,
+        changedAt,
+        fromKickoffAt: match.kickoffAt,
+        toKickoffAt: match.kickoffAt,
+      });
+      if (nextStatus === "cancelled" || nextStatus === "abandoned") {
+        match.resolutionHistory ??= [];
+        match.resolutionHistory.push({ status: nextStatus, reason: reason!, decidedAt: changedAt });
+      }
+      match.status = nextStatus;
+      if (nextStatus === "completed") this.recalculateMockWinner(season, match);
+      match.updatedAt = changedAt;
+      commitSeasonDb(db);
+    }
+    return ok("Match status updated", populatedSeasonMatch(db, match));
+  },
+  async rescheduleSeasonMatch(
+    seasonId: string,
+    matchId: string,
+    input: { kickoffAt: string; reason?: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled");
+
+    const kickoff = new Date(input.kickoffAt);
+    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required");
+    if (kickoff.getTime() <= Date.now()) fail(422, "Choose a future date and kick-off time when rescheduling");
+    if (kickoff.getTime() === new Date(match.kickoffAt).getTime()) fail(422, "Choose a new date or kick-off time different from the postponed fixture");
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(kickoff);
+    const start = season.startDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.startDate)) : null;
+    const end = season.endDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.endDate)) : null;
+    if (start && day < start) fail(422, "Fixture date is before the season start date");
+    if (end && day > end) fail(422, "Fixture date is after the season end date");
+
+    const reason = input.reason?.trim() || null;
+    if (reason !== null && (reason.length < 3 || reason.length > 500)) {
+      fail(422, "Enter a rescheduling reason between 3 and 500 characters");
+    }
+    const session = readSession();
+    if (!session?._id) fail(401, "An authenticated user is required to reschedule a match");
+
+    const changedAt = now();
+    const previousKickoff = match.kickoffAt;
+    match.statusHistory ??= [];
+    match.statusHistory.push({
+      fromStatus: "postponed",
+      toStatus: "scheduled",
+      reason,
+      changedBy: session._id,
+      changedAt,
+      fromKickoffAt: previousKickoff,
+      toKickoffAt: kickoff.toISOString(),
+    });
+    match.status = "scheduled";
+    match.kickoffAt = kickoff.toISOString();
+    match.updatedAt = changedAt;
+    commitSeasonDb(db);
+    return ok("Match rescheduled", populatedSeasonMatch(db, match));
   },
   async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
     requireAdmin();
