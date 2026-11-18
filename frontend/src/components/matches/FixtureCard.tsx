@@ -7,7 +7,7 @@ import { formatDate, formatTime } from "@/utils/formatDate";
 
 export function FixtureCard({ match }: { match: Match }) {
   return (
-    <Link to="/matches/$matchId" params={{ matchId: match._id }} className="block">
+    <Link to="/matches" className="block">
       <GlassCard className="p-4 transition duration-200 hover:border-accent">
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
           <Avatar name={teamName(match.team1Ref)} asset={teamLogo(match.team1Ref)} className="h-12 w-12 rounded-xl" />

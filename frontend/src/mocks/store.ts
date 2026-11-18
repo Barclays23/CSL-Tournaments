@@ -112,6 +112,10 @@ function loadStored() {
       const stored = JSON.parse(raw) as Database;
       memory = {
         ...stored,
+        matches: (stored.matches ?? []).map((match) => ({
+          ...match,
+          goals: match.status === "scheduled" ? [] : match.goals ?? [],
+        })),
         players: (stored.players ?? []).map((player) => ({
           _id: player._id, __v: player.__v ?? 0, name: player.name, mobile: player.mobile ?? null,
           email: player.email ?? null, dateOfBirth: player.dateOfBirth ?? null,
