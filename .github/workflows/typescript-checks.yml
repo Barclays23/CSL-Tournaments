@@ -12,6 +12,7 @@ on:
       - feature/match-status-transition-rules
       - feature/match-completion-validation
       - feature/match-status-audit-history
+      - feature/match-postponement-rescheduling
   pull_request:
     branches:
       - main

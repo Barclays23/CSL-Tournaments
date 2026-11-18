@@ -27,6 +27,8 @@ const statusHistorySchema = new Schema({
   reason: { type: String, default: null, trim: true, maxlength: 500 },
   changedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
   changedAt: { type: Date, required: true },
+  fromKickoffAt: { type: Date, default: null },
+  toKickoffAt: { type: Date, default: null },
 }, { _id: false, timestamps: false });
 
 const resolutionSchema = new Schema({

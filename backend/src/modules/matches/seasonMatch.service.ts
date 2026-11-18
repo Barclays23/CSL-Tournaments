@@ -11,6 +11,17 @@ import type {ISeasonMatchService} from "./seasonMatch.interfaces.js";
 import type {CreateSeasonMatchDto,UpdateSeasonMatchDto,SeasonMatchQueryDto,SeasonGoalDto,SeasonMatchResponseDto,SeasonGoalResponseDto,SeasonMatchTeamDto,SeasonMatchPlayerDto} from "./seasonMatch.dto.js";
 import type {SeasonMatchFields,SeasonMatchEntity,PopulatedSeasonMatch,PopulatedSeasonGoal} from "./seasonMatch.types.js";
 
+function statusPostponementDateChanged(
+ currentStatus:SeasonMatchFields["status"],
+ nextStatus:SeasonMatchFields["status"],
+ requestedKickoffAt:Date|undefined,
+ currentKickoffAt:Date,
+):boolean{
+ return (currentStatus!=="postponed"&&nextStatus==="postponed"
+  &&requestedKickoffAt!==undefined
+  &&requestedKickoffAt.getTime()!==currentKickoffAt.getTime());
+}
+
 export class SeasonMatchService implements ISeasonMatchService{
  constructor(private readonly repo:SeasonMatchRepository){}
  async list(seasonId:string,query:SeasonMatchQueryDto):Promise<PaginatedResult<SeasonMatchResponseDto>>{
@@ -65,6 +76,12 @@ export class SeasonMatchService implements ISeasonMatchService{
   const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(["completed","archived"].includes(season.status))throw new AppError("Completed or archived season matches are read-only",409,"SEASON_CLOSED");
   const nextStatus=input.status??existing.status;
+  if(existing.status==="postponed"&&(nextStatus==="scheduled"||input.kickoffAt!==undefined)){
+   throw new AppError("Postponed matches can only be returned to Scheduled through the reschedule operation with a new kickoff date and time",409,"MATCH_RESCHEDULE_REQUIRED");
+  }
+  if(statusPostponementDateChanged(existing.status,nextStatus,input.kickoffAt,existing.kickoffAt)){
+   throw new AppError("The original kickoff date must be preserved when postponing. Use the dedicated reschedule operation to set a new date and time.",422,"POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED");
+  }
   assertMatchStatusTransition(existing.status,nextStatus);
   const statusChanged=nextStatus!==existing.status;
   const statusReasonValue=input.statusReason?.trim();
@@ -87,7 +104,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   const changedAt=statusChanged?new Date():null;
   if(statusChanged){
    if(!changedBy||!Types.ObjectId.isValid(changedBy))throw new AppError("An authenticated user is required to change match status",401,"UNAUTHENTICATED");
-   statusHistoryEntry={fromStatus:existing.status,toStatus:nextStatus,reason:statusReason,changedBy:new Types.ObjectId(changedBy),changedAt:changedAt!};
+   statusHistoryEntry={fromStatus:existing.status,toStatus:nextStatus,reason:statusReason,changedBy:new Types.ObjectId(changedBy),changedAt:changedAt!,fromKickoffAt:existing.kickoffAt,toKickoffAt:input.kickoffAt??existing.kickoffAt};
   }
   if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Correct goals through goal management; fixture details cannot be rewritten.",409,"MATCH_COMPLETED_READ_ONLY");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
@@ -117,6 +134,45 @@ export class SeasonMatchService implements ISeasonMatchService{
   merged.winnerSeasonTeamRef=this.calculateWinner(merged,season.matchRules,season.pointsRules);
   const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,roundNumber:merged.roundNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venueRef:merged.venueRef,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory},season.homeAndAwayFixtures??false,statusHistoryEntry?{expectedStatus:existing.status,entry:statusHistoryEntry}:undefined);
   if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated fixture could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);
+ }
+ async reschedule(id:string,input:import("./seasonMatch.dto.js").RescheduleSeasonMatchDto,changedBy?:string):Promise<SeasonMatchResponseDto>{
+  this.id(id,"match");
+  const existing=await this.repo.findById(id);
+  if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
+  if(existing.status!=="postponed")throw new AppError("Only Postponed matches can be rescheduled",409,"MATCH_NOT_POSTPONED");
+  assertMatchStatusTransition(existing.status,"scheduled");
+  const season=await this.repo.findSeason(String(existing.seasonRef));
+  if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+  if(!["upcoming","active"].includes(season.status))throw new AppError("Only Upcoming or Active season matches can be rescheduled",409,"SEASON_CLOSED");
+  if(!(input.kickoffAt instanceof Date)||Number.isNaN(input.kickoffAt.getTime())){
+   throw new AppError("A valid new match date and kick-off time are required",422,"RESCHEDULE_KICKOFF_REQUIRED",{kickoffAt:"Enter a valid date and kick-off time"});
+  }
+  if(input.kickoffAt.getTime()<=Date.now())throw new AppError("Choose a future date and kick-off time when rescheduling",422,"RESCHEDULE_KICKOFF_NOT_FUTURE",{kickoffAt:"The new kickoff must be in the future"});
+  if(input.kickoffAt.getTime()===existing.kickoffAt.getTime())throw new AppError("Choose a new date or kick-off time different from the postponed fixture",422,"RESCHEDULE_KICKOFF_UNCHANGED",{kickoffAt:"Choose a different date or time"});
+  this.assertKickoffWithinSeason(season,input.kickoffAt);
+  const reason=input.reason?.trim()??null;
+  if(reason!==null&&(reason.length<3||reason.length>500))throw new AppError("Enter a rescheduling reason between 3 and 500 characters",422,"INVALID_RESCHEDULE_REASON",{reason:"Reason must contain 3 to 500 characters"});
+  if(!changedBy||!Types.ObjectId.isValid(changedBy))throw new AppError("An authenticated user is required to reschedule a match",401,"UNAUTHENTICATED");
+  const changedAt=new Date();
+  const statusHistoryEntry:import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry={
+   fromStatus:"postponed",
+   toStatus:"scheduled",
+   reason,
+   changedBy:new Types.ObjectId(changedBy),
+   changedAt,
+   fromKickoffAt:existing.kickoffAt,
+   toKickoffAt:input.kickoffAt,
+  };
+  const saved=await this.repo.update(
+   id,
+   {status:"scheduled",kickoffAt:input.kickoffAt},
+   season.homeAndAwayFixtures??false,
+   {expectedStatus:"postponed",entry:statusHistoryEntry},
+  );
+  if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
+  const populated=await this.repo.findPopulatedById(id);
+  if(!populated)throw new AppError("Rescheduled match could not be retrieved",500,"MATCH_UPDATE_FAILED");
+  return this.map(populated);
  }
  async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");throw new AppError("Fixtures are retained as tournament history and cannot be physically deleted. Change the fixture status to cancelled or abandoned instead.",409,"MATCH_DELETE_BLOCKED");}
  async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules,season.pointsRules);const saved=await this.repo.appendGoalWithWinner(id,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
@@ -219,7 +275,7 @@ export class SeasonMatchService implements ISeasonMatchService{
  }
  private mapPlayer(ref:unknown):string|SeasonMatchPlayerDto|null{if(!ref)return null;if(ref instanceof Types.ObjectId)return String(ref);const p=ref as any;if(!p.name)return String(p._id??p);return {_id:String(p._id),name:p.name,profilePic:p.profilePic};}
  private mapGoal(g:PopulatedSeasonGoal):SeasonGoalResponseDto{return {_id:String(g._id),scoringSeasonTeamRef:this.mapTeam(g.scoringSeasonTeamRef)!,scorerPlayerRef:this.mapPlayer(g.scorerPlayerRef),playerSeasonTeamRef:this.mapTeam(g.playerSeasonTeamRef),goalType:g.goalType,createdAt:g.createdAt.toISOString()};}
- private map(m:PopulatedSeasonMatch):SeasonMatchResponseDto{const venue=m.venueRef&&!(m.venueRef instanceof Types.ObjectId)&&typeof m.venueRef==="object"?{_id:String(m.venueRef._id),name:m.venueRef.name,location:m.venueRef.location}:String(m.venueRef);return {_id:String(m._id),seasonRef:String(m.seasonRef),matchNumber:m.matchNumber,roundNumber:m.roundNumber,stage:m.stage,groupRef:m.groupRef?String(m.groupRef):null,kickoffAt:m.kickoffAt.toISOString(),venueRef:venue,venue:typeof venue==="string"?null:venue.name,homeSeasonTeamRef:this.mapTeam(m.homeSeasonTeamRef)!,awaySeasonTeamRef:this.mapTeam(m.awaySeasonTeamRef)!,status:m.status,goals:m.goals.map(g=>this.mapGoal(g)),resolutionHistory:(m.resolutionHistory??[]).map(entry=>({status:entry.status,reason:entry.reason,decidedAt:entry.decidedAt.toISOString()})),statusHistory:(m.statusHistory??[]).map(entry=>({fromStatus:entry.fromStatus,toStatus:entry.toStatus,reason:entry.reason??null,changedBy:String(entry.changedBy),changedAt:entry.changedAt.toISOString()})),penaltyShootout:m.penaltyShootout?{status:m.penaltyShootout.status,homeTeamScore:m.penaltyShootout.homeTeamScore,awayTeamScore:m.penaltyShootout.awayTeamScore,kicks:m.penaltyShootout.kicks.map(k=>({seasonTeamRef:String(k.seasonTeamRef),playerRef:k.playerRef?String(k.playerRef):null,result:k.result}))}:null,winnerSeasonTeamRef:this.mapTeam(m.winnerSeasonTeamRef),notes:m.notes,createdAt:m.createdAt.toISOString(),updatedAt:m.updatedAt.toISOString()};}
+ private map(m:PopulatedSeasonMatch):SeasonMatchResponseDto{const venue=m.venueRef&&!(m.venueRef instanceof Types.ObjectId)&&typeof m.venueRef==="object"?{_id:String(m.venueRef._id),name:m.venueRef.name,location:m.venueRef.location}:String(m.venueRef);return {_id:String(m._id),seasonRef:String(m.seasonRef),matchNumber:m.matchNumber,roundNumber:m.roundNumber,stage:m.stage,groupRef:m.groupRef?String(m.groupRef):null,kickoffAt:m.kickoffAt.toISOString(),venueRef:venue,venue:typeof venue==="string"?null:venue.name,homeSeasonTeamRef:this.mapTeam(m.homeSeasonTeamRef)!,awaySeasonTeamRef:this.mapTeam(m.awaySeasonTeamRef)!,status:m.status,goals:m.goals.map(g=>this.mapGoal(g)),resolutionHistory:(m.resolutionHistory??[]).map(entry=>({status:entry.status,reason:entry.reason,decidedAt:entry.decidedAt.toISOString()})),statusHistory:(m.statusHistory??[]).map(entry=>({fromStatus:entry.fromStatus,toStatus:entry.toStatus,reason:entry.reason??null,changedBy:String(entry.changedBy),changedAt:entry.changedAt.toISOString(),fromKickoffAt:entry.fromKickoffAt?.toISOString()??null,toKickoffAt:entry.toKickoffAt?.toISOString()??null})),penaltyShootout:m.penaltyShootout?{status:m.penaltyShootout.status,homeTeamScore:m.penaltyShootout.homeTeamScore,awayTeamScore:m.penaltyShootout.awayTeamScore,kicks:m.penaltyShootout.kicks.map(k=>({seasonTeamRef:String(k.seasonTeamRef),playerRef:k.playerRef?String(k.playerRef):null,result:k.result}))}:null,winnerSeasonTeamRef:this.mapTeam(m.winnerSeasonTeamRef),notes:m.notes,createdAt:m.createdAt.toISOString(),updatedAt:m.updatedAt.toISOString()};}
  private async getExisting(id:string):Promise<SeasonMatchEntity>{
   this.id(id,"match");
   const match=await this.repo.findById(id);
