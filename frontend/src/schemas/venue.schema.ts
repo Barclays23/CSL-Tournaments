@@ -5,3 +5,7 @@ export const venueFormSchema = z.object({
   notes: z.string().trim().max(500, "Notes must be 500 characters or fewer"),
 });
 export type VenueFormValues = z.infer<typeof venueFormSchema>;
+
+export const venueUpdateFormSchema = venueFormSchema.partial().extend({
+  status: z.enum(["active", "inactive"]).optional(),
+}).refine((value) => Object.keys(value).length > 0, "At least one venue field is required");

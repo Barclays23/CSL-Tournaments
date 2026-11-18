@@ -68,7 +68,8 @@ export class SeasonMatchService implements ISeasonMatchService{
   const stage=input.stage??existing.stage,groupId=input.groupRef===undefined?(existing.groupRef?String(existing.groupRef):null):input.groupRef;
   const roundNumber=input.roundNumber??existing.roundNumber,venueRef=input.venueRef??String(existing.venueRef);
   await this.validateSeasonTeams(String(existing.seasonRef),homeId,awayId,stage,groupId);
-  await this.validateFixturePair(String(existing.seasonRef),stage,groupId,roundNumber,homeId,awayId,season.homeAndAwayFixtures??false,id);
+  const pairChanged=homeId!==String(existing.homeSeasonTeamRef)||awayId!==String(existing.awaySeasonTeamRef)||stage!==existing.stage||groupId!==(existing.groupRef?String(existing.groupRef):null)||roundNumber!==existing.roundNumber;
+  if(pairChanged)await this.validateFixturePair(String(existing.seasonRef),stage,groupId,roundNumber,homeId,awayId,season.homeAndAwayFixtures??false,id);
   const venue=await this.repo.findVenue(venueRef);
   if(!venue||(venue.status!=="active"&&venueRef!==String(existing.venueRef)))throw new AppError("Choose an active venue from the venue list",422,"INVALID_VENUE",{venueRef:"Choose an active venue"});
   await this.validateKnockoutQualification(String(existing.seasonRef),stage,homeId,awayId,season);

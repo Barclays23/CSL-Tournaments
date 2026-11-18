@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Textarea } from "@/components/ui/Textarea";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
-import { venueFormSchema, type VenueFormValues } from "@/schemas/venue.schema";
+import { venueFormSchema, venueUpdateFormSchema, type VenueFormValues } from "@/schemas/venue.schema";
 import { createVenue, deleteVenue, getVenues, updateVenue } from "@/services/venueService";
 import type { Venue } from "@/types/venue.types";
 import { errorMessage } from "@/utils/errorHandler";
@@ -53,7 +53,9 @@ function VenuesBody() {
     catch (error) { toast.error(errorMessage(error)); }
   };
   const toggleStatus = async (record: Venue) => {
-    try { await updateVenue(record._id,{status:record.status==="active"?"inactive":"active"}); toast.success("Venue status updated"); venues.reload(); }
+    const parsed = venueUpdateFormSchema.safeParse({ status: record.status === "active" ? "inactive" : "active" });
+    if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "Invalid venue status"); return; }
+    try { await updateVenue(record._id, parsed.data); toast.success("Venue status updated"); venues.reload(); }
     catch (error) { toast.error(errorMessage(error)); }
   };
   return <section>
