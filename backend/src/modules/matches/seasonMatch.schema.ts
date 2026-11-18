@@ -17,13 +17,26 @@ export const seasonMatchCreateSchema = z.object(fields).strict().superRefine((v,
   if (v.stage !== "group" && v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
  });
 export const seasonMatchUpdateSchema = z.object({
- ...Object.fromEntries(Object.entries(fields).map(([k,v]) => [k,v.optional()])),
+ matchNumber: fields.matchNumber.optional(),
+ roundNumber: fields.roundNumber.optional(),
+ stage: fields.stage.optional(),
+ groupRef: fields.groupRef.optional(),
+ kickoffAt: fields.kickoffAt.optional(),
+ venueRef: fields.venueRef.optional(),
+ homeSeasonTeamRef: fields.homeSeasonTeamRef.optional(),
+ awaySeasonTeamRef: fields.awaySeasonTeamRef.optional(),
+ status: fields.status.optional(),
+ notes: fields.notes.optional(),
+ penaltyShootout: fields.penaltyShootout.optional(),
  resolutionReason: z.string().trim().min(3).max(500).optional(),
+ statusReason: z.string().trim().min(3).max(500).optional(),
 }).strict().superRefine((v, context) => {
   if (Object.keys(v).length === 0) context.addIssue({ code: "custom", message: "At least one field is required" });
+  if (v.statusReason !== undefined && v.resolutionReason !== undefined && v.statusReason !== v.resolutionReason) context.addIssue({ code: "custom", path: ["statusReason"], message: "Use one consistent reason for the status change" });
   if (v.homeSeasonTeamRef && v.awaySeasonTeamRef && v.homeSeasonTeamRef === v.awaySeasonTeamRef) context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "A team cannot play itself" });
   if (v.stage === "group" && v.groupRef === null) context.addIssue({ code: "custom", path: ["groupRef"], message: "Choose a group for a group-stage fixture" });
   if (v.stage && v.stage !== "group" && v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
  });
+
 export const seasonMatchQuerySchema = paginationSchema.extend({ stage: stage.optional(), groupRef: objectId.nullable().optional(), status: status.optional(), dateFrom: z.coerce.date().optional(), dateTo: z.coerce.date().optional(), seasonTeamRef: objectId.optional(), search: z.string().trim().max(100).optional() }).strict();
 export const seasonGoalSchema = z.object({ scoringSeasonTeamRef: objectId, scorerPlayerRef: objectId.nullable().optional(), goalType: z.enum(["normal", "own_goal"]) }).strict();

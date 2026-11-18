@@ -11,6 +11,7 @@ on:
       - feature/season-management-final-hardening
       - feature/match-status-transition-rules
       - feature/match-completion-validation
+      - feature/match-status-audit-history
   pull_request:
     branches:
       - main
@@ -40,8 +41,10 @@ jobs:
       - name: Run backend tests
         run: npm test
       - name: Typecheck backend
+        if: always()
         run: npm run typecheck
       - name: Build backend
+        if: always()
         run: npm run build
 
   frontend:

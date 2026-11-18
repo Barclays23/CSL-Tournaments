@@ -119,12 +119,32 @@ export class SeasonMatchRepository {
     });
   }
 
-  async update(id: string, data: Partial<SeasonMatchFields>, homeAndAway: boolean): Promise<SeasonMatchEntity | null> {
+  async update(
+    id: string,
+    data: Partial<SeasonMatchFields>,
+    homeAndAway: boolean,
+    statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry },
+  ): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
       const current = await SeasonMatchModel.findOne({ _id: new Types.ObjectId(id), seasonRef: existing.seasonRef }).session(session).lean<SeasonMatchEntity>().exec();
       if (!current) return null;
+
+      if (statusAudit) {
+        if (current.status !== statusAudit.expectedStatus || statusAudit.entry.fromStatus !== current.status) {
+          throw new AppError("This match status was changed by another update. Refresh the fixture and try again.", 409, "MATCH_STATUS_CONFLICT");
+        }
+        const history = current.statusHistory ?? [];
+        const lastEntry = history[history.length - 1];
+        if (lastEntry && lastEntry.toStatus !== current.status) {
+          throw new AppError("The match status history is inconsistent with its current status. Further status changes are blocked.", 409, "MATCH_STATUS_HISTORY_CONFLICT");
+        }
+        if (statusAudit.entry.fromStatus === statusAudit.entry.toStatus) {
+          throw new AppError("A status history entry must represent an actual status change.", 409, "DUPLICATE_MATCH_STATUS_HISTORY");
+        }
+      }
+
       const next = { ...current, ...data };
       const pairChanged = String(next.homeSeasonTeamRef) !== String(current.homeSeasonTeamRef)
         || String(next.awaySeasonTeamRef) !== String(current.awaySeasonTeamRef)
@@ -132,11 +152,28 @@ export class SeasonMatchRepository {
         || String(next.groupRef ?? "") !== String(current.groupRef ?? "")
         || next.roundNumber !== current.roundNumber;
       if (pairChanged) await this.assertPairRules(next, homeAndAway, id, session);
-      return SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef },
-        { $set: data },
+
+      const filter = {
+        _id: new Types.ObjectId(id),
+        seasonRef: existing.seasonRef,
+        ...(statusAudit ? { status: statusAudit.expectedStatus } : {}),
+      };
+      const update: {
+        $set: Partial<SeasonMatchFields>;
+        $push?: { statusHistory: import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry };
+      } = { $set: data };
+      if (statusAudit) update.$push = { statusHistory: statusAudit.entry };
+
+      const saved = await SeasonMatchModel.findOneAndUpdate(
+        filter,
+        update,
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec();
+
+      if (statusAudit && !saved) {
+        throw new AppError("This match status was changed by another update. Refresh the fixture and try again.", 409, "MATCH_STATUS_CONFLICT");
+      }
+      return saved;
     });
   }
 
