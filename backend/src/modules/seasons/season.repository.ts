@@ -34,60 +34,30 @@ export class SeasonRepository implements ISeasonRepository {
     return SeasonModel.findOne({ status: "active", ...(excludeId ? { _id: { $ne: new Types.ObjectId(excludeId) } } : {}) }).lean<SeasonEntity>().exec();
   }
 
-  async createWithTeams(
-    data: CreateSeasonDto,
-    normalizedName: string,
-    teams: Array<{ _id: unknown; name: string; logo: SeasonTeamEntity["logoSnapshot"] }>,
-  ): Promise<SeasonEntity> {
-    const session = await mongoose.startSession();
-    try {
-      let created: SeasonEntity | null = null;
-      await session.withTransaction(async () => {
-        const [season] = await SeasonModel.create([{
-          seasonNumber: data.seasonNumber,
-          name: data.name.trim(),
-          normalizedName,
-          year: data.year,
-          startDate: data.startDate ?? null,
-          endDate: data.endDate ?? null,
-          timeZone: data.timeZone ?? "Asia/Kolkata",
-          groupStageEnabled: data.groupStageEnabled ?? true,
-          homeAndAwayFixtures: data.homeAndAwayFixtures ?? false,
-          status: "draft",
-          historyCompleteness: "not_applicable",
-          auctionSettings: data.auctionSettings,
-          pointsRules: data.pointsRules ?? { win: 3, draw: 1, loss: 0 },
-          standingsTieBreakers: data.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
-          matchRules: data.matchRules ?? {
-            groupStageDrawAllowed: true,
-            knockoutDrawRequiresShootout: true,
-            shootoutCountsForMatchScore: false,
-            shootoutCountsForPlayerGoals: false,
-          },
-        }], { session });
-        if (teams.length) {
-          const activeCount = await TeamModel.countDocuments({
-            _id: { $in: teams.map((team) => team._id) },
-            status: "active",
-          }).session(session).exec();
-          if (activeCount !== teams.length) throw new Error("SEASON_TEAM_INACTIVE");
-          await SeasonTeamModel.insertMany(teams.map((team) => ({
-            seasonRef: season._id,
-            teamRef: team._id,
-            displayName: team.name,
-            logoSnapshot: team.logo,
-            status: "registered",
-            groupRef: null,
-            managerRefs: [],
-          })), { session, ordered: true });
-        }
-        created = season.toObject() as unknown as SeasonEntity;
-      });
-      if (!created) throw new Error("Season creation transaction did not return a document");
-      return created;
-    } finally {
-      await session.endSession();
-    }
+  async createSeason(data: CreateSeasonDto, normalizedName: string): Promise<SeasonEntity> {
+    const created = await SeasonModel.create({
+      seasonNumber: data.seasonNumber,
+      name: data.name.trim(),
+      normalizedName,
+      year: data.year,
+      startDate: data.startDate ?? null,
+      endDate: data.endDate ?? null,
+      timeZone: data.timeZone ?? "Asia/Kolkata",
+      groupStageEnabled: data.groupStageEnabled ?? true,
+      homeAndAwayFixtures: data.homeAndAwayFixtures ?? false,
+      status: "draft",
+      historyCompleteness: "not_applicable",
+      auctionSettings: data.auctionSettings,
+      pointsRules: data.pointsRules ?? { win: 3, draw: 1, loss: 0 },
+      standingsTieBreakers: data.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
+      matchRules: data.matchRules ?? {
+        groupStageDrawAllowed: true,
+        knockoutDrawRequiresShootout: true,
+        shootoutCountsForMatchScore: false,
+        shootoutCountsForPlayerGoals: false,
+      },
+    });
+    return created.toObject() as unknown as SeasonEntity;
   }
 
   async update(id: string, data: Partial<SeasonFields>): Promise<SeasonEntity | null> {

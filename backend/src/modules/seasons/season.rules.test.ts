@@ -37,7 +37,7 @@ test("normal Season updates cannot mutate lifecycle status", () => {
   assert.equal(seasonUpdateSchema.safeParse({ name: "Renamed Season" }).success, true);
 });
 
-test("Season creation rejects duplicate selected Team IDs and invalid date order", () => {
+test("Season creation validates configuration and rejects embedded team registration data", () => {
   const valid = {
     seasonNumber: 1,
     name: "CSL Season 1",
@@ -53,11 +53,12 @@ test("Season creation rejects duplicate selected Team IDs and invalid date order
       iconPlayerLimit: 1,
       goalkeeperLimit: 1,
     },
-    teamIds: [],
   };
   assert.equal(seasonCreateSchema.safeParse(valid).success, true);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, seasonNumber: 1000 }).success, true);
-  assert.equal(seasonCreateSchema.safeParse({ ...valid, teamIds: ["507f1f77bcf86cd799439011", "507f1f77bcf86cd799439011"] }).success, false);
+  assert.equal(seasonCreateSchema.safeParse({ ...valid, teamIds: ["507f1f77bcf86cd799439011"] }).success, false);
+  assert.equal(seasonCreateSchema.safeParse({ ...valid, initialTeamIds: ["507f1f77bcf86cd799439011"] }).success, false);
+  assert.equal(seasonCreateSchema.safeParse({ ...valid, initialParticipatingTeams: ["507f1f77bcf86cd799439011"] }).success, false);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, startDate: "2026-11-21", endDate: "2026-11-20" }).success, false);
 });
 

@@ -16,7 +16,7 @@ export interface ISeasonRepository {
   findByNumber(number: number, excludeId?: string): Promise<SeasonEntity | null>;
   findByNormalizedName(name: string, excludeId?: string): Promise<SeasonEntity | null>;
   findActive(excludeId?: string): Promise<SeasonEntity | null>;
-  createWithTeams(data: CreateSeasonDto, normalizedName: string, teams: Array<{ _id: unknown; name: string; logo: SeasonTeamEntity["logoSnapshot"] }>): Promise<SeasonEntity>;
+  createSeason(data: CreateSeasonDto, normalizedName: string): Promise<SeasonEntity>;
   update(id: string, data: Partial<SeasonEntity>): Promise<SeasonEntity | null>;
   updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null>;
   completeIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;

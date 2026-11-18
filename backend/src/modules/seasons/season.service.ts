@@ -36,23 +36,10 @@ export class SeasonService implements ISeasonService {
     if (await this.repo.findByNormalizedName(name)) {
       throw new AppError("A season with this name already exists", 409, "DUPLICATE_SEASON_NAME", { name: "Season name must be unique" });
     }
-    if (input.teamIds.length > input.auctionSettings.seasonTeamCount) {
-      throw new AppError("Selected teams exceed the season team limit", 422, "SEASON_TEAM_LIMIT");
-    }
-    const snapshots = await Promise.all(input.teamIds.map(async (id) => {
-      if (!Types.ObjectId.isValid(id)) throw new AppError("Invalid team ID", 400, "INVALID_TEAM_ID");
-      const team = await this.teams.findTeamById(id);
-      if (!team || team.status !== "active") throw new AppError("All selected teams must be active permanent teams", 422, "INVALID_SEASON_TEAM");
-      return { _id: team._id, name: team.name, logo: team.logo };
-    }));
     try {
-      const created = await this.repo.createWithTeams(input, name, snapshots);
-      return this.map(created);
+      return this.map(await this.repo.createSeason(input, name));
     } catch (error) {
       if ((error as { code?: number }).code === 11000) this.throwDuplicateKey(error);
-      if (error instanceof Error && error.message === "SEASON_TEAM_INACTIVE") {
-        throw new AppError("A selected permanent Team became inactive before registration completed", 409, "INVALID_SEASON_TEAM");
-      }
       throw error;
     }
   }

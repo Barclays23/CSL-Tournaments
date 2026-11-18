@@ -37,3 +37,31 @@ test("archived and completed season configuration is read-only", async () => {
   await assert.rejects(instance.update(id, { name: "Changed" }), (error: unknown) =>
     error instanceof AppError && error.statusCode === 409 && error.errorCode === "SEASON_READ_ONLY");
 });
+
+test("creating a season saves only season configuration; teams are registered separately", async () => {
+  const now = new Date("2026-11-18T00:00:00.000Z");
+  let received: unknown;
+  const instance = service({
+    findByNumber: async () => null,
+    findByNormalizedName: async () => null,
+    createSeason: async (input: unknown) => {
+      received = input;
+      return {
+        _id: id, seasonNumber: 1, name: "Season One", year: 2026,
+        startDate: null, endDate: null, timeZone: "Asia/Kolkata",
+        groupStageEnabled: true, homeAndAwayFixtures: false,
+        status: "draft", historyCompleteness: "not_applicable",
+        auctionSettings: { currency: "INR", budgetPerTeam: 10000, playersCount: 50, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 },
+        pointsRules: { win: 3, draw: 1, loss: 0 },
+        standingsTieBreakers: ["points"], matchRules: null,
+        createdAt: now, updatedAt: now,
+      };
+    },
+  });
+  const result = await instance.create({
+    seasonNumber: 1, name: "Season One", year: 2026,
+    auctionSettings: { currency: "INR", budgetPerTeam: 10000, playersCount: 50, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 },
+  });
+  assert.equal(result._id, id);
+  assert.equal(Object.prototype.hasOwnProperty.call(received, "teamIds"), false);
+});
