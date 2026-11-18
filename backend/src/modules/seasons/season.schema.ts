@@ -62,11 +62,8 @@ export const seasonCreateSchema = z.object({
   pointsRules: pointsRules.default({ win: 3, draw: 1, loss: 0 }),
   standingsTieBreakers: tieBreakers.default(["points", "goalDifference", "goalsScored", "teamNameAsc"]),
   matchRules: matchRules.default({ groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }),
-  teamIds: z.array(objectId).max(64).default([]),
 }).strict().superRefine((value, context) => {
   dateRules(value, context);
-  if (new Set(value.teamIds).size !== value.teamIds.length) context.addIssue({ code: "custom", path: ["teamIds"], message: "A team can only be selected once" });
-  if (value.teamIds.length > value.auctionSettings.seasonTeamCount) context.addIssue({ code: "custom", path: ["teamIds"], message: "Selected teams exceed the season team limit" });
 });
 
 export const seasonUpdateSchema = z.object({

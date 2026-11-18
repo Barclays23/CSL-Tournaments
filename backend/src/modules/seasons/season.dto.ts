@@ -13,7 +13,6 @@ export interface CreateSeasonDto {
   pointsRules?: SeasonPointsRules;
   standingsTieBreakers?: SeasonTieBreaker[];
   matchRules?: SeasonMatchRules;
-  teamIds: string[];
 }
 
 export interface UpdateSeasonDto {

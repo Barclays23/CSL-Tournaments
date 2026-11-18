@@ -57,10 +57,9 @@ export interface SeasonWrite {
     shootoutCountsForMatchScore: false;
     shootoutCountsForPlayerGoals: false;
   };
-  teamIds: string[];
 }
 
-export type SeasonPatch = Partial<Omit<SeasonWrite, "teamIds">> & {
+export type SeasonPatch = Partial<SeasonWrite> & {
   auctionSettings?: Partial<SeasonAuctionSettings>;
   pointsRules?: Partial<{ win: number; draw: number; loss: number }>;
 };

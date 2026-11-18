@@ -693,14 +693,12 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     return ok("Seasons loaded", [...db.seasons].sort((a, b) => b.seasonNumber - a.seasonNumber) as unknown as Season[]);
   },
-  async createSeason(input: SeasonWrite) {
+  async   createSeason(input: SeasonWrite) {
     requireAdmin();
     const db = readSeasonDb();
     const normalizedName = input.name.trim().replace(/\s+/g, " ").toLowerCase();
     if (db.seasons.some((s) => s.seasonNumber === input.seasonNumber)) fail(409, "Season number already exists");
     if (db.seasons.some((s) => s.name.trim().replace(/\s+/g, " ").toLowerCase() === normalizedName)) fail(409, "Season name already exists");
-    if (input.teamIds.length !== new Set(input.teamIds).size) fail(409, "A team can only be registered once in a season");
-    if (input.teamIds.length > input.auctionSettings.seasonTeamCount) fail(422, "Selected teams exceed the season team limit");
     if (input.startDate && input.endDate && input.endDate < input.startDate) fail(422, "End date must be on or after start date");
     const date = now();
     const season: MockSeason = {
@@ -712,13 +710,7 @@ export const seasonPreviewRepository = {
       matchRules: input.matchRules ?? { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false },
       auctionRevision: 0, createdAt: date, updatedAt: date,
     };
-    const initialTeams = input.teamIds.map((teamId) => {
-      const team = teamById(db, teamId);
-      if (team.status !== "active") fail(422, "All selected teams must be active");
-      return { _id: newId(), seasonRef: season._id, teamRef: team._id, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered" as const, createdAt: date, updatedAt: date };
-    });
     db.seasons.push(season);
-    db.seasonTeams.push(...initialTeams);
     commitSeasonDb(db);
     return ok("Draft season created", season as unknown as Season);
   },
