@@ -140,6 +140,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   const existing=await this.repo.findById(id);
   if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
   if(existing.status!=="postponed")throw new AppError("Only Postponed matches can be rescheduled",409,"MATCH_NOT_POSTPONED");
+  assertMatchStatusTransition(existing.status,"scheduled");
   const season=await this.repo.findSeason(String(existing.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(!["upcoming","active"].includes(season.status))throw new AppError("Only Upcoming or Active season matches can be rescheduled",409,"SEASON_CLOSED");

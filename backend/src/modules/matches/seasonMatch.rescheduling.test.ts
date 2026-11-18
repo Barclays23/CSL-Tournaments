@@ -202,6 +202,24 @@ test("rescheduling a postponed match updates kickoff and records both old and ne
   assert.equal(entry.toKickoffAt, newKickoffAt.toISOString());
 });
 
+test("postponement cannot change the original kickoff in the same generic update", async () => {
+  const harness = makeHarness(createMatch({ status: "scheduled" }));
+
+  await assert.rejects(
+    () => harness.service.update(
+      matchId,
+      { status: "postponed", statusReason: "Weather", kickoffAt: newKickoffAt },
+      actorId,
+    ),
+    (error: unknown) => error instanceof AppError
+      && error.errorCode === "POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED",
+  );
+
+  assert.equal(harness.writes.length, 0);
+  assert.equal(harness.document().status, "scheduled");
+  assert.equal(harness.document().kickoffAt.getTime(), originalKickoffAt.getTime());
+});
+
 test("rescheduling rejects a missing or invalid new kickoff date", async () => {
   const harness = makeHarness(createMatch({ status: "postponed" }));
 
@@ -219,6 +237,7 @@ test("rescheduling rejects a missing or invalid new kickoff date", async () => {
 test("reschedule request schema requires kickoffAt and accepts a valid date/time", () => {
   assert.equal(seasonMatchRescheduleSchema.safeParse({}).success, false);
   assert.equal(seasonMatchRescheduleSchema.safeParse({ reason: "No date" }).success, false);
+  assert.equal(seasonMatchRescheduleSchema.safeParse({ kickoffAt: "not-a-date" }).success, false);
   assert.equal(
     seasonMatchRescheduleSchema.safeParse({ kickoffAt: "2027-02-14T15:30:00.000Z" }).success,
     true,
@@ -245,6 +264,33 @@ test("rescheduling rejects dates outside the season date window", async () => {
   );
 
   assert.equal(harness.writes.length, 0);
+});
+
+test("rescheduling rejects past or unchanged kickoff times", async () => {
+  const harness = makeHarness(createMatch({ status: "postponed" }));
+
+  await assert.rejects(
+    () => harness.service.reschedule(
+      matchId,
+      { kickoffAt: new Date("2026-11-17T15:30:00.000Z") },
+      actorId,
+    ),
+    (error: unknown) => error instanceof AppError
+      && error.errorCode === "RESCHEDULE_KICKOFF_NOT_FUTURE",
+  );
+
+  await assert.rejects(
+    () => harness.service.reschedule(
+      matchId,
+      { kickoffAt: originalKickoffAt },
+      actorId,
+    ),
+    (error: unknown) => error instanceof AppError
+      && error.errorCode === "RESCHEDULE_KICKOFF_UNCHANGED",
+  );
+
+  assert.equal(harness.writes.length, 0);
+  assert.equal(harness.document().status, "postponed");
 });
 
 test("generic update cannot reopen a postponed match or alter its kickoff", async () => {
