@@ -34,6 +34,7 @@ export function StandingsPage() {
           data: { season: undefined as never, groups: [] },
         }),
     [seasonId],
+
   );
   const scorers = useServiceQuery(
     () => seasonId
@@ -44,6 +45,7 @@ export function StandingsPage() {
           data: { season: undefined as never, items: [] },
         }),
     [seasonId],
+
   );
 
   const groups: GroupStanding[] = (standings.data?.data.groups ?? []).map((group) => ({
