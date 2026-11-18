@@ -142,3 +142,10 @@ import { SeasonAwardController } from "../modules/seasonAwards/seasonAward.contr
 const seasonAwardRepository = new SeasonAwardRepository();
 const seasonAwardService = new SeasonAwardService(seasonAwardRepository);
 export const seasonAwardController = new SeasonAwardController(seasonAwardService);
+
+import { VenueRepository } from "../modules/venues/venue.repository.js";
+import { VenueService } from "../modules/venues/venue.service.js";
+import { VenueController } from "../modules/venues/venue.controller.js";
+const venueRepository = new VenueRepository();
+const venueService = new VenueService(venueRepository);
+export const venueController = new VenueController(venueService);

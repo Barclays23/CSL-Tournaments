@@ -1,4 +1,5 @@
 import {Types} from "mongoose";
+import {getPairFixtureError} from "./seasonMatch.fixtureRules.js";
 import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
 import {AppError} from "../../shared/errors/appError.js";
@@ -48,11 +49,14 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(await this.repo.findByNumber(seasonId,input.matchNumber))throw new AppError("Match number already exists in this season",409,"DUPLICATE_MATCH_NUMBER");
   const homeId=input.homeSeasonTeamRef,awayId=input.awaySeasonTeamRef;
   await this.validateSeasonTeams(seasonId,homeId,awayId,input.stage,input.groupRef??null);
+  await this.validateFixturePair(seasonId,input.stage,input.groupRef??null,input.roundNumber,homeId,awayId,season.homeAndAwayFixtures??false);
+  const venue=await this.repo.findVenue(input.venueRef);
+  if(!venue||venue.status!=="active")throw new AppError("Choose an active venue from the venue list",422,"INVALID_VENUE",{venueRef:"Choose an active venue"});
   await this.validateKnockoutQualification(seasonId,input.stage,homeId,awayId,season);
-  const fields:SeasonMatchFields={seasonRef:new Types.ObjectId(seasonId),matchNumber:input.matchNumber,stage:input.stage,groupRef:input.stage==="group"&&input.groupRef?new Types.ObjectId(input.groupRef):null,kickoffAt:input.kickoffAt,venue:input.venue??null,homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:"scheduled",goals:[],penaltyShootout:null,winnerSeasonTeamRef:null,notes:input.notes??null,resolutionHistory:[]};
+  const fields:SeasonMatchFields={seasonRef:new Types.ObjectId(seasonId),matchNumber:input.matchNumber,roundNumber:input.roundNumber,stage:input.stage,groupRef:input.stage==="group"&&input.groupRef?new Types.ObjectId(input.groupRef):null,kickoffAt:input.kickoffAt,venueRef:new Types.ObjectId(input.venueRef),homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:"scheduled",goals:[],penaltyShootout:null,winnerSeasonTeamRef:null,notes:input.notes??null,resolutionHistory:[]};
   if(input.status!==undefined&&input.status!=="scheduled")throw new AppError("New fixtures must start as Scheduled",422,"INVALID_INITIAL_MATCH_STATUS");
   if(fields.status==="completed")throw new AppError("Create fixtures as scheduled, record goals, then complete the match",422,"INVALID_MATCH_COMPLETION");
-  const created=await this.repo.create(fields);const populated=await this.repo.findPopulatedById(String(created._id));if(!populated)throw new AppError("Created fixture could not be retrieved",500,"MATCH_CREATE_FAILED");return this.map(populated);
+  const created=await this.repo.create(fields,season.homeAndAwayFixtures??false);const populated=await this.repo.findPopulatedById(String(created._id));if(!populated)throw new AppError("Created fixture could not be retrieved",500,"MATCH_CREATE_FAILED");return this.map(populated);
  }
  async update(id:string,input:UpdateSeasonMatchDto):Promise<SeasonMatchResponseDto>{
   this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
@@ -62,7 +66,11 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const homeId=input.homeSeasonTeamRef??String(existing.homeSeasonTeamRef),awayId=input.awaySeasonTeamRef??String(existing.awaySeasonTeamRef);
   const stage=input.stage??existing.stage,groupId=input.groupRef===undefined?(existing.groupRef?String(existing.groupRef):null):input.groupRef;
+  const roundNumber=input.roundNumber??existing.roundNumber,venueRef=input.venueRef??String(existing.venueRef);
   await this.validateSeasonTeams(String(existing.seasonRef),homeId,awayId,stage,groupId);
+  await this.validateFixturePair(String(existing.seasonRef),stage,groupId,roundNumber,homeId,awayId,season.homeAndAwayFixtures??false,id);
+  const venue=await this.repo.findVenue(venueRef);
+  if(!venue||(venue.status!=="active"&&venueRef!==String(existing.venueRef)))throw new AppError("Choose an active venue from the venue list",422,"INVALID_VENUE",{venueRef:"Choose an active venue"});
   await this.validateKnockoutQualification(String(existing.seasonRef),stage,homeId,awayId,season);
   const kickoffAt=input.kickoffAt??existing.kickoffAt;
   this.assertKickoffWithinSeason(season,kickoffAt);
@@ -86,10 +94,10 @@ export class SeasonMatchService implements ISeasonMatchService{
     throw new AppError("Record an audited reason when cancelling or abandoning a fixture",422,"FIXTURE_RESOLUTION_REASON_REQUIRED");
    }
   }
-  const merged:SeasonMatchFields={...existing,matchNumber:number,stage,groupRef:stage==="group"&&groupId?new Types.ObjectId(groupId):null,kickoffAt,venue:input.venue===undefined?existing.venue:input.venue,homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:nextStatus,penaltyShootout:input.penaltyShootout===undefined?existing.penaltyShootout:this.buildShootout(input.penaltyShootout),notes:input.notes===undefined?existing.notes:input.notes,winnerSeasonTeamRef:existing.winnerSeasonTeamRef,resolutionHistory};
+  const merged:SeasonMatchFields={...existing,matchNumber:number,roundNumber,stage,groupRef:stage==="group"&&groupId?new Types.ObjectId(groupId):null,kickoffAt,venueRef:new Types.ObjectId(venueRef),homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:nextStatus,penaltyShootout:input.penaltyShootout===undefined?existing.penaltyShootout:this.buildShootout(input.penaltyShootout),notes:input.notes===undefined?existing.notes:input.notes,winnerSeasonTeamRef:existing.winnerSeasonTeamRef,resolutionHistory};
   if(merged.penaltyShootout)await this.validateShootout(String(existing.seasonRef),merged,merged.penaltyShootout);
   merged.winnerSeasonTeamRef=this.calculateWinner(merged,season.matchRules);
-  const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venue:merged.venue,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory});
+  const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,roundNumber:merged.roundNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venueRef:merged.venueRef,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory},season.homeAndAwayFixtures??false);
   if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated fixture could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);
  }
  async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");throw new AppError("Fixtures are retained as tournament history and cannot be physically deleted. Change the fixture status to cancelled or abandoned instead.",409,"MATCH_DELETE_BLOCKED");}
@@ -120,6 +128,14 @@ export class SeasonMatchService implements ISeasonMatchService{
   if((stage==="final"||stage==="third_place")&&!semiFinals.length)throw new AppError("Semi-final fixtures must be recorded before creating the final or third-place playoff",409,"SEMI_FINALS_REQUIRED");
   const eligible=qualifiedTeamsForStage(stage,groupQualifiers,activeTeamIds,roundOf16,quarterFinals,semiFinals);
   if(!eligible.has(homeId)||!eligible.has(awayId))throw new AppError("Both teams must have qualified for this knockout stage based on the completed group standings or previous knockout results",422,"KNOCKOUT_QUALIFICATION_REQUIRED");
+ }
+ private async validateFixturePair(seasonId:string,stage:SeasonMatchFields["stage"],groupId:string|null,roundNumber:number,homeId:string,awayId:string,homeAndAway:boolean,excludeId?:string):Promise<void>{
+  const fixtures=await this.repo.findPairFixtures(seasonId,stage,stage==="group"?groupId:null,homeId,awayId);
+  const issue=getPairFixtureError(fixtures,roundNumber,homeId,awayId,homeAndAway,excludeId);
+  if(issue==="DUPLICATE_PAIR_IN_ROUND")throw new AppError("These two teams already have a fixture in this round. Reversing home and away does not create a separate round fixture.",409,issue,{roundNumber:"This team pairing already exists in the selected round"});
+  if(issue==="DUPLICATE_TEAM_PAIR")throw new AppError("This team pairing already has a fixture. Enable Home and Away Fixtures in the season settings to schedule the return fixture.",409,issue,{homeSeasonTeamRef:"This team pair already has a fixture"});
+  if(issue==="PAIR_FIXTURE_LIMIT")throw new AppError("A team pair can have at most two fixtures in a home-and-away season",409,issue);
+  if(issue==="DUPLICATE_HOME_AWAY_ORIENTATION")throw new AppError("This home/away orientation already exists. The return fixture must reverse the home and away teams.",409,issue,{homeSeasonTeamRef:"Reverse the home and away teams for the return fixture"});
  }
  private assertKickoffWithinSeason(season:NonNullable<Awaited<ReturnType<SeasonMatchRepository["findSeason"]>>>,kickoffAt:Date):void{
   if(!isKickoffWithinSeasonDateWindow(kickoffAt,{startDate:season.startDate,endDate:season.endDate,timeZone:season.timeZone})){
@@ -191,7 +207,7 @@ export class SeasonMatchService implements ISeasonMatchService{
  }
  private mapPlayer(ref:unknown):string|SeasonMatchPlayerDto|null{if(!ref)return null;if(ref instanceof Types.ObjectId)return String(ref);const p=ref as any;if(!p.name)return String(p._id??p);return {_id:String(p._id),name:p.name,profilePic:p.profilePic};}
  private mapGoal(g:PopulatedSeasonGoal):SeasonGoalResponseDto{return {_id:String(g._id),scoringSeasonTeamRef:this.mapTeam(g.scoringSeasonTeamRef)!,scorerPlayerRef:this.mapPlayer(g.scorerPlayerRef),playerSeasonTeamRef:this.mapTeam(g.playerSeasonTeamRef),goalType:g.goalType,createdAt:g.createdAt.toISOString()};}
- private map(m:PopulatedSeasonMatch):SeasonMatchResponseDto{return {_id:String(m._id),seasonRef:String(m.seasonRef),matchNumber:m.matchNumber,stage:m.stage,groupRef:m.groupRef?String(m.groupRef):null,kickoffAt:m.kickoffAt.toISOString(),venue:m.venue,homeSeasonTeamRef:this.mapTeam(m.homeSeasonTeamRef)!,awaySeasonTeamRef:this.mapTeam(m.awaySeasonTeamRef)!,status:m.status,goals:m.goals.map(g=>this.mapGoal(g)),resolutionHistory:(m.resolutionHistory??[]).map(entry=>({status:entry.status,reason:entry.reason,decidedAt:entry.decidedAt.toISOString()})),penaltyShootout:m.penaltyShootout?{status:m.penaltyShootout.status,homeTeamScore:m.penaltyShootout.homeTeamScore,awayTeamScore:m.penaltyShootout.awayTeamScore,kicks:m.penaltyShootout.kicks.map(k=>({seasonTeamRef:String(k.seasonTeamRef),playerRef:k.playerRef?String(k.playerRef):null,result:k.result}))}:null,winnerSeasonTeamRef:this.mapTeam(m.winnerSeasonTeamRef),notes:m.notes,createdAt:m.createdAt.toISOString(),updatedAt:m.updatedAt.toISOString()};}
+ private map(m:PopulatedSeasonMatch):SeasonMatchResponseDto{const venue=m.venueRef&&!(m.venueRef instanceof Types.ObjectId)&&typeof m.venueRef==="object"?{_id:String(m.venueRef._id),name:m.venueRef.name,location:m.venueRef.location}:String(m.venueRef);return {_id:String(m._id),seasonRef:String(m.seasonRef),matchNumber:m.matchNumber,roundNumber:m.roundNumber,stage:m.stage,groupRef:m.groupRef?String(m.groupRef):null,kickoffAt:m.kickoffAt.toISOString(),venueRef:venue,venue:typeof venue==="string"?null:venue.name,homeSeasonTeamRef:this.mapTeam(m.homeSeasonTeamRef)!,awaySeasonTeamRef:this.mapTeam(m.awaySeasonTeamRef)!,status:m.status,goals:m.goals.map(g=>this.mapGoal(g)),resolutionHistory:(m.resolutionHistory??[]).map(entry=>({status:entry.status,reason:entry.reason,decidedAt:entry.decidedAt.toISOString()})),penaltyShootout:m.penaltyShootout?{status:m.penaltyShootout.status,homeTeamScore:m.penaltyShootout.homeTeamScore,awayTeamScore:m.penaltyShootout.awayTeamScore,kicks:m.penaltyShootout.kicks.map(k=>({seasonTeamRef:String(k.seasonTeamRef),playerRef:k.playerRef?String(k.playerRef):null,result:k.result}))}:null,winnerSeasonTeamRef:this.mapTeam(m.winnerSeasonTeamRef),notes:m.notes,createdAt:m.createdAt.toISOString(),updatedAt:m.updatedAt.toISOString()};}
  private async getExisting(id:string):Promise<SeasonMatchEntity>{
   this.id(id,"match");
   const match=await this.repo.findById(id);
