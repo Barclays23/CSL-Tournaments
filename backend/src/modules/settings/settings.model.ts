@@ -7,7 +7,6 @@ const settingsSchema = new Schema<SettingsFields>({
   startDate: { type: Date, required: true, default: () => new Date() },
   endDate: { type: Date, required: true, default: () => new Date() },
   maxActivePlayers: { type: Number, required: true, default: 54, min: 1 },
-  maxActiveTeams: { type: Number, required: true, default: 6, min: 1 },
   maxPlayersPerTeam: { type: Number, required: true, default: 9, min: 1 },
   auctionBudgetPerTeam: { type: Number, required: true, default: 10000, min: 0 },
   requiredIconPlayers: { type: Number, required: true, default: 1, min: 0 },

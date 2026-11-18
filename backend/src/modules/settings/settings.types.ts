@@ -16,7 +16,6 @@ export interface SettingsFields {
   startDate: Date;
   endDate: Date;
   maxActivePlayers: number;
-  maxActiveTeams: number;
   maxPlayersPerTeam: number;
   auctionBudgetPerTeam: number;
   requiredIconPlayers: number;

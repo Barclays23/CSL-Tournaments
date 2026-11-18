@@ -535,9 +535,6 @@ export const previewRepository = {
     if (db.teams.some((team) => team.name.toLowerCase() === input.name.trim().toLowerCase())) {
       fail(409, "A team with this name already exists", { name: "Team name must be unique" });
     }
-    if (input.status === "active" && db.teams.filter((team) => team.status === "active").length >= db.settings.maxActiveTeams) {
-      fail(422, `The active team limit is ${db.settings.maxActiveTeams}`, { status: "Deactivate another team first" });
-    }
     const team: StoredTeam = {
       _id: uid("team"),
       name: input.name.trim(),
@@ -563,13 +560,6 @@ export const previewRepository = {
     }
     const current = db.teams[index];
     const seasonDb = readSeasonDb();
-    if (
-      input.status === "active" &&
-      current.status !== "active" &&
-      db.teams.filter((team) => team.status === "active").length >= db.settings.maxActiveTeams
-    ) {
-      fail(422, `The active team limit is ${db.settings.maxActiveTeams}`, { status: "Deactivate another team first" });
-    }
     const team: StoredTeam = {
       ...current,
       name: input.name.trim(),

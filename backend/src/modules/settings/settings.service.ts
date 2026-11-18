@@ -29,7 +29,6 @@ export class SettingsService implements ISettingsService {
     const updateFields: Partial<import("./settings.types.js").SettingsFields> = { ...input };
     const auctionRulesChanged =
       input.maxActivePlayers !== undefined ||
-      input.maxActiveTeams !== undefined ||
       input.maxPlayersPerTeam !== undefined ||
       input.auctionBudgetPerTeam !== undefined ||
       input.requiredIconPlayers !== undefined ||

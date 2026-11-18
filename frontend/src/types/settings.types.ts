@@ -13,7 +13,6 @@ export interface Settings {
   startDate: string;
   endDate: string;
   maxActivePlayers: number;
-  maxActiveTeams: number;
   maxPlayersPerTeam: number;
   auctionBudgetPerTeam: number;
   requiredIconPlayers: number;

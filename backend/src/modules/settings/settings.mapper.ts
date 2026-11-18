@@ -8,7 +8,6 @@ export function mapSettingsEntityToResponseDTO(settings: SettingsEntity): Settin
     startDate: settings.startDate.toISOString(),
     endDate: settings.endDate.toISOString(),
     maxActivePlayers: settings.maxActivePlayers,
-    maxActiveTeams: settings.maxActiveTeams,
     maxPlayersPerTeam: settings.maxPlayersPerTeam,
     auctionBudgetPerTeam: settings.auctionBudgetPerTeam,
     requiredIconPlayers: settings.requiredIconPlayers,
