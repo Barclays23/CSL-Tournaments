@@ -131,6 +131,12 @@ function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: 
   return match.goals.filter((goal) => goal.scoringSeasonTeamRef === seasonTeamId).length;
 }
 
+function assertLiveMatch(match: MockSeasonMatch): void {
+  if (match.status !== "live") {
+    fail(409, "Goals can only be added, edited or removed while the match is Live.");
+  }
+}
+
 function validateMockPair(db: SeasonMockDatabase, season: MockSeason, stage: MockSeasonMatch["stage"], groupRef: string | null, roundNumber: number, homeId: string, awayId: string, excludeId?: string) {
   const fixtures = db.matches.filter((item) => item.seasonRef === season._id && item.stage === stage
     && (stage === "group" ? item.groupRef === groupRef : true)
@@ -679,7 +685,7 @@ export const seasonPreviewRepository = {
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (["cancelled", "abandoned"].includes(match.status)) fail(409, "Goals cannot be changed on a cancelled or abandoned fixture");
+    assertLiveMatch(match);
     const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
     if (scoring !== home && scoring !== away) fail(422, "Credited team must be one of the match participants");
     const scorerId = input.scorerPlayerRef ?? null;
@@ -704,7 +710,7 @@ export const seasonPreviewRepository = {
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (["cancelled", "abandoned"].includes(match.status)) fail(409, "Goals cannot be changed on a cancelled or abandoned fixture");
+    assertLiveMatch(match);
     const index = match.goals.findIndex((goal) => goal._id === goalId);
     if (index < 0) return fail(404, "Goal not found");
     const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
@@ -731,7 +737,7 @@ export const seasonPreviewRepository = {
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (["cancelled", "abandoned"].includes(match.status)) fail(409, "Goals cannot be changed on a cancelled or abandoned fixture");
+    assertLiveMatch(match);
     const index = match.goals.findIndex((goal) => goal._id === goalId);
     if (index < 0) return fail(404, "Goal not found");
     match.goals.splice(index, 1);

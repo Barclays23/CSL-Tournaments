@@ -89,3 +89,37 @@ test("generic match update API rejects direct scheduled-to-completed changes", a
       && error.message.includes("Scheduled to Completed"),
   );
 });
+
+
+test("goal add, edit and delete operations are restricted to Live matches", async () => {
+  const matchId = "507f1f77bcf86cd799439011";
+  const goalId = "507f1f77bcf86cd799439018";
+  const goalInput = {
+    scoringSeasonTeamRef: "507f1f77bcf86cd799439013",
+    scorerPlayerRef: "507f1f77bcf86cd799439019",
+    goalType: "normal" as const,
+  };
+  const lockedStatuses = statuses.filter((status) => status !== "live");
+
+  for (const status of lockedStatuses) {
+    const operations: Array<{
+      name: string;
+      run: (service: SeasonMatchService) => Promise<unknown>;
+    }> = [
+      { name: "add", run: (service) => service.addGoal(matchId, goalInput) },
+      { name: "edit", run: (service) => service.updateGoal(matchId, goalId, goalInput) },
+      { name: "delete", run: (service) => service.deleteGoal(matchId, goalId) },
+    ];
+
+    for (const operation of operations) {
+      const service = serviceForStatus(status);
+      await assert.rejects(
+        () => operation.run(service),
+        (error: unknown) => error instanceof AppError
+          && error.statusCode === 409
+          && error.errorCode === "MATCH_NOT_LIVE",
+        `${operation.name} should be rejected when the match status is ${status}`,
+      );
+    }
+  }
+});

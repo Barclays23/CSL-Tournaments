@@ -208,8 +208,11 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const scoringTeamId = goalTeamId || home.id;
   const playerTeamId = goalType === "normal" ? scoringTeamId : scoringTeamId === home.id ? away.id : home.id;
   const eligibleGoalPlayers = (lotsQuery.data?.data ?? []).filter((lot) => lotTeamId(lot) === playerTeamId && lotPlayer(lot));
-  const canManageGoals = isAdmin && !["cancelled", "abandoned"].includes(match.status);
-  const showScore = match.status === "live" || match.status === "completed" || match.goals.length > 0;
+  const canManageGoals = isAdmin && match.status === "live";
+  const showScore = match.status === "live"
+    || match.status === "completed"
+    || (match.status !== "scheduled" && match.goals.length > 0);
+  const hasPreMatchGoals = match.status === "scheduled" && match.goals.length > 0;
   const events = buildEvents(match.goals);
 
   // Group name (only meaningful in the group stage). Adjust the field name if your type differs.
@@ -226,6 +229,10 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const showEdit = isAdmin && !["completed", "cancelled", "abandoned"].includes(match.status);
 
   const saveGoal = async () => {
+    if (!canManageGoals) {
+      toast.error("Goals can only be managed by an admin while the match is Live.");
+      return;
+    }
     if (!scoringTeamId || (!goalPlayerId && goalType === "normal")) {
       toast.error("Choose the credited team and goal scorer");
       return;
@@ -254,6 +261,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   };
 
   const beginGoalEdit = (goalId: string) => {
+    if (!canManageGoals) return;
     const goal = match.goals.find((g) => g._id === goalId);
     if (!goal) return;
     setEditingGoalId(goal._id);
@@ -264,6 +272,10 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   };
 
   const removeGoal = async (goalId: string) => {
+    if (!canManageGoals) {
+      toast.error("Goals can only be managed by an admin while the match is Live.");
+      return;
+    }
     const yes = await confirm({
       title: "Remove this goal?",
       description: "The score, standings, winner and top-scorer statistics will be recalculated.",
@@ -360,6 +372,11 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
           </div>
 
           {match.notes ? <p className="mt-5 text-center text-sm text-muted">{match.notes}</p> : null}
+          {hasPreMatchGoals ? (
+            <p className="mt-4 text-center text-xs text-warning" role="status">
+              This Upcoming fixture contains {match.goals.length} previously saved goal event(s). They are preserved for review, but cannot be edited or removed until the match is Live.
+            </p>
+          ) : null}
 
           {/* Events under each team, icon on the centre line */}
           <div className="mt-8 border-t border-line pt-5">
