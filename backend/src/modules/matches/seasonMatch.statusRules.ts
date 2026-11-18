@@ -3,7 +3,7 @@ import type { SeasonMatchStatus } from "./seasonMatch.types.js";
 
 export const MATCH_STATUS_TRANSITIONS: Readonly<Record<SeasonMatchStatus, readonly SeasonMatchStatus[]>> = {
   scheduled: ["live", "postponed", "cancelled"],
-  live: ["completed", "postponed", "abandoned"],
+  live: ["completed", "scheduled", "postponed", "abandoned"],
   postponed: ["scheduled", "cancelled"],
   completed: [],
   cancelled: [],
@@ -31,7 +31,7 @@ export function isAllowedMatchStatusTransition(
 
 /**
  * Central guard for every normal match-status change.
- * Result correction and audited reopening are intentionally outside this rule.
+ * Completed-result correction and reopening final statuses are intentionally outside this rule.
  */
 export function assertMatchStatusTransition(
   currentStatus: SeasonMatchStatus,

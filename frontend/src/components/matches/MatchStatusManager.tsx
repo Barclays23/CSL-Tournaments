@@ -12,7 +12,7 @@ import {
 import type { SeasonMatch, SeasonMatchStatus } from "@/types/seasonMatch.types";
 import { formatDate, formatTime, fromDateTimeInput } from "@/utils/formatDate";
 
-type StatusAction = "start" | "complete" | "postpone" | "cancel" | "abandon" | "reschedule";
+type StatusAction = "start" | "complete" | "revert" | "postpone" | "cancel" | "abandon" | "reschedule";
 
 const STATUS_LABEL: Record<SeasonMatchStatus, string> = {
   scheduled: "Scheduled",
@@ -34,7 +34,7 @@ const STATUS_TONE: Record<SeasonMatchStatus, string> = {
 
 const ACTIONS: Record<SeasonMatchStatus, StatusAction[]> = {
   scheduled: ["start", "postpone", "cancel"],
-  live: ["complete", "postpone", "abandon"],
+  live: ["complete", "revert", "postpone", "abandon"],
   postponed: ["reschedule", "cancel"],
   completed: [],
   cancelled: [],
@@ -44,6 +44,7 @@ const ACTIONS: Record<SeasonMatchStatus, StatusAction[]> = {
 const ACTION_LABEL: Record<StatusAction, string> = {
   start: "Start match",
   complete: "Complete match",
+  revert: "Revert to Scheduled",
   postpone: "Postpone match",
   cancel: "Cancel match",
   abandon: "Abandon match",
@@ -53,6 +54,7 @@ const ACTION_LABEL: Record<StatusAction, string> = {
 const ACTION_DESCRIPTION: Record<StatusAction, string> = {
   start: "The match will move to Live. You can then record match events and goals.",
   complete: "The backend will validate the recorded score and season result rules before completing this match.",
+  revert: "Return an accidentally started match to Scheduled. This is allowed only when no goals are recorded. Enter a reason; the change will be saved in status history.",
   postpone: "The original fixture date and kick-off time will be retained in the status history. Enter a reason for postponement.",
   cancel: "The fixture will be marked as cancelled and cannot be reopened. Enter the reason for this decision.",
   abandon: "The fixture will be marked as abandoned and cannot be reopened. Enter the reason for this decision.",
@@ -135,7 +137,7 @@ export function MatchStatusManager({
     if (!activeAction || saving) return;
 
     const normalizedReason = reason.trim();
-    const requiresReason = ["postpone", "cancel", "abandon"].includes(activeAction);
+    const requiresReason = ["revert", "postpone", "cancel", "abandon"].includes(activeAction);
     if (requiresReason && normalizedReason.length < 3) {
       setSubmitError("Enter a reason with at least 3 characters.");
       return;
@@ -163,15 +165,17 @@ export function MatchStatusManager({
           ? "live"
           : activeAction === "complete"
             ? "completed"
-            : activeAction === "postpone"
-              ? "postponed"
-              : activeAction === "cancel"
-                ? "cancelled"
-                : "abandoned";
+            : activeAction === "revert"
+              ? "scheduled"
+              : activeAction === "postpone"
+                ? "postponed"
+                : activeAction === "cancel"
+                  ? "cancelled"
+                  : "abandoned";
 
         response = await updateSeasonMatchStatus(seasonId, match._id, {
           status: nextStatus,
-          ...(activeAction === "postpone" ? { statusReason: normalizedReason } : {}),
+          ...(activeAction === "postpone" || activeAction === "revert" ? { statusReason: normalizedReason } : {}),
           ...(activeAction === "cancel" || activeAction === "abandon"
             ? { resolutionReason: normalizedReason }
             : {}),
@@ -198,6 +202,7 @@ export function MatchStatusManager({
   };
 
   const actions = ACTIONS[match.status];
+  const statusHistory = [...(match.statusHistory ?? [])].reverse();
   const details = resolutionDetails(match);
   const isTerminal = match.status === "cancelled" || match.status === "abandoned";
   const resultLabel = winner === home.id
@@ -247,7 +252,7 @@ export function MatchStatusManager({
                   key={action}
                   size="sm"
                   variant={actionVariant(action)}
-                  disabled={saving}
+                  disabled={saving || (action === "revert" && match.goals.length > 0)}
                   onClick={() => openAction(action)}
                 >
                   {ACTION_LABEL[action]}
@@ -262,6 +267,28 @@ export function MatchStatusManager({
             <p className="mt-1 text-fg">{details.reason}</p>
           </div>
         ) : null}
+        {isAdmin && match.status === "live" && match.goals.length > 0 ? (
+          <p className="mt-3 rounded-control border border-warning/30 bg-warning/10 p-3 text-sm text-warning" role="status">
+            To revert this match to Scheduled, first remove all {match.goals.length} recorded goal {match.goals.length === 1 ? "event" : "events"} using Goal Management. The Revert to Scheduled action will become available when no goals remain.
+          </p>
+        ) : null}
+        {statusHistory.length > 0 ? (
+          <div className="mt-4 border-t border-line pt-4">
+            <h3 className="text-xs font-bold uppercase tracking-wide text-muted">Status change history</h3>
+            <ol className="mt-3 grid gap-3">
+              {statusHistory.map((entry, index) => (
+                <li key={`${entry.changedAt}-${entry.fromStatus}-${entry.toStatus}-${index}`} className="rounded-control border border-line bg-glass p-3 text-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-fg">{STATUS_LABEL[entry.fromStatus]} → {STATUS_LABEL[entry.toStatus]}</p>
+                    <p className="text-xs text-muted">{formatDate(entry.changedAt)} · {formatTime(entry.changedAt)}</p>
+                  </div>
+                  {entry.reason ? <p className="mt-1 text-muted">{entry.reason}</p> : null}
+                  <p className="mt-1 text-xs text-faint">Admin user ID: {entry.changedBy}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </GlassCard>
 
       <Modal
@@ -272,7 +299,7 @@ export function MatchStatusManager({
       >
         {activeAction ? (
           <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
-            {["postpone", "cancel", "abandon"].includes(activeAction) ? (
+            {["revert", "postpone", "cancel", "abandon"].includes(activeAction) ? (
               <label className="grid gap-2 text-sm font-semibold text-fg">
                 Reason <span className="text-danger">*</span>
                 <Textarea
@@ -282,9 +309,11 @@ export function MatchStatusManager({
                   value={reason}
                   onChange={(event) => setReason(event.target.value)}
                   placeholder={
-                    activeAction === "postpone"
-                      ? "Why is this match being postponed?"
-                      : activeAction === "cancel"
+                    activeAction === "revert"
+                      ? "Why is this match being returned to Scheduled?"
+                      : activeAction === "postpone"
+                        ? "Why is this match being postponed?"
+                        : activeAction === "cancel"
                         ? "Why is this fixture being cancelled?"
                         : "Why can this match not continue?"
                   }
@@ -317,6 +346,12 @@ export function MatchStatusManager({
               </>
             ) : null}
 
+            {activeAction === "revert" ? (
+              <div className="rounded-control border border-warning/30 bg-warning/10 p-3 text-sm text-muted">
+                No goals are currently recorded. Confirming will return this fixture to Scheduled, clear any stale result metadata, and save your reason and admin account in the status history.
+              </div>
+            ) : null}
+
             {activeAction === "start" || activeAction === "complete" ? (
               <div className="rounded-control border border-line bg-glass p-3 text-sm text-muted">
                 {activeAction === "complete"
@@ -333,7 +368,7 @@ export function MatchStatusManager({
                 type="submit"
                 variant={activeAction === "cancel" || activeAction === "abandon" ? "danger" : "primary"}
                 disabled={saving
-                  || (["postpone", "cancel", "abandon"].includes(activeAction) && reason.trim().length < 3)
+                  || (["revert", "postpone", "cancel", "abandon"].includes(activeAction) && reason.trim().length < 3)
                   || (activeAction === "reschedule" && !newKickoff)}
               >
                 {saving ? "Saving…" : activeAction === "reschedule" ? "Confirm reschedule" : `Confirm ${ACTION_LABEL[activeAction].toLowerCase()}`}
