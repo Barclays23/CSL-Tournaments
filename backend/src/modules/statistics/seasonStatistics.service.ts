@@ -11,7 +11,7 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
  constructor(private readonly repo:SeasonStatisticsRepository){}
  async getStandings(seasonId:string):Promise<SeasonStandingsDto>{
   this.id(seasonId,"season");const season=await this.requireSeason(seasonId);
-  const [teams,groups,matches]=await Promise.all([this.repo.findSeasonTeams(seasonId),this.repo.findGroups(seasonId),this.repo.findCompletedGroupMatches(seasonId)]);
+  const [teams,groups,matches]=await Promise.all([this.repo.findSeasonTeams(seasonId),this.repo.findGroups(seasonId),this.repo.findGroupStandingsMatches(seasonId)]);
   const standings=new Map<string,Standing>();
   for(const st of teams)standings.set(String(st._id),{team:this.teamBrief(st),played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,goalDifference:0,points:0});
   for(const match of matches){
@@ -28,7 +28,7 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
   return {season:this.seasonBrief(season),groups:result};
  }
  async getTopScorers(seasonId:string):Promise<SeasonTopScorersDto>{
-  this.id(seasonId,"season");const season=await this.requireSeason(seasonId);const [matches,lots]=await Promise.all([this.repo.findCompletedMatches(seasonId),this.repo.findSoldLots(seasonId)]);
+  this.id(seasonId,"season");const season=await this.requireSeason(seasonId);const [matches,lots]=await Promise.all([this.repo.findMatchesForTopScorers(seasonId),this.repo.findSoldLots(seasonId)]);
   const goalCounts=new Map<string,number>();
   const goalTeamByPlayer=new Map<string,SeasonTeamBriefDto>();
   for(const match of matches)for(const goal of match.goals){

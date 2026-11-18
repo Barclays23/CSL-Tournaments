@@ -253,7 +253,7 @@ function populatedSeasonMatch(db: SeasonMockDatabase, match: MockSeasonMatch): S
   } as SeasonMatch;
 }
 function teamRecord(db: SeasonMockDatabase, seasonId: string, seasonTeamId: string, groupOnly = false) {
-  const relevant = db.matches.filter((m) => m.seasonRef === seasonId && m.status === "completed" && (!groupOnly || m.stage === "group") && (m.homeSeasonTeamRef === seasonTeamId || m.awaySeasonTeamRef === seasonTeamId));
+  const relevant = db.matches.filter((m) => m.seasonRef === seasonId && (m.status === "completed" || (groupOnly && m.status === "live")) && (!groupOnly || m.stage === "group") && (m.homeSeasonTeamRef === seasonTeamId || m.awaySeasonTeamRef === seasonTeamId));
   const rules = seasonById(db, seasonId).pointsRules;
   let played = 0, won = 0, drawn = 0, lost = 0, goalsScored = 0, goalsConceded = 0, cleanSheets = 0, points = 0;
   for (const match of relevant) {
@@ -276,23 +276,48 @@ function teamRecord(db: SeasonMockDatabase, seasonId: string, seasonTeamId: stri
   };
 }
 function groupStandings(db: SeasonMockDatabase, season: MockSeason) {
-  const groups = db.groups.filter((group) => group.seasonRef === season._id).sort((a, b) => a.displayOrder - b.displayOrder);
-  return groups.map((group) => {
-    const entries = db.seasonTeams
-      .filter((seasonTeam) => seasonTeam.seasonRef === season._id && seasonTeam.groupRef === group._id)
-      .map((seasonTeam) => ({ team: teamBrief(db, seasonTeam), ...teamRecord(db, season._id, seasonTeam._id, true) }));
-    entries.sort((a, b) =>
-      b.points - a.points ||
-      b.goalDifference - a.goalDifference ||
-      b.goalsScored - a.goalsScored ||
-      a.team.displayName.localeCompare(b.team.displayName),
-    );
+  const groups = db.groups.filter((group) => group.seasonRef === season._id);
+  const groupById = new Map(groups.map((group) => [group._id, group]));
+  const participatingTeams = db.seasonTeams.filter(
+    (seasonTeam) => seasonTeam.seasonRef === season._id && seasonTeam.status !== "withdrawn",
+  );
+  const teamsByGroup = new Map<string, typeof participatingTeams>();
+
+  for (const seasonTeam of participatingTeams) {
+    const groupKey = seasonTeam.groupRef ?? "ungrouped";
+    const entries = teamsByGroup.get(groupKey) ?? [];
+    entries.push(seasonTeam);
+    teamsByGroup.set(groupKey, entries);
+  }
+
+  const tieBreakers = season.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"];
+  return [...teamsByGroup.entries()].map(([groupKey, seasonTeams]) => {
+    const rows = seasonTeams.map((seasonTeam) => ({
+      team: teamBrief(db, seasonTeam),
+      ...teamRecord(db, season._id, seasonTeam._id, true),
+    }));
+
+    rows.sort((a, b) => {
+      for (const tieBreaker of tieBreakers) {
+        const difference = tieBreaker === "points"
+          ? b.points - a.points
+          : tieBreaker === "goalDifference"
+            ? b.goalDifference - a.goalDifference
+            : tieBreaker === "goalsScored"
+              ? b.goalsScored - a.goalsScored
+              : a.team.displayName.localeCompare(b.team.displayName);
+        if (difference !== 0) return difference;
+      }
+      return a.team.displayName.localeCompare(b.team.displayName);
+    });
+
+    const group = groupKey === "ungrouped" ? null : groupById.get(groupKey);
     return {
-      groupRef: group._id,
-      groupName: group.groupName,
-      rows: entries.map((row, index) => ({ position: index + 1, ...row, qualified: index < 2 })),
+      groupRef: groupKey === "ungrouped" ? null : groupKey,
+      groupName: groupKey === "ungrouped" ? "Ungrouped" : group?.groupName ?? "Ungrouped",
+      rows: rows.map((row, index) => ({ position: index + 1, ...row, qualified: index < 2 })),
     };
-  });
+  }).sort((a, b) => a.groupName.localeCompare(b.groupName));
 }
 
 function mockAwardReadiness(db: SeasonMockDatabase, seasonId: string): string[] {
@@ -1327,7 +1352,7 @@ export const seasonPreviewRepository = {
     const counts = new Map<string, number>();
     const playerTeams = new Map<string, string>();
     for (const match of db.matches) {
-      if (match.seasonRef !== seasonId || match.status !== "completed") continue;
+      if (match.seasonRef !== seasonId || (match.status !== "completed" && match.status !== "live")) continue;
       for (const goal of match.goals) {
         if (goal.goalType !== "normal" || !goal.scorerPlayerRef) continue;
         counts.set(goal.scorerPlayerRef, (counts.get(goal.scorerPlayerRef) ?? 0) + 1);

@@ -34,6 +34,7 @@ export function StandingsPage() {
           data: { season: undefined as never, groups: [] },
         }),
     [seasonId],
+    { refreshIntervalMs: 15_000, keepPreviousDataOnRefresh: true },
   );
   const scorers = useServiceQuery(
     () => seasonId
@@ -44,6 +45,7 @@ export function StandingsPage() {
           data: { season: undefined as never, items: [] },
         }),
     [seasonId],
+    { refreshIntervalMs: 15_000, keepPreviousDataOnRefresh: true },
   );
 
   const groups: GroupStanding[] = (standings.data?.data.groups ?? []).map((group) => ({
@@ -117,7 +119,7 @@ export function StandingsPage() {
       />
       <div className="mt-5">
         {tab === "groups" ? (
-          standings.loading ? <Skeleton className="h-64" /> : standings.error ? <ErrorState message={standings.error} onRetry={standings.reload} /> : groups.length ? (
+          standings.loading && !standings.data ? <Skeleton className="h-64" /> : standings.error ? <ErrorState message={standings.error} onRetry={standings.reload} /> : groups.length ? (
             <div className="grid gap-4">
               {groups.map((group) => (
                 <GlassCard key={group.groupName} className="p-4">
@@ -130,7 +132,7 @@ export function StandingsPage() {
               ))}
             </div>
           ) : <p className="py-8 text-center text-sm text-muted">No standings are available for this season yet.</p>
-        ) : scorers.loading ? <Skeleton className="h-64" /> : scorers.error ? <ErrorState message={scorers.error} onRetry={scorers.reload} /> : (
+        ) : scorers.loading && !scorers.data ? <Skeleton className="h-64" /> : scorers.error ? <ErrorState message={scorers.error} onRetry={scorers.reload} /> : (
           <div className="grid gap-3">
             {topScorers.map((scorer) => <TopScorerCard key={scorer.player._id} scorer={scorer} />)}
             {!topScorers.length ? <p className="py-8 text-center text-sm text-muted">No goals have been recorded for this season yet.</p> : null}
