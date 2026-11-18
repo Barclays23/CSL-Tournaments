@@ -29,7 +29,7 @@ export function createSeed(): Database {
     const home = seasonTeams.find((item) => item._id === match.homeSeasonTeamRef)!;
     const away = seasonTeams.find((item) => item._id === match.awaySeasonTeamRef)!;
     const group = source.groups.find((item) => item._id === match.groupRef);
-    const goals: StoredGoal[] = match.goals.map((goal) => {
+    const goals: StoredGoal[] = match.status === "scheduled" ? [] : match.goals.map((goal) => {
       const scoring = seasonTeams.find((item) => item._id === goal.scoringSeasonTeamRef)!;
       const responsible = goal.playerSeasonTeamRef ? seasonTeams.find((item) => item._id === goal.playerSeasonTeamRef) : null;
       const ownGoalPlayer = goal.goalType === "own_goal" && responsible

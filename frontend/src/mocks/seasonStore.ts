@@ -1,4 +1,5 @@
 import { createSeasonDatabase, type MockVenue, type SeasonMockDatabase } from "@/mocks/seasonSeed";
+import { createMockObjectId } from "@/mocks/objectId";
 
 const DB_KEY = "csl-season-preview-db-v4";
 let memory: SeasonMockDatabase | null = null;
@@ -17,6 +18,21 @@ function loadDatabase(): SeasonMockDatabase {
       const availableSeasons = Array.isArray(stored.seasons) ? stored.seasons : seeded.seasons;
       const availableSeasonTeams = Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams;
       const storedMatches = Array.isArray(stored.matches) ? stored.matches : seeded.matches;
+      const usedMatchIds = new Set<string>();
+      const normalizedMatches = storedMatches.map((match: any) => {
+        const storedId = typeof match._id === "string" ? match._id : "";
+        const matchId = !storedId || usedMatchIds.has(storedId)
+          ? createMockObjectId(usedMatchIds)
+          : storedId;
+        usedMatchIds.add(matchId);
+        const isScheduled = match.status === "scheduled";
+        return {
+          ...match,
+          _id: matchId,
+          goals: isScheduled ? [] : Array.isArray(match.goals) ? match.goals : [],
+          winnerSeasonTeamRef: isScheduled ? null : match.winnerSeasonTeamRef ?? null,
+        };
+      });
       const availableVenues: MockVenue[] = Array.isArray(stored.venues) ? stored.venues : [...seeded.venues];
       if (availableVenues.length === 0) availableVenues.push(...seeded.venues);
       for (const match of storedMatches) {
@@ -55,7 +71,7 @@ function loadDatabase(): SeasonMockDatabase {
         seasons: Array.isArray(stored.seasons) ? stored.seasons.map((season: any) => ({ ...season, homeAndAwayFixtures: season.homeAndAwayFixtures ?? false })) : seeded.seasons,
         seasonTeams: Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams,
         auctionLots: Array.isArray(stored.auctionLots) ? stored.auctionLots : seeded.auctionLots,
-        matches: storedMatches.map((match: any) => {
+        matches: normalizedMatches.map((match: any) => {
           const venue = availableVenues.find((item) => item._id === match.venueRef)
             ?? availableVenues.find((item) => item.name.trim().toLowerCase() === String(match.venue ?? "").trim().toLowerCase())
             ?? availableVenues[0];

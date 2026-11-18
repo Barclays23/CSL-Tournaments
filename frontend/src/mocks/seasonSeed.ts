@@ -417,6 +417,10 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   unique(db.seasonTeams.map((st) => `${st.seasonRef}:${st.teamRef}`), "season/team registration");
   unique(db.auctionLots.map((lot) => `${lot.seasonRef}:${lot.playerRef}`), "season/player auction lot");
   unique(db.matches.map((match) => `${match.seasonRef}:${match.matchNumber}`), "season/match number");
+  unique(db.matches.map((match) => match._id), "match _id");
+  for (const match of db.matches) {
+    assert(match.status !== "scheduled" || match.goals.length === 0, `Scheduled fixture ${match._id} must not contain goal events`);
+  }
   unique(db.groups.map((group) => `${group.seasonRef}:${group.groupName}`), "season/group name");
   unique(db.venues.map((venue) => venue.name.trim().toLowerCase()), "venue name");
 

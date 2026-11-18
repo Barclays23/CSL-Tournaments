@@ -42,7 +42,8 @@ export function SeasonFixtureCard({
   const away = teamDetails(match.awaySeasonTeamRef);
   const homeScore = match.goals.filter((goal) => refId(goal.scoringSeasonTeamRef) === home.id).length;
   const awayScore = match.goals.filter((goal) => refId(goal.scoringSeasonTeamRef) === away.id).length;
-  const showScore = match.status === "live" || match.status === "completed" || match.goals.length > 0;
+  const showScore = match.status === "live" || match.status === "completed"
+    || (match.status !== "scheduled" && match.goals.length > 0);
 
   return (
     <GlassCard className="p-4 transition duration-200 hover:border-accent">

@@ -91,7 +91,7 @@ export function HomePage() {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted">Next kick-off</p>
               <div className="mt-3">
                 {dashboard.loading ? <Skeleton className="h-28" /> : null}
-                {data?.upcomingFixtures[0] ? <FixtureCard match={data.upcomingFixtures[0]} /> : null}
+                {data?.upcomingFixtures[0] ? <FixtureCard match={data.upcomingFixtures[0]} seasonId={activeSeasonId} /> : null}
                 {data && !data.upcomingFixtures[0] ? <p className="text-sm text-muted">No upcoming fixtures.</p> : null}
               </div>
             </GlassCard>
@@ -141,13 +141,13 @@ export function HomePage() {
           <section>
             <h2 className="mb-4 font-display text-3xl text-fg">Upcoming</h2>
             <div className="grid gap-3">
-              {data?.upcomingFixtures.length ? data.upcomingFixtures.map((match) => <FixtureCard key={match._id} match={match} />) : <p className="text-sm text-muted">Nothing scheduled.</p>}
+              {data?.upcomingFixtures.length ? data.upcomingFixtures.map((match) => <FixtureCard key={match._id} match={match} seasonId={activeSeasonId} />) : <p className="text-sm text-muted">Nothing scheduled.</p>}
             </div>
           </section>
           <section>
             <h2 className="mb-4 font-display text-3xl text-fg">Recent results</h2>
             <div className="grid gap-3">
-              {data?.recentResults.length ? data.recentResults.map((match) => <FixtureCard key={match._id} match={match} />) : <p className="text-sm text-muted">No completed matches yet.</p>}
+              {data?.recentResults.length ? data.recentResults.map((match) => <FixtureCard key={match._id} match={match} seasonId={activeSeasonId} />) : <p className="text-sm text-muted">No completed matches yet.</p>}
             </div>
           </section>
         </div>

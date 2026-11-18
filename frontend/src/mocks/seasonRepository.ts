@@ -8,10 +8,9 @@ import { readDb as readPrimaryDb, readSession, requireAdmin } from "@/mocks/stor
 import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, MockVenue, SeasonMockDatabase } from "@/mocks/seasonSeed";
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
+import { createMockObjectId } from "@/mocks/objectId";
 
-let sequence = 9000;
-const oid = (n: number) => n.toString(16).padStart(24, "0");
-const newId = () => oid(sequence++);
+const newId = () => createMockObjectId();
 const now = () => new Date().toISOString();
 const ok = <T>(message: string, data: T): ApiResponse<T> => ({ success: true, message, data });
 const fail = (status: number, message: string): never => { throw new ApiError(status, message, { errorCode: status === 409 ? "CONFLICT" : "RULE" }); };

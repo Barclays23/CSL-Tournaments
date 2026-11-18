@@ -13,7 +13,8 @@ export function teamLogo(ref: Match["team1Ref"]) {
 
 export function ScoreDisplay({ match, prominent = false }: { match: Match; prominent?: boolean }) {
   const score = getMatchScore(match);
-  const showScore = match.status === "live" || match.status === "completed" || match.goals.length > 0;
+  const showScore = match.status === "live" || match.status === "completed"
+    || (match.status !== "scheduled" && match.goals.length > 0);
   const shootout = match.penaltyShootout;
   return (
     <div className="text-center">
