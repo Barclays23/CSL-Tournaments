@@ -800,7 +800,8 @@ function SeasonsBody() {
           onSubmit={handleCreate}
           submitLabel="Create Draft season"
           submitDisabled={!createForm.name.trim() || !createForm.standingsTieBreakers.length || createForm.iconPlayerLimit > createForm.teamSquadSize || createForm.goalkeeperLimit > createForm.teamSquadSize}
-        />     </Modal>
+        />
+      </Modal>
       <Modal
         open={editOpen && Boolean(selected)}
         title="Edit season configuration"

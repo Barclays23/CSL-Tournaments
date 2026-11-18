@@ -34,7 +34,7 @@ export class SeasonRepository implements ISeasonRepository {
     return SeasonModel.findOne({ status: "active", ...(excludeId ? { _id: { $ne: new Types.ObjectId(excludeId) } } : {}) }).lean<SeasonEntity>().exec();
   }
 
-    async createSeason(data: CreateSeasonDto, normalizedName: string): Promise<SeasonEntity> {
+  async createSeason(data: CreateSeasonDto, normalizedName: string): Promise<SeasonEntity> {
     const created = await SeasonModel.create({
       seasonNumber: data.seasonNumber,
       name: data.name.trim(),
