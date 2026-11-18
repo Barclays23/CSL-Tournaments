@@ -6,15 +6,24 @@ const status = z.enum(["scheduled", "live", "completed", "postponed", "cancelled
 const kick = z.object({ seasonTeamRef: objectId, playerRef: objectId.nullable().optional(), result: z.enum(["scored", "missed", "saved"]) }).strict();
 const shootout = z.object({ status: z.enum(["pending", "completed"]), homeTeamScore: z.coerce.number().int().min(0), awayTeamScore: z.coerce.number().int().min(0), kicks: z.array(kick).max(30) }).strict();
 const fields = {
- matchNumber: z.coerce.number().int().min(1).max(9999), stage, groupRef: objectId.nullable().optional(),
- kickoffAt: z.coerce.date(), venue: z.string().trim().max(160).nullable().optional(),
+ matchNumber: z.coerce.number().int().min(1).max(9999), roundNumber: z.coerce.number().int().min(1).max(999), stage, groupRef: objectId.nullable().optional(),
+ kickoffAt: z.coerce.date(), venueRef: objectId,
  homeSeasonTeamRef: objectId, awaySeasonTeamRef: objectId, status: status.optional(),
  notes: z.string().trim().max(1000).nullable().optional(), penaltyShootout: shootout.nullable().optional(),
 };
-export const seasonMatchCreateSchema = z.object(fields).strict().refine(v => v.homeSeasonTeamRef !== v.awaySeasonTeamRef, { path: ["awaySeasonTeamRef"], message: "A team cannot play itself" });
+export const seasonMatchCreateSchema = z.object(fields).strict().superRefine((v, context) => {
+  if (v.homeSeasonTeamRef === v.awaySeasonTeamRef) context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "A team cannot play itself" });
+  if (v.stage === "group" && !v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Choose a group for a group-stage fixture" });
+  if (v.stage !== "group" && v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
+ });
 export const seasonMatchUpdateSchema = z.object({
  ...Object.fromEntries(Object.entries(fields).map(([k,v]) => [k,v.optional()])),
  resolutionReason: z.string().trim().min(3).max(500).optional(),
-}).strict().refine(v => Object.keys(v).length > 0, "At least one field is required");
+}).strict().superRefine((v, context) => {
+  if (Object.keys(v).length === 0) context.addIssue({ code: "custom", message: "At least one field is required" });
+  if (v.homeSeasonTeamRef && v.awaySeasonTeamRef && v.homeSeasonTeamRef === v.awaySeasonTeamRef) context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "A team cannot play itself" });
+  if (v.stage === "group" && v.groupRef === null) context.addIssue({ code: "custom", path: ["groupRef"], message: "Choose a group for a group-stage fixture" });
+  if (v.stage && v.stage !== "group" && v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
+ });
 export const seasonMatchQuerySchema = paginationSchema.extend({ stage: stage.optional(), groupRef: objectId.nullable().optional(), status: status.optional(), dateFrom: z.coerce.date().optional(), dateTo: z.coerce.date().optional(), seasonTeamRef: objectId.optional(), search: z.string().trim().max(100).optional() }).strict();
 export const seasonGoalSchema = z.object({ scoringSeasonTeamRef: objectId, scorerPlayerRef: objectId.nullable().optional(), goalType: z.enum(["normal", "own_goal"]) }).strict();

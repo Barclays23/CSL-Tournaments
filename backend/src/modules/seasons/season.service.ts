@@ -121,12 +121,13 @@ export class SeasonService implements ISeasonService {
         "auctionSettings.goalkeeperLimit": "Reduce the Goalkeeper limit or increase the squad size",
       });
     }
-    if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined) && matchCount > 0) {
+    if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined || input.homeAndAwayFixtures !== undefined) && matchCount > 0) {
       throw new AppError("Points, tiebreaker, match and group-stage rules are locked after the first fixture is created", 409, "SEASON_MATCH_RULES_LOCKED", {
         pointsRules: "Fixtures already exist",
         standingsTieBreakers: "Fixtures already exist",
         matchRules: "Fixtures already exist",
         groupStageEnabled: "Fixtures already exist",
+        homeAndAwayFixtures: "Fixtures already exist",
       });
     }
 
@@ -175,6 +176,7 @@ export class SeasonService implements ISeasonService {
     if (input.endDate !== undefined) update.endDate = input.endDate;
     if (input.timeZone !== undefined) update.timeZone = input.timeZone;
     if (input.groupStageEnabled !== undefined) update.groupStageEnabled = input.groupStageEnabled;
+    if (input.homeAndAwayFixtures !== undefined) update.homeAndAwayFixtures = input.homeAndAwayFixtures;
     if (input.auctionSettings) update.auctionSettings = { ...current.auctionSettings!, ...input.auctionSettings };
     if (input.pointsRules) update.pointsRules = { ...current.pointsRules!, ...input.pointsRules };
     if (input.standingsTieBreakers) update.standingsTieBreakers = input.standingsTieBreakers;
@@ -334,6 +336,7 @@ export class SeasonService implements ISeasonService {
       endDate: dateOnly(season.endDate),
       timeZone: season.timeZone,
       groupStageEnabled: season.groupStageEnabled ?? true,
+      homeAndAwayFixtures: season.homeAndAwayFixtures ?? false,
       status: season.status,
       historyCompleteness: season.historyCompleteness ?? "not_applicable",
       auctionSettings: season.auctionSettings,

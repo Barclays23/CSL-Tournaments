@@ -24,6 +24,7 @@ export interface Season {
   timeZone: "Asia/Kolkata";
   status: SeasonStatus;
   groupStageEnabled?: boolean;
+  homeAndAwayFixtures?: boolean;
   historyCompleteness?: "not_applicable" | "metadata_only" | "partial" | "full";
   pointsRules?: { win: number; draw: number; loss: number } | null;
   standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc"> | null;
@@ -46,6 +47,7 @@ export interface SeasonWrite {
   endDate?: string | null;
   timeZone?: "Asia/Kolkata";
   groupStageEnabled?: boolean;
+  homeAndAwayFixtures?: boolean;
   auctionSettings: SeasonAuctionSettings;
   pointsRules?: { win: number; draw: number; loss: number };
   standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;

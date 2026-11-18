@@ -32,6 +32,7 @@ export interface SeasonFields {
   endDate: Date | null;
   timeZone: "Asia/Kolkata";
   groupStageEnabled: boolean;
+  homeAndAwayFixtures: boolean;
   status: SeasonStatus;
   historyCompleteness: SeasonHistoryCompleteness;
   auctionSettings: SeasonAuctionSettings | null;

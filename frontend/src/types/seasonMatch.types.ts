@@ -1,4 +1,5 @@
 import type { Asset } from "@/types/api.types";
+import type { Venue } from "@/types/venue.types";
 
 export type SeasonMatchStage =
   | "group"
@@ -59,9 +60,11 @@ export interface SeasonMatch {
   _id: string;
   seasonRef: string;
   matchNumber: number;
+  roundNumber: number;
   stage: SeasonMatchStage;
   groupRef: string | null;
   kickoffAt: string;
+  venueRef: string | Pick<Venue, "_id" | "name" | "location">;
   venue: string | null;
   homeSeasonTeamRef: SeasonMatchTeamRef;
   awaySeasonTeamRef: SeasonMatchTeamRef;
@@ -95,10 +98,11 @@ export interface SeasonMatchQuery {
 
 export interface SeasonMatchWrite {
   matchNumber: number;
+  roundNumber: number;
   stage: SeasonMatchStage;
   groupRef?: string | null;
   kickoffAt: string;
-  venue?: string | null;
+  venueRef: string;
   homeSeasonTeamRef: string;
   awaySeasonTeamRef: string;
   status?: SeasonMatchStatus;

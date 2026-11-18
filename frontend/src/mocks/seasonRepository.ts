@@ -1,10 +1,11 @@
 import type { ApiResponse } from "@/types/api.types";
+import type { Venue, VenueWrite } from "@/types/venue.types";
 import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, SeasonWrite, SeasonPatch, UpdateAuctionLotInput } from "@/types/season.types";
 import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
 import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
 import { readDb as readPrimaryDb, requireAdmin } from "@/mocks/store";
-import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, SeasonMockDatabase } from "@/mocks/seasonSeed";
+import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, MockVenue, SeasonMockDatabase } from "@/mocks/seasonSeed";
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 
@@ -130,6 +131,18 @@ function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: 
   return match.goals.filter((goal) => goal.scoringSeasonTeamRef === seasonTeamId).length;
 }
 
+function validateMockPair(db: SeasonMockDatabase, season: MockSeason, stage: MockSeasonMatch["stage"], groupRef: string | null, roundNumber: number, homeId: string, awayId: string, excludeId?: string) {
+  const fixtures = db.matches.filter((item) => item.seasonRef === season._id && item.stage === stage
+    && (stage === "group" ? item.groupRef === groupRef : true)
+    && ((item.homeSeasonTeamRef === homeId && item.awaySeasonTeamRef === awayId) || (item.homeSeasonTeamRef === awayId && item.awaySeasonTeamRef === homeId))
+    && item._id !== excludeId);
+  if (fixtures.some((item) => item.roundNumber === roundNumber)) fail(409, "These two teams already have a fixture in this round. Reversing home and away does not create a separate fixture.");
+  if (!season.homeAndAwayFixtures && fixtures.length) fail(409, "This team pair already has a fixture. Enable Home and Away Fixtures in season settings to schedule the return fixture.");
+  if (season.homeAndAwayFixtures) {
+    if (fixtures.length >= 2) fail(409, "A team pair can have at most two fixtures in a home-and-away season");
+    if (fixtures.some((item) => item.homeSeasonTeamRef === homeId && item.awaySeasonTeamRef === awayId)) fail(409, "The return fixture must reverse the home and away teams.");
+  }
+}
 function mockGroupQualifiers(db: SeasonMockDatabase, season: MockSeason) {
   const qualified = new Set<string>();
   for (const group of db.groups.filter((item) => item.seasonRef === season._id)) {
@@ -211,6 +224,7 @@ function populatedMatchTeam(db: SeasonMockDatabase, seasonTeamId: string) {
 function populatedSeasonMatch(db: SeasonMockDatabase, match: MockSeasonMatch): SeasonMatch {
   return {
     ...match,
+    venueRef: (() => { const venue = db.venues.find((item) => item._id === match.venueRef); return venue ? { _id: venue._id, name: venue.name, location: venue.location } : match.venueRef; })(),
     homeSeasonTeamRef: populatedMatchTeam(db, match.homeSeasonTeamRef) ?? match.homeSeasonTeamRef,
     awaySeasonTeamRef: populatedMatchTeam(db, match.awaySeasonTeamRef) ?? match.awaySeasonTeamRef,
     winnerSeasonTeamRef: match.winnerSeasonTeamRef
@@ -432,6 +446,9 @@ export const seasonPreviewRepository = {
       return fail(422, "Both teams must be participating in this season");
     }
     if (input.stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
+    validateMockPair(db, season, input.stage, input.stage === "group" ? input.groupRef ?? null : null, input.roundNumber, input.homeSeasonTeamRef, input.awaySeasonTeamRef);
+    const venue = db.venues.find((item) => item._id === input.venueRef && item.status === "active");
+    if (!venue) fail(422, "Choose an active venue from the venue list");
     if (input.stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, input.stage);
       if (!eligible.has(input.homeSeasonTeamRef) || !eligible.has(input.awaySeasonTeamRef)) fail(422, "Both teams must have qualified for this knockout stage");
@@ -453,10 +470,12 @@ export const seasonPreviewRepository = {
       _id: newId(),
       seasonRef: seasonId,
       matchNumber: input.matchNumber,
+      roundNumber: input.roundNumber,
       stage: input.stage,
       groupRef: input.stage === "group" ? input.groupRef ?? null : null,
       kickoffAt: kickoff.toISOString(),
-      venue: input.venue ?? null,
+      venueRef: venue._id,
+      venue: venue.name,
       homeSeasonTeamRef: home._id,
       awaySeasonTeamRef: away._id,
       status,
@@ -484,6 +503,12 @@ export const seasonPreviewRepository = {
     const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
     const stage = input.stage ?? match.stage;
     const groupRef = stage === "group" ? (input.groupRef === undefined ? match.groupRef : input.groupRef) : null;
+    const roundNumber = input.roundNumber ?? match.roundNumber;
+    const venueRef = input.venueRef ?? match.venueRef;
+    const pairingChanged = homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef || roundNumber !== match.roundNumber;
+    if (pairingChanged) validateMockPair(db, season, stage, groupRef, roundNumber, homeId, awayId, matchId);
+    const venue = db.venues.find((item) => item._id === venueRef && (item.status === "active" || item._id === match.venueRef));
+    if (!venue) fail(422, "Choose an active venue from the venue list");
     if (homeId === awayId) fail(422, "A team cannot play itself");
     if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
       && (match.goals.length > 0 || (match.resolutionHistory?.length ?? 0) > 0)) {
@@ -514,9 +539,12 @@ export const seasonPreviewRepository = {
     if (input.status !== undefined && input.status !== match.status) fail(422, "Change fixture status through the match status and resolution workflow");
     match.matchNumber = input.matchNumber ?? match.matchNumber;
     match.stage = stage;
+    match.roundNumber = roundNumber;
     match.groupRef = groupRef;
+    match.venueRef = venue._id;
+    match.venue = venue.name;
     match.kickoffAt = kickoff.toISOString();
-    match.venue = input.venue === undefined ? match.venue : input.venue ?? null;
+
     match.homeSeasonTeamRef = homeId;
     match.awaySeasonTeamRef = awayId;
     match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
@@ -612,6 +640,55 @@ export const seasonPreviewRepository = {
     if (match.penaltyShootout) fail(422, "A shootout is only allowed when normal-time scores are tied");
     match.winnerSeasonTeamRef = homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
   },
+  async getVenue(id: string) {
+    const db = readSeasonDb();
+    const venue = db.venues.find((item) => item._id === id);
+    if (!venue) return fail(404, "Venue not found");
+    return ok("Venue fetched", venue as Venue);
+  },
+  async getVenues(status: "active" | "inactive" | "all" = "active") {
+    const db = readSeasonDb();
+    const items = db.venues.filter((venue) => status === "all" || venue.status === status).sort((a, b) => a.name.localeCompare(b.name));
+    return ok("Venues fetched", items as Venue[]);
+  },
+  async createVenue(input: VenueWrite) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const normalized = input.name.trim().normalize("NFKC").replace(/\s+/g, " ").toLowerCase();
+    if (db.venues.some((venue) => venue.name.trim().normalize("NFKC").replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "A venue with this name already exists");
+    const date = now();
+    const venue: MockVenue = { _id: newId(), name: input.name.trim(), location: input.location?.trim() || null, notes: input.notes?.trim() || null, status: "active", createdAt: date, updatedAt: date };
+    db.venues.push(venue);
+    commitSeasonDb(db);
+    return ok("Venue created", venue as Venue);
+  },
+  async updateVenue(id: string, input: Partial<VenueWrite> & { status?: "active" | "inactive" }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const venue = db.venues.find((item) => item._id === id);
+    if (!venue) return fail(404, "Venue not found");
+    const name = input.name?.trim() ?? venue.name;
+    const normalized = name.normalize("NFKC").replace(/\s+/g, " ").toLowerCase();
+    if (db.venues.some((item) => item._id !== id && item.name.normalize("NFKC").replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "A venue with this name already exists");
+    venue.name = name;
+    if (input.location !== undefined) venue.location = input.location?.trim() || null;
+    if (input.notes !== undefined) venue.notes = input.notes?.trim() || null;
+    if (input.status !== undefined) venue.status = input.status;
+    venue.updatedAt = now();
+    db.matches.filter((match) => match.venueRef === id).forEach((match) => { match.venue = venue.name; });
+    commitSeasonDb(db);
+    return ok("Venue updated", venue as Venue);
+  },
+  async deleteVenue(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    if (db.matches.some((match) => match.venueRef === id)) fail(409, "This venue is used by existing fixtures. Deactivate it instead.");
+    const index = db.venues.findIndex((item) => item._id === id);
+    if (index < 0) return fail(404, "Venue not found");
+    db.venues.splice(index, 1);
+    commitSeasonDb(db);
+    return ok("Venue deleted", null);
+  },
   async getSeasons() {
     const db = readSeasonDb();
     return ok("Seasons loaded", [...db.seasons].sort((a, b) => b.seasonNumber - a.seasonNumber) as unknown as Season[]);
@@ -629,7 +706,7 @@ export const seasonPreviewRepository = {
     const season: MockSeason = {
       _id: newId(), seasonNumber: input.seasonNumber, name: input.name.trim(), year: input.year,
       startDate: input.startDate ?? null, endDate: input.endDate ?? null, timeZone: input.timeZone ?? "Asia/Kolkata",
-      groupStageEnabled: input.groupStageEnabled ?? true, status: "draft", auctionSettings: input.auctionSettings,
+      groupStageEnabled: input.groupStageEnabled ?? true, homeAndAwayFixtures: input.homeAndAwayFixtures ?? false, status: "draft", auctionSettings: input.auctionSettings,
       pointsRules: input.pointsRules ?? { win: 3, draw: 1, loss: 0 },
       standingsTieBreakers: input.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
       matchRules: input.matchRules ?? { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false },
@@ -665,7 +742,7 @@ export const seasonPreviewRepository = {
       if (db.seasons.some((s) => s._id !== id && s.name.trim().replace(/\s+/g, " ").toLowerCase() === normalized)) fail(409, "Season name already exists");
     }
     if (input.auctionSettings && lots.length) fail(409, "Auction settings are locked after the first AuctionLot is created");
-    if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined) && matches.length) {
+    if ((input.pointsRules || input.standingsTieBreakers || input.matchRules || input.groupStageEnabled !== undefined || input.homeAndAwayFixtures !== undefined) && matches.length) {
       fail(409, "Points, tiebreaker, match and group-stage rules are locked after the first fixture");
     }
     if (input.auctionSettings && input.auctionSettings.seasonTeamCount < teams.length) fail(409, "Team limit cannot be lower than registered teams");

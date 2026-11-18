@@ -12,6 +12,7 @@ import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
 import type { PlayerEntity } from "../players/player.types.js";
 import type { AuctionLotEntity } from "../auctionLots/auctionLot.types.js";
 import { AppError } from "../../shared/errors/appError.js";
+import { getPairFixtureError } from "./seasonMatch.fixtureRules.js";
 
 const population = [
   { path: "homeSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
@@ -20,6 +21,7 @@ const population = [
   { path: "goals.scoringSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
   { path: "goals.playerSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
   { path: "goals.scorerPlayerRef", select: "name profilePic" },
+  { path: "venueRef", select: "name location" },
 ];
 
 export class SeasonMatchRepository {
@@ -45,6 +47,20 @@ export class SeasonMatchRepository {
   async findPopulatedById(id: string): Promise<PopulatedSeasonMatch | null> { return SeasonMatchModel.findById(id).populate(population).lean<PopulatedSeasonMatch>().exec(); }
   async findByNumber(seasonId: string, number: number): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findOne({ seasonRef: new Types.ObjectId(seasonId), matchNumber: number }).lean<SeasonMatchEntity>().exec(); }
   async findSeason(id: string): Promise<SeasonEntity | null> { return SeasonModel.findById(id).lean<SeasonEntity>().exec(); }
+  async findPairFixtures(seasonId: string, stage: SeasonMatchEntity["stage"], groupId: string | null, homeId: string, awayId: string): Promise<SeasonMatchEntity[]> {
+    return SeasonMatchModel.find({
+      seasonRef: new Types.ObjectId(seasonId), stage,
+      groupRef: groupId ? new Types.ObjectId(groupId) : null,
+      $or: [
+        { homeSeasonTeamRef: new Types.ObjectId(homeId), awaySeasonTeamRef: new Types.ObjectId(awayId) },
+        { homeSeasonTeamRef: new Types.ObjectId(awayId), awaySeasonTeamRef: new Types.ObjectId(homeId) },
+      ],
+    }).lean<SeasonMatchEntity[]>().exec();
+  }
+  async findVenue(id: string) {
+    const { VenueModel } = await import("../venues/venue.model.js");
+    return VenueModel.findById(id).lean<{ _id: Types.ObjectId; name: string; location: string | null; status: "active" | "inactive" }>().exec();
+  }
   async findSeasonTeam(seasonId: string, id: string): Promise<SeasonTeamEntity | null> { return SeasonTeamModel.findOne({ _id: new Types.ObjectId(id), seasonRef: new Types.ObjectId(seasonId) }).lean<SeasonTeamEntity>().exec(); }
   async findGroup(seasonId: string, id: string) { return GroupModel.findOne({ _id: new Types.ObjectId(id), seasonRef: new Types.ObjectId(seasonId) }).lean().exec(); }
   async findPlayer(id: string): Promise<PlayerEntity | null> { return PlayerModel.findById(id).lean<PlayerEntity>().exec(); }
@@ -78,23 +94,50 @@ export class SeasonMatchRepository {
     }
   }
 
-  async create(data: SeasonMatchFields): Promise<SeasonMatchEntity> {
+  private async assertPairRules(data: Pick<SeasonMatchFields, "seasonRef" | "stage" | "groupRef" | "roundNumber" | "homeSeasonTeamRef" | "awaySeasonTeamRef">, homeAndAway: boolean, excludeId: string | undefined, session: ClientSession): Promise<void> {
+    const homeId = String(data.homeSeasonTeamRef), awayId = String(data.awaySeasonTeamRef);
+    const matches = await SeasonMatchModel.find({
+      seasonRef: data.seasonRef, stage: data.stage, groupRef: data.stage === "group" ? data.groupRef : null,
+      $or: [
+        { homeSeasonTeamRef: data.homeSeasonTeamRef, awaySeasonTeamRef: data.awaySeasonTeamRef },
+        { homeSeasonTeamRef: data.awaySeasonTeamRef, awaySeasonTeamRef: data.homeSeasonTeamRef },
+      ],
+      ...(excludeId ? { _id: { $ne: new Types.ObjectId(excludeId) } } : {}),
+    }).session(session).lean<SeasonMatchEntity[]>().exec();
+    const issue = getPairFixtureError(matches, data.roundNumber, homeId, awayId, homeAndAway, excludeId);
+    if (issue === "DUPLICATE_PAIR_IN_ROUND") throw new AppError("These two teams already have a fixture in this round. Reversing home and away does not create a separate fixture.", 409, issue, { roundNumber: "This team pairing already exists in the selected round" });
+    if (issue === "DUPLICATE_TEAM_PAIR") throw new AppError("This team pairing already has a fixture. Enable Home and Away Fixtures in season settings to schedule a return fixture.", 409, issue, { homeSeasonTeamRef: "This team pair already has a fixture" });
+    if (issue === "PAIR_FIXTURE_LIMIT") throw new AppError("A team pair can have at most two fixtures in a home-and-away season", 409, issue);
+    if (issue === "DUPLICATE_HOME_AWAY_ORIENTATION") throw new AppError("The return fixture must reverse the home and away teams.", 409, issue, { homeSeasonTeamRef: "Reverse the home and away teams for the return fixture" });
+  }
+
+  async create(data: SeasonMatchFields, homeAndAway: boolean): Promise<SeasonMatchEntity> {
     return this.withSeasonWriteLock(String(data.seasonRef), async (session) => {
+      await this.assertPairRules(data, homeAndAway, undefined, session);
       const [doc] = await SeasonMatchModel.create([data], { session });
       return doc.toObject() as unknown as SeasonMatchEntity;
     });
   }
 
-  async update(id: string, data: Partial<SeasonMatchFields>): Promise<SeasonMatchEntity | null> {
+  async update(id: string, data: Partial<SeasonMatchFields>, homeAndAway: boolean): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
-    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
-      SeasonMatchModel.findOneAndUpdate(
+    return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
+      const current = await SeasonMatchModel.findOne({ _id: new Types.ObjectId(id), seasonRef: existing.seasonRef }).session(session).lean<SeasonMatchEntity>().exec();
+      if (!current) return null;
+      const next = { ...current, ...data };
+      const pairChanged = String(next.homeSeasonTeamRef) !== String(current.homeSeasonTeamRef)
+        || String(next.awaySeasonTeamRef) !== String(current.awaySeasonTeamRef)
+        || next.stage !== current.stage
+        || String(next.groupRef ?? "") !== String(current.groupRef ?? "")
+        || next.roundNumber !== current.roundNumber;
+      if (pairChanged) await this.assertPairRules(next, homeAndAway, id, session);
+      return SeasonMatchModel.findOneAndUpdate(
         { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef },
         { $set: data },
         { session, returnDocument: "after", runValidators: true },
-      ).lean<SeasonMatchEntity>().exec(),
-    );
+      ).lean<SeasonMatchEntity>().exec();
+    });
   }
 
   async delete(id: string): Promise<boolean> {

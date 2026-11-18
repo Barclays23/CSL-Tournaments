@@ -22,6 +22,7 @@ import {
   updateSeasonMatchResolution,
 } from "@/services/seasonMatchService";
 import { getSeasonTeams, getAuctionLots } from "@/services/seasonService";
+import { getVenues } from "@/services/venueService";
 import type { SeasonMatch, SeasonMatchTeamRef, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
@@ -72,6 +73,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const matchQuery = useServiceQuery(() => getSeasonMatchById(seasonId, matchId), [seasonId, matchId]);
   const teamsQuery = useServiceQuery(() => getSeasonTeams(seasonId), [seasonId]);
   const groupsQuery = useServiceQuery(() => import("@/services/seasonMatchService").then(({ getSeasonGroups }) => getSeasonGroups(seasonId)), [seasonId]);
+  const venuesQuery = useServiceQuery(() => getVenues("all"), []);
   const lotsQuery = useServiceQuery(() => getAuctionLots({ seasonId, auctionStatus: "sold" }), [seasonId]);
   const match = matchQuery.data?.data;
 
@@ -168,7 +170,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
           <div className="mb-3 flex justify-end"><Button variant="surface" onClick={() => setEditing(true)}>Edit fixture</Button></div>
         ) : null}
         <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted">
-          Match {match.matchNumber} · {STAGE_LABEL[match.stage]} · {STATUS_LABEL[match.status]}
+          Match {match.matchNumber} · Round {match.roundNumber} · {STAGE_LABEL[match.stage]} · {STATUS_LABEL[match.status]}
         </p>
         <div className="mt-5 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <div className="flex flex-col items-center gap-2 text-center">
@@ -191,7 +193,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         ) : null}
         <p className="mt-4 text-center text-sm text-muted">
           {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}
-          {match.venue ? ` · ${match.venue}` : ""}
+          {match.venueRef && typeof match.venueRef === "object" ? ` · ${match.venueRef.name}` : match.venue ? ` · ${match.venue}` : ""}
         </p>
         {match.notes ? <p className="mt-3 text-center text-sm text-muted">{match.notes}</p> : null}
         {match.resolutionHistory?.length ? (
@@ -293,6 +295,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         <SeasonMatchForm
           seasonTeams={teamsQuery.data?.data ?? []}
           groups={groupsQuery.data?.data ?? []}
+          venues={venuesQuery.data?.data ?? []}
           match={match}
           submitting={savingMatch}
           onSubmit={async (values: SeasonMatchWrite) => {

@@ -8,6 +8,7 @@ export interface CreateSeasonDto {
   endDate?: Date | null;
   timeZone?: "Asia/Kolkata";
   groupStageEnabled?: boolean;
+  homeAndAwayFixtures?: boolean;
   auctionSettings: SeasonAuctionSettings;
   pointsRules?: SeasonPointsRules;
   standingsTieBreakers?: SeasonTieBreaker[];
@@ -23,6 +24,7 @@ export interface UpdateSeasonDto {
   endDate?: Date | null;
   timeZone?: "Asia/Kolkata";
   groupStageEnabled?: boolean;
+  homeAndAwayFixtures?: boolean;
   auctionSettings?: Partial<SeasonAuctionSettings>;
   pointsRules?: Partial<SeasonPointsRules>;
   standingsTieBreakers?: SeasonTieBreaker[];
@@ -42,6 +44,7 @@ export interface SeasonResponseDto {
   endDate: string | null;
   timeZone: "Asia/Kolkata";
   groupStageEnabled: boolean;
+  homeAndAwayFixtures: boolean;
   status: SeasonStatus;
   historyCompleteness: import("./season.types.js").SeasonHistoryCompleteness;
   auctionSettings: SeasonAuctionSettings | null;

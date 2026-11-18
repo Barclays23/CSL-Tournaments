@@ -11,6 +11,7 @@ import { uploadRouter } from "./modules/uploads/upload.routes.js";
 import { seasonRouter } from "./modules/seasons/season.routes.js";
 import { auctionLotRouter } from "./modules/auctionLots/auctionLot.routes.js";
 import { auctionsRouter } from "./modules/auctionLots/auction.routes.js";
+import { venueRouter } from "./modules/venues/venue.routes.js";
 
 
 
@@ -30,3 +31,4 @@ apiRouter.use("/uploads",uploadRouter);
 apiRouter.use("/seasons",seasonRouter);
 apiRouter.use("/auction-lots",auctionLotRouter);
 apiRouter.use("/auctions",auctionsRouter);
+apiRouter.use("/venues", venueRouter);

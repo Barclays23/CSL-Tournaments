@@ -30,10 +30,11 @@ const resolutionSchema = new Schema({
 const schema = new Schema<SeasonMatchFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   matchNumber: { type: Number, required: true, min: 1 },
+  roundNumber: { type: Number, required: true, min: 1, max: 999 },
   stage: { type: String, enum: ["group", "round_of_16", "quarter_final", "semi_final", "third_place", "final"], required: true },
   groupRef: { type: Schema.Types.ObjectId, ref: "Group", default: null },
   kickoffAt: { type: Date, required: true },
-  venue: { type: String, default: null, trim: true },
+  venueRef: { type: Schema.Types.ObjectId, ref: "Venue", required: true },
   homeSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   awaySeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   status: { type: String, enum: ["scheduled", "live", "completed", "postponed", "cancelled", "abandoned"], default: "scheduled" },
@@ -46,6 +47,8 @@ const schema = new Schema<SeasonMatchFields>({
 
 schema.index({ seasonRef:  1, matchNumber: 1 }, { unique: true });
 schema.index({ seasonRef: 1, kickoffAt: 1 });
+schema.index({ seasonRef: 1, stage: 1, groupRef: 1, roundNumber: 1 });
+schema.index({ seasonRef: 1, stage: 1, groupRef: 1, homeSeasonTeamRef: 1, awaySeasonTeamRef: 1 });
 schema.index({ seasonRef: 1, stage: 1, groupRef: 1, status: 1 });
 schema.index({ seasonRef: 1, homeSeasonTeamRef: 1, kickoffAt: -1 });
 schema.index({ seasonRef: 1, awaySeasonTeamRef: 1, kickoffAt: -1 });

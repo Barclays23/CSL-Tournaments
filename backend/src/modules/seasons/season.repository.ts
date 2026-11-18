@@ -52,6 +52,7 @@ export class SeasonRepository implements ISeasonRepository {
           endDate: data.endDate ?? null,
           timeZone: data.timeZone ?? "Asia/Kolkata",
           groupStageEnabled: data.groupStageEnabled ?? true,
+          homeAndAwayFixtures: data.homeAndAwayFixtures ?? false,
           status: "draft",
           historyCompleteness: "not_applicable",
           auctionSettings: data.auctionSettings,

@@ -30,13 +30,13 @@ import { Modal } from "@/components/ui/Modal";
 import { CalendarDays, Layers3, Plus, Settings2, ShieldCheck, Trophy, Users } from "lucide-react";
 
 type SeasonFormState = {
-  seasonNumber: number; name: string; year: number; startDate: string; endDate: string; groupStageEnabled: boolean;
+  seasonNumber: number; name: string; year: number; startDate: string; endDate: string; groupStageEnabled: boolean; homeAndAwayFixtures: boolean;
   budgetPerTeam: number; playersCount: number; seasonTeamCount: number; teamSquadSize: number; iconPlayerLimit: number; goalkeeperLimit: number;
   win: number; draw: number; loss: number; groupStageDrawAllowed: boolean; knockoutDrawRequiresShootout: boolean;
   standingsTieBreakers: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;
 };
 const defaultForm = (seasonNumber = 1): SeasonFormState => ({
-  seasonNumber, name: "", year: new Date().getFullYear(), startDate: "", endDate: "", groupStageEnabled: true,
+  seasonNumber, name: "", year: new Date().getFullYear(), startDate: "", endDate: "", groupStageEnabled: true, homeAndAwayFixtures: false,
   budgetPerTeam: 10000, playersCount: 54, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1,
   win: 3, draw: 1, loss: 0, groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true,
   standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"],
@@ -46,6 +46,7 @@ const fromSeason = (season: Season): SeasonFormState => ({
   ...defaultForm(season.seasonNumber),
   name: season.name, year: season.year, startDate: toDateInput(season.startDate), endDate: toDateInput(season.endDate),
   groupStageEnabled: season.groupStageEnabled ?? true,
+  homeAndAwayFixtures: season.homeAndAwayFixtures ?? false,
   budgetPerTeam: season.auctionSettings?.budgetPerTeam ?? 10000,
   playersCount: season.auctionSettings?.playersCount ?? 54,
   seasonTeamCount: season.auctionSettings?.seasonTeamCount ?? 6,
@@ -189,6 +190,7 @@ function SeasonsBody() {
     seasonNumber: form.seasonNumber, name: form.name.trim(), year: form.year,
     startDate: form.startDate || null, endDate: form.endDate || null, timeZone: "Asia/Kolkata",
     groupStageEnabled: form.groupStageEnabled,
+    homeAndAwayFixtures: form.homeAndAwayFixtures,
     auctionSettings: {
       currency: "INR", budgetPerTeam: form.budgetPerTeam, playersCount: form.playersCount,
       seasonTeamCount: form.seasonTeamCount, teamSquadSize: form.teamSquadSize,
@@ -710,6 +712,7 @@ function SeasonsBody() {
               <label className="text-sm text-fg">End date<Input className="mt-1" type="date" value={createForm.endDate} onChange={(e) => setCreate("endDate", e.target.value)} /></label>
             </div>
             <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.groupStageEnabled} onChange={(e) => setCreate("groupStageEnabled", e.target.checked)} /> Group stage enabled</label>
+            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={createForm.homeAndAwayFixtures} onChange={(e) => setCreate("homeAndAwayFixtures", e.target.checked)} /> Home and away fixtures (maximum two meetings per team pair)</label>
             <h3 className="mt-2 font-semibold text-fg">Auction settings</h3>
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="text-sm text-fg">Budget (INR)<Input className="mt-1" type="number" min="0" required value={createForm.budgetPerTeam} onChange={(e) => setCreate("budgetPerTeam", Number(e.target.value))} /></label>
@@ -759,6 +762,7 @@ function SeasonsBody() {
                   <label className="text-sm text-fg">End date<Input type="date" value={editForm.endDate} disabled={!editable} onChange={(e) => setEdit("endDate", e.target.value)} /></label>
                 </div>
                 <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.groupStageEnabled} disabled={matchRulesLocked} onChange={(e) => setEdit("groupStageEnabled", e.target.checked)} /> Group stage enabled</label>
+                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={editForm.homeAndAwayFixtures} disabled={matchRulesLocked} onChange={(e) => setEdit("homeAndAwayFixtures", e.target.checked)} /> Home and away fixtures (maximum two meetings per team pair)</label>
                 <p className="mt-1 text-sm font-semibold text-fg">Auction settings</p>
                 {auctionRulesLocked ? <p className="text-xs text-muted">Auction fields are locked because at least one AuctionLot exists in this season (including pending or unsold lots).</p> : null}
                 <div className="grid gap-3 sm:grid-cols-3">

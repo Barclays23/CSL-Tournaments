@@ -21,6 +21,7 @@ import { getSeasons, getSeasonTeams } from "@/services/seasonService";
 import { createSeasonMatch, getSeasonGroups, getSeasonMatches, updateSeasonMatch } from "@/services/seasonMatchService";
 import type { SeasonMatch, SeasonMatchStage, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { errorMessage } from "@/utils/errorHandler";
+import { getVenues } from "@/services/venueService";
 
 const TABS: { value: SeasonMatchStatus | ""; label: string }[] = [
   { value: "", label: "All" },
@@ -76,6 +77,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
       : Promise.resolve({ success: true, message: "No season selected", data: [] }),
     [seasonId],
   );
+  const venues = useServiceQuery(() => getVenues("all"), []);
   const seasonTeams = useServiceQuery(
     () => seasonId
       ? getSeasonTeams(seasonId)
@@ -97,6 +99,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
   );
 
   const eligibleSeasonTeams = (seasonTeams.data?.data ?? []).filter((team) => ["registered", "active"].includes(team.status));
+  const activeVenueCount = (venues.data?.data ?? []).filter((venue) => venue.status === "active").length;
   const fixtureBlockReason = !selectedSeason
     ? "Select a season to manage fixtures."
     : !["upcoming", "active"].includes(selectedSeason.status)
@@ -105,8 +108,10 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
         ? "Match rules are not configured for this season."
         : eligibleSeasonTeams.length < 2
           ? "At least two eligible participating teams are required."
-          : null;
-  const fixtureCreationAllowed = Boolean(!seasons.loading && !seasonTeams.loading && !fixtureBlockReason);
+          : !venues.loading && activeVenueCount === 0
+            ? "Create at least one active venue before creating fixtures."
+            : null;
+  const fixtureCreationAllowed = Boolean(!seasons.loading && !seasonTeams.loading && !venues.loading && !fixtureBlockReason);
   const canCreateFixture = Boolean(isAdmin && fixtureCreationAllowed);
   const pagination = matches.data?.pagination;
   const resultStart = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
@@ -138,7 +143,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
         eyebrow="Calendar"
         title="Fixtures"
         description="Choose a season to view its fixtures, match results and penalty shootouts."
-        actions={canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}
+        actions={isAdmin ? <div className="flex flex-wrap gap-2"><Button variant="surface" onClick={() => void navigate({ to: "/admin/venues" })}>Manage venues</Button>{canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}</div> : null}
       />
       <div className="mb-4 max-w-sm">
         <Select
@@ -226,6 +231,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
         <SeasonMatchForm
           seasonTeams={seasonTeams.data?.data ?? []}
           groups={groups.data?.data ?? []}
+          venues={venues.data?.data ?? []}
           match={editingMatch}
           submitting={saving}
           onSubmit={async (values: SeasonMatchWrite) => {

@@ -33,6 +33,7 @@ const seasonSchema = new Schema<SeasonFields>({
   endDate: { type: Date, default: null },
   timeZone: { type: String, enum: ["Asia/Kolkata"], default: "Asia/Kolkata", required: true },
   groupStageEnabled: { type: Boolean, default: true, required: true },
+  homeAndAwayFixtures: { type: Boolean, default: false, required: true },
   status: { type: String, enum: ["draft", "upcoming", "active", "completed", "archived"], default: "draft", required: true },
   historyCompleteness: { type: String, enum: ["not_applicable", "metadata_only", "partial", "full"], default: "not_applicable", required: true },
   auctionSettings: { type: auctionSettingsSchema, default: null },

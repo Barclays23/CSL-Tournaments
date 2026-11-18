@@ -47,7 +47,7 @@ export function SeasonFixtureCard({
   return (
     <GlassCard className="p-4 transition duration-200 hover:border-accent">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
-        <span>Match {match.matchNumber} · {STAGE_LABEL[match.stage]}{groupName ? ` · ${groupName}` : ""}</span>
+        <span>Match {match.matchNumber} · Round {match.roundNumber} · {STAGE_LABEL[match.stage]}{groupName ? ` · ${groupName}` : ""}</span>
         <span>{STATUS_LABEL[match.status]}</span>
       </div>
       <Link

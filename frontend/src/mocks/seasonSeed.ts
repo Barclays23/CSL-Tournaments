@@ -6,7 +6,7 @@ const asset = (url: string, publicId: string): Asset => ({ url, publicId });
 
 export interface MockSeason {
   _id: string; seasonNumber: number; name: string; year: number;
-  startDate: string | null; endDate: string | null; timeZone: "Asia/Kolkata"; groupStageEnabled?: boolean;
+  startDate: string | null; endDate: string | null; timeZone: "Asia/Kolkata"; groupStageEnabled?: boolean; homeAndAwayFixtures?: boolean;
   status: "draft" | "upcoming" | "active" | "completed" | "archived";
   auctionSettings: { currency: "INR"; budgetPerTeam: number; playersCount: number; seasonTeamCount: number; teamSquadSize: number; iconPlayerLimit: number; goalkeeperLimit: number };
   pointsRules: { win: number; draw: number; loss: number };
@@ -56,15 +56,16 @@ export interface MockAuctionLot {
   nominatedAt: string | null; soldAt: string | null; createdAt: string; updatedAt: string;
 }
 export interface MockSeasonMatch {
-  _id: string; seasonRef: string; matchNumber: number;
+  _id: string; seasonRef: string; matchNumber: number; roundNumber: number;
   stage: "group" | "round_of_16" | "quarter_final" | "semi_final" | "third_place" | "final";
-  groupRef: string | null; kickoffAt: string; venue: string | null;
+  groupRef: string | null; kickoffAt: string; venueRef: string; venue: string | null;
   homeSeasonTeamRef: string; awaySeasonTeamRef: string;
   status: "scheduled" | "live" | "completed" | "postponed" | "cancelled" | "abandoned";
   goals: Array<{ _id: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: "normal" | "own_goal"; createdAt: string }>;
   penaltyShootout: null | { status: "pending" | "completed"; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: "scored" | "missed" | "saved" }> };
   winnerSeasonTeamRef: string | null; notes: string | null; resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>; createdAt: string; updatedAt: string;
 }
+export interface MockVenue { _id:string; name:string; location:string|null; notes:string|null; status:"active"|"inactive"; createdAt:string; updatedAt:string; }
 export interface MockSeasonAwardRecipient { _id:string; recipientType:"season_team"|"player"; seasonTeamRef:string; playerRef:string|null; displayNameSnapshot:string; profileImageSnapshot:Asset|null; teamNameSnapshot:string; teamLogoSnapshot:Asset|null; }
 export interface MockSeasonAward { _id:string; seasonRef:string; awardType:"champions"|"runner_up"|"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder"|"special"; title:string; description:string|null; recipients:MockSeasonAwardRecipient[]; createdAt:string; updatedAt:string; }
 export interface MockUser {
@@ -75,7 +76,7 @@ export interface MockUser {
 export interface SeasonMockDatabase {
   users: MockUser[]; teams: MockTeam[]; players: MockPlayer[]; managers: MockManager[];
   sponsors: MockSponsor[]; organizers: MockOrganizer[]; seasons: MockSeason[]; seasonTeams: MockSeasonTeam[];
-  auctionLots: MockAuctionLot[]; matches: MockSeasonMatch[]; groups: MockGroup[]; awards: MockSeasonAward[];
+  auctionLots: MockAuctionLot[]; matches: MockSeasonMatch[]; groups: MockGroup[]; venues: MockVenue[]; awards: MockSeasonAward[];
 }
 
 const now = timestamp("2026-11-14T08:00:00.000Z");
@@ -139,14 +140,19 @@ const organizers: MockOrganizer[] = [
 ];
 
 const seasonDefinitions: Array<Omit<MockSeason, "_id" | "createdAt" | "updatedAt">> = [
-  { seasonNumber: 9, name: "CSL Football Tournament 2024", year: 2024, startDate: "2024-11-01T00:00:00.000Z", endDate: "2024-11-17T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 8000, playersCount: 16, seasonTeamCount: 4, teamSquadSize: 8, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
-  { seasonNumber: 10, name: "CSL Football Tournament 2025", year: 2025, startDate: "2025-11-01T00:00:00.000Z", endDate: "2025-11-18T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 9000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
-  { seasonNumber: 11, name: "CSL Football Tournament 2026", year: 2026, startDate: "2026-11-01T00:00:00.000Z", endDate: "2026-11-20T00:00:00.000Z", timeZone: "Asia/Kolkata", status: "active", auctionSettings: { currency: "INR", budgetPerTeam: 10000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
+  { seasonNumber: 9, name: "CSL Football Tournament 2024", year: 2024, startDate: "2024-11-01T00:00:00.000Z", endDate: "2024-11-17T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: false, status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 8000, playersCount: 16, seasonTeamCount: 4, teamSquadSize: 8, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
+  { seasonNumber: 10, name: "CSL Football Tournament 2025", year: 2025, startDate: "2025-11-01T00:00:00.000Z", endDate: "2025-11-18T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: true, status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 9000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
+  { seasonNumber: 11, name: "CSL Football Tournament 2026", year: 2026, startDate: "2026-11-01T00:00:00.000Z", endDate: "2026-11-20T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: true, status: "active", auctionSettings: { currency: "INR", budgetPerTeam: 10000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
 ];
 const seasons: MockSeason[] = seasonDefinitions.map((season, index) => ({
   _id: oid(10 + index), ...season, createdAt: timestamp(`${season.year}-01-01T08:00:00.000Z`), updatedAt: now,
 }));
 
+const venues: MockVenue[] = [
+  { _id: oid(800), name: "Cherukunnu Municipal Ground", location: "Cherukunnu, Kerala", notes: "Main CSL tournament ground", status: "active", createdAt: now, updatedAt: now },
+  { _id: oid(801), name: "Kottakkal Stadium", location: "Kottakkal, Kerala", notes: null, status: "active", createdAt: now, updatedAt: now },
+  { _id: oid(802), name: "Malappuram District Stadium", location: "Malappuram, Kerala", notes: null, status: "active", createdAt: now, updatedAt: now },
+];
 const groups: MockGroup[] = [];
 const seasonTeams: MockSeasonTeam[] = [];
 const auctionLots: MockAuctionLot[] = [];
@@ -248,10 +254,12 @@ seasons.forEach((season, seasonIndex) => {
     _id: oid(2000 + seasonIndex * 100 + matchNumber),
     seasonRef: season._id,
     matchNumber,
+    roundNumber: stage === "group" ? ((groupFixtures.find((fixture) => fixture.groupRef === groupRef && seasonTeamId(seasonIndex, fixture.homeIndex) === homeRef && seasonTeamId(seasonIndex, fixture.awayIndex) === awayRef)?.fixtureIndex ?? 0) + 1) : stage === "final" ? 2 : 1,
     stage,
     groupRef,
     kickoffAt: timestamp(kickoff),
-    venue: "Cherukunnu Municipal Ground",
+    venueRef: venues[0]._id,
+    venue: venues[0].name,
     homeSeasonTeamRef: homeRef,
     awaySeasonTeamRef: awayRef,
     status,
@@ -400,7 +408,7 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   for (const [label, docs] of Object.entries({
     users: db.users, teams: db.teams, players: db.players, managers: db.managers,
     sponsors: db.sponsors, organizers: db.organizers, seasons: db.seasons, seasonTeams: db.seasonTeams,
-    auctionLots: db.auctionLots, matches: db.matches, groups: db.groups, awards: db.awards,
+    auctionLots: db.auctionLots, matches: db.matches, groups: db.groups, venues: db.venues, awards: db.awards,
   })) {
     unique(docs.map((doc) => doc._id), `${label} _id`);
     assert(docs.every((doc) => validId(doc._id)), `${label} contains a non-ObjectId id`);
@@ -410,6 +418,7 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   unique(db.auctionLots.map((lot) => `${lot.seasonRef}:${lot.playerRef}`), "season/player auction lot");
   unique(db.matches.map((match) => `${match.seasonRef}:${match.matchNumber}`), "season/match number");
   unique(db.groups.map((group) => `${group.seasonRef}:${group.groupName}`), "season/group name");
+  unique(db.venues.map((venue) => venue.name.trim().toLowerCase()), "venue name");
 
   const seasonTeam = (id: string, seasonRef: string) => db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonRef);
   unique(db.awards.map((award) => `${award.seasonRef}:${award.awardType}`), "season award category");
@@ -424,6 +433,10 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
         assert(Boolean(db.auctionLots.some((lot) => lot.seasonRef === award.seasonRef && lot.seasonTeamRef === recipient.seasonTeamRef && lot.playerRef === recipient.playerRef && lot.auctionStatus === "sold")), `Award ${award._id} player is not rostered for that season team`);
       }
     }
+  }
+  for (const match of db.matches) {
+    assert(Number.isInteger(match.roundNumber) && match.roundNumber > 0, `Fixture ${match._id} has an invalid round number`);
+    assert(db.venues.some((venue) => venue._id === match.venueRef), `Fixture ${match._id} references an unknown venue`);
   }
   for (const st of db.seasonTeams) {
     assert(db.seasons.some((s) => s._id === st.seasonRef), `SeasonTeam ${st._id} has no season`);
@@ -489,7 +502,7 @@ export function createSeasonDatabase(): SeasonMockDatabase {
       passwordHash: "$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", role: "user", profilePic: null,
       status: "active", lastLoginAt: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
     }],
-    teams, players, managers, sponsors, organizers, seasons, seasonTeams, auctionLots, matches, groups, awards,
+    teams, players, managers, sponsors, organizers, seasons, seasonTeams, auctionLots, matches, groups, venues, awards,
   };
   assertSeedIntegrity(database);
   return database;
