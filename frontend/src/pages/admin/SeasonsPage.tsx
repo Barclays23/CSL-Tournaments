@@ -241,6 +241,9 @@ function SeasonsBody() {
     event.preventDefault();
     if (!selected) return;
     if (editForm.endDate && editForm.startDate && editForm.endDate < editForm.startDate) { toast.error("End date must be on or after start date"); return; }
+    if (editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize) {
+      toast.error("Player limits cannot exceed the team squad size"); return;
+    }
     setSaving(true);
     const patch: SeasonPatch = {
       ...(editForm.name.trim() !== selected.name ? { name: editForm.name.trim() } : {}), startDate: editForm.startDate || null, endDate: editForm.endDate || null,
@@ -818,7 +821,7 @@ function SeasonsBody() {
           onChange={(key, value) => setEditForm((current) => ({ ...current, [key]: value }))}
           onSubmit={handleEdit}
           submitLabel="Save configuration"
-          submitDisabled={!editForm.standingsTieBreakers.length}
+          submitDisabled={!editForm.standingsTieBreakers.length || editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize}
         />     </Modal>
     </PageContainer>
   );

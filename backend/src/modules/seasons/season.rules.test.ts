@@ -57,6 +57,8 @@ test("Season creation validates configuration and rejects embedded team registra
   assert.equal(seasonCreateSchema.safeParse(valid).success, true);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, seasonNumber: 1000 }).success, true);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, teamIds: ["507f1f77bcf86cd799439011"] }).success, false);
+  assert.equal(seasonCreateSchema.safeParse({ ...valid, initialTeamIds: ["507f1f77bcf86cd799439011"] }).success, false);
+  assert.equal(seasonCreateSchema.safeParse({ ...valid, initialParticipatingTeams: ["507f1f77bcf86cd799439011"] }).success, false);
   assert.equal(seasonCreateSchema.safeParse({ ...valid, startDate: "2026-11-21", endDate: "2026-11-20" }).success, false);
 });
 

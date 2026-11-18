@@ -1,5 +1,5 @@
 import type { ChangeEvent, FormEvent, ReactNode } from "react";
-import { CalendarDays, Coins, Flag, ListOrdered, ShieldCheck, Trophy, type LucideIcon } from "lucide-react";
+import { ArrowDown, ArrowUp, CalendarDays, Coins, Flag, ShieldCheck, Trophy, type LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
@@ -173,35 +173,77 @@ export function SeasonConfigurationFields({
         </div>
       </Section>
 
-      <Section icon={ShieldCheck} title="Match rules" description="Configure draw handling in group and knockout matches.">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <ToggleField label="Allow draws in group-stage matches" description="When enabled, group-stage matches may finish level." checked={value.groupStageDrawAllowed} disabled={matchDisabled}
-            onChange={(next) => onChange("groupStageDrawAllowed", next)} />
-          <ToggleField label="Require a shootout for tied knockout matches" description="A tied knockout match must be decided by a penalty shootout." checked={value.knockoutDrawRequiresShootout} disabled={matchDisabled}
-            onChange={(next) => onChange("knockoutDrawRequiresShootout", next)} />
+      <Section icon={ShieldCheck} title="Match and standings rules" description="Configure match outcomes and decide how teams are ranked when they finish level on points.">
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Match outcomes</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ToggleField label="Allow draws in group-stage matches" description="When enabled, group-stage matches may finish level." checked={value.groupStageDrawAllowed} disabled={matchDisabled}
+              onChange={(next) => onChange("groupStageDrawAllowed", next)} />
+            <ToggleField label="Require a shootout for tied knockout matches" description="A tied knockout match must be decided by a penalty shootout." checked={value.knockoutDrawRequiresShootout} disabled={matchDisabled}
+              onChange={(next) => onChange("knockoutDrawRequiresShootout", next)} />
+          </div>
         </div>
-      </Section>
 
-      <Section icon={ListOrdered} title="Standings tiebreakers" description="Choose the criteria applied when teams finish level on points.">
-        <div className="grid gap-2 sm:grid-cols-2">
-          {tieBreakers.map(([key, label, description]) => {
-            const selected = value.standingsTieBreakers.includes(key);
-            return (
-              <label key={key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3">
-                <input className="mt-0.5 h-4 w-4 shrink-0 accent-accent" type="checkbox" checked={selected} disabled={matchDisabled}
-                  onChange={(event) => onChange("standingsTieBreakers", event.target.checked
-                    ? [...value.standingsTieBreakers, key]
-                    : value.standingsTieBreakers.filter((item) => item !== key))} />
-                <span className="min-w-0">
-                  <span className="block text-sm font-medium text-fg">{label}</span>
-                  <span className="mt-0.5 block text-xs text-muted">{description}</span>
-                </span>
-              </label>
-            );
-          })}
+        <div className="mt-4 border-t border-line pt-4">
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h4 className="text-sm font-semibold text-fg">Standings tiebreaker priority</h4>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted">Selected criteria are applied from top to bottom. Use the arrows to change their priority.</p>
+            </div>
+            <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-medium text-muted">
+              {value.standingsTieBreakers.length} selected
+            </span>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            {tieBreakers.map(([key, label, description]) => {
+              const selectedIndex = value.standingsTieBreakers.indexOf(key);
+              const selected = selectedIndex >= 0;
+              const movePriority = (direction: -1 | 1) => {
+                const targetIndex = selectedIndex + direction;
+                if (selectedIndex < 0 || targetIndex < 0 || targetIndex >= value.standingsTieBreakers.length) return;
+                const next = [...value.standingsTieBreakers];
+                [next[selectedIndex], next[targetIndex]] = [next[targetIndex], next[selectedIndex]];
+                onChange("standingsTieBreakers", next);
+              };
+
+              return (
+                <div key={key} className={`flex min-w-0 items-center gap-2 rounded-xl border p-3 transition-colors ${selected ? "border-accent/40 bg-primary/5" : "border-line hover:bg-surface"}`}>
+                  <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
+                    <input className="mt-1 h-4 w-4 shrink-0 accent-accent" type="checkbox" checked={selected} disabled={matchDisabled}
+                      onChange={(event) => onChange("standingsTieBreakers", event.target.checked
+                        ? [...value.standingsTieBreakers, key]
+                        : value.standingsTieBreakers.filter((item) => item !== key))} />
+                    <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-semibold tabular-nums ${selected ? "bg-primary/15 text-accent" : "bg-surface text-muted"}`}>
+                      {selected ? selectedIndex + 1 : "–"}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium text-fg">{label}</span>
+                      <span className="mt-0.5 block text-xs text-muted">{description}</span>
+                    </span>
+                  </label>
+                  {selected ? (
+                    <div className="flex shrink-0 flex-col gap-1">
+                      <button type="button" aria-label={`Move ${label} up`} title="Move up"
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-muted transition hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+                        disabled={matchDisabled || selectedIndex === 0} onClick={() => movePriority(-1)}>
+                        <ArrowUp className="h-3.5 w-3.5" />
+                      </button>
+                      <button type="button" aria-label={`Move ${label} down`} title="Move down"
+                        className="flex h-7 w-7 items-center justify-center rounded-md border border-line text-muted transition hover:bg-surface hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+                        disabled={matchDisabled || selectedIndex === value.standingsTieBreakers.length - 1} onClick={() => movePriority(1)}>
+                        <ArrowDown className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+          {!value.standingsTieBreakers.length ? <p className="mt-2 text-xs text-danger">Select at least one tiebreaker.</p> : null}
         </div>
-        {!value.standingsTieBreakers.length ? <p className="mt-2 text-xs text-danger">Select at least one tiebreaker.</p> : null}
-      </Section>
+        {mode === "edit" && matchRulesLocked ? <p className="mt-3 text-xs text-muted">Match and standings rules are locked because fixtures already exist.</p> : null}
+      </Section>      </Section>
     </div>
   );
 }
