@@ -13,7 +13,7 @@ import { createMockObjectId } from "@/mocks/objectId";
 const newId = () => createMockObjectId();
 const now = () => new Date().toISOString();
 const ok = <T>(message: string, data: T): ApiResponse<T> => ({ success: true, message, data });
-const fail = (status: number, message: string): never => { throw new ApiError(status, message, { errorCode: status === 409 ? "CONFLICT" : "RULE" }); };
+const fail = (status: number, message: string, errorCode?: string): never => { throw new ApiError(status, message, { errorCode: errorCode ?? (status === 409 ? "CONFLICT" : "RULE") }); };
 
 function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   const season = db.seasons.find((item) => item._id === id);
@@ -432,13 +432,16 @@ export const seasonPreviewRepository = {
 
     const transitions: Record<MockSeasonMatch["status"], MockSeasonMatch["status"][]> = {
       scheduled: ["live", "postponed", "cancelled"],
-      live: ["completed", "postponed", "abandoned"],
+      live: ["completed", "scheduled", "postponed", "abandoned"],
       postponed: ["scheduled", "cancelled"],
       completed: [],
       cancelled: [],
       abandoned: [],
     };
     const nextStatus = input.status;
+    if (match.status === "live" && nextStatus === "scheduled" && match.goals.length > 0) {
+      fail(409, "Remove all recorded goal events before reverting this Live match to Scheduled.", "MATCH_HAS_GOALS");
+    }
     if (match.status !== nextStatus && !transitions[match.status].includes(nextStatus)) {
       const allowed = transitions[match.status].join(", ") || "none";
       fail(409, `Cannot change match status from ${match.status} to ${nextStatus}. Allowed next statuses: ${allowed}.`);
@@ -458,8 +461,10 @@ export const seasonPreviewRepository = {
     const reason = statusReason ?? resolutionReason;
     const changed = nextStatus !== match.status;
     if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes");
-    if (changed && ["postponed", "cancelled", "abandoned"].includes(nextStatus) && !reason) {
-      fail(422, "A reason is required when postponing, cancelling or abandoning a match");
+    const requiresReason = ["postponed", "cancelled", "abandoned"].includes(nextStatus)
+      || (match.status === "live" && nextStatus === "scheduled");
+    if (changed && requiresReason && !reason) {
+      fail(422, "A reason is required when postponing, cancelling, abandoning or reverting a match");
     }
     if (reason !== undefined && (reason.length < 3 || reason.length > 500)) {
       fail(422, "Enter a status-change reason between 3 and 500 characters");
@@ -482,6 +487,10 @@ export const seasonPreviewRepository = {
       if (nextStatus === "cancelled" || nextStatus === "abandoned") {
         match.resolutionHistory ??= [];
         match.resolutionHistory.push({ status: nextStatus, reason: reason!, decidedAt: changedAt });
+      }
+      if (match.status === "live" && nextStatus === "scheduled") {
+        match.winnerSeasonTeamRef = null;
+        match.penaltyShootout = null;
       }
       match.status = nextStatus;
       if (nextStatus === "completed") this.recalculateMockWinner(season, match);

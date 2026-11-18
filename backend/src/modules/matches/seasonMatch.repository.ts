@@ -123,13 +123,22 @@ export class SeasonMatchRepository {
     id: string,
     data: Partial<SeasonMatchFields>,
     homeAndAway: boolean,
-    statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry },
+    statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry; requireNoGoals?: boolean },
   ): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
       const current = await SeasonMatchModel.findOne({ _id: new Types.ObjectId(id), seasonRef: existing.seasonRef }).session(session).lean<SeasonMatchEntity>().exec();
       if (!current) return null;
+
+      if (statusAudit?.requireNoGoals && current.goals.length > 0) {
+        throw new AppError(
+          "Remove all recorded goal events before reverting this Live match to Scheduled.",
+          409,
+          "MATCH_HAS_GOALS",
+          { goals: "Delete every recorded goal event first" },
+        );
+      }
 
       if (statusAudit) {
         if (current.status !== statusAudit.expectedStatus || statusAudit.entry.fromStatus !== current.status) {
@@ -168,6 +177,7 @@ export class SeasonMatchRepository {
         _id: new Types.ObjectId(id),
         seasonRef: existing.seasonRef,
         ...(statusAudit ? { status: statusAudit.expectedStatus } : {}),
+        ...(statusAudit?.requireNoGoals ? { goals: { $size: 0 } } : {}),
       };
       const update: {
         $set: Partial<SeasonMatchFields>;
@@ -203,7 +213,7 @@ export class SeasonMatchRepository {
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
         { $push: { goals: goal }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
@@ -215,7 +225,7 @@ export class SeasonMatchRepository {
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, "goals._id": new Types.ObjectId(goalId) },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", "goals._id": new Types.ObjectId(goalId) },
         { $set: { "goals.$": goal, winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
@@ -227,7 +237,7 @@ export class SeasonMatchRepository {
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
         { $pull: { goals: { _id: new Types.ObjectId(goalId) } }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(),

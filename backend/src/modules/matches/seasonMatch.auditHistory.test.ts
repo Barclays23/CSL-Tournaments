@@ -46,7 +46,7 @@ interface RepositoryHarness {
   service: SeasonMatchService;
   writes: Array<{
     data: Partial<SeasonMatchFields>;
-    statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: SeasonMatchStatusHistoryEntry };
+    statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: SeasonMatchStatusHistoryEntry; requireNoGoals?: boolean };
   }>;
   getDocument: () => SeasonMatchEntity;
 }
@@ -146,6 +146,71 @@ test("Live to Completed also records a status event with an optional reason", as
   assert.equal(entry.reason, null);
   assert.equal(String(entry.changedBy), actorId);
   assert.equal(response.statusHistory.length, 1);
+});
+
+test("Live to Scheduled requires a reason and records a complete audit entry", async () => {
+  const harness = makeHarness(createMatch({ status: "live", goals: [] }));
+  const before = Date.now();
+
+  const response = await harness.service.update(
+    matchId,
+    { status: "scheduled", statusReason: "The match was started accidentally" },
+    actorId,
+  );
+
+  const audit = harness.writes[0]?.statusAudit;
+  assert.ok(audit);
+  assert.equal(audit.expectedStatus, "live");
+  assert.equal(audit.requireNoGoals, true);
+  assert.equal(audit.entry.fromStatus, "live");
+  assert.equal(audit.entry.toStatus, "scheduled");
+  assert.equal(audit.entry.reason, "The match was started accidentally");
+  assert.equal(String(audit.entry.changedBy), actorId);
+  assert.ok(audit.entry.changedAt.getTime() >= before);
+  assert.equal(harness.getDocument().status, "scheduled");
+  assert.equal(harness.writes[0]?.data.winnerSeasonTeamRef, null);
+  assert.equal(harness.writes[0]?.data.penaltyShootout, null);
+  assert.equal(response.statusHistory.length, 1);
+  assert.equal(response.statusHistory[0].reason, "The match was started accidentally");
+});
+
+test("Live to Scheduled is rejected when any goal event remains", async () => {
+  const goal = {
+    _id: new Types.ObjectId("507f1f77bcf86cd799439018"),
+    scoringSeasonTeamRef: new Types.ObjectId(homeId),
+    scorerPlayerRef: null,
+    playerSeasonTeamRef: null,
+    goalType: "own_goal" as const,
+    createdAt: new Date(),
+  };
+  const harness = makeHarness(createMatch({ status: "live", goals: [goal] }));
+
+  await assert.rejects(
+    () => harness.service.update(matchId, {
+      status: "scheduled",
+      statusReason: "The match was started accidentally",
+    }, actorId),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === "MATCH_HAS_GOALS",
+  );
+
+  assert.equal(harness.writes.length, 0);
+  assert.equal(harness.getDocument().status, "live");
+  assert.equal(harness.getDocument().goals.length, 1);
+});
+
+test("Live to Scheduled cannot be performed without a reason", async () => {
+  const harness = makeHarness(createMatch({ status: "live", goals: [] }));
+
+  await assert.rejects(
+    () => harness.service.update(matchId, { status: "scheduled" }, actorId),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 422
+      && error.errorCode === "MATCH_STATUS_REASON_REQUIRED",
+  );
+
+  assert.equal(harness.writes.length, 0);
 });
 
 test("cancellation and abandonment preserve legacy resolution history and add audit entries", async () => {
