@@ -183,7 +183,7 @@ function SeasonsBody() {
       if (match.status === "completed" && match.stage !== "group") {
         const home = typeof match.homeSeasonTeamRef === "object" ? match.homeSeasonTeamRef._id : match.homeSeasonTeamRef;
         const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
-        const winner = typeof match.winnerSeasonTeamRef === "object" ? match.winnerSeasonTeamRef._id : match.winnerSeasonTeamRef;
+        const winner = typeof match.winnerSeasonTeamRef === "object" ? match.winnerSeasonTeamRef?._id : match.winnerSeasonTeamRef;
         if (!winner || (winner !== home && winner !== away)) blockers.push("Knockout match " + match.matchNumber + " has no valid winner");
       }
     }
