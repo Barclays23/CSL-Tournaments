@@ -1,5 +1,4 @@
 import mongoose, { Types, type QueryFilter } from "mongoose";
-import { MatchModel } from "../matches/match.model.js";
 import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
 import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
@@ -36,7 +35,7 @@ export class PlayerRepository implements IPlayerRepository {
         { "goals.scorerPlayerRef": id },
         { "penaltyShootout.kicks.playerRef": id },
       ] }).exec(),
-      MatchModel.countDocuments({ $or: [
+      SeasonMatchModel.countDocuments({ $or: [
         { "goals.scorerRef": id },
         { "goals.ownGoalPlayerRef": id },
       ] }).exec(),
@@ -70,7 +69,7 @@ export class PlayerRepository implements IPlayerRepository {
             { "goals.scorerPlayerRef": id },
             { "penaltyShootout.kicks.playerRef": id },
           ] }).session(session).exec(),
-          MatchModel.countDocuments({ $or: [
+          SeasonMatchModel.countDocuments({ $or: [
             { "goals.scorerRef": id },
             { "goals.ownGoalPlayerRef": id },
           ] }).session(session).exec(),
