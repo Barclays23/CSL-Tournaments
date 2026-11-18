@@ -6,9 +6,9 @@ export const seasonMatchFormSchema = z.object({
   stage: z.enum(["group", "round_of_16", "quarter_final", "semi_final", "third_place", "final"], { error: "Choose a fixture stage" }),
   groupRef: z.union([objectId, z.literal("")]).transform(value => value || null),
   kickoffAt: z.string().min(1, "Kick-off date and time is required").refine(value => !Number.isNaN(new Date(value).getTime()), "Enter a valid kick-off date and time"),
-  venueRef: objectId,
-  homeSeasonTeamRef: objectId,
-  awaySeasonTeamRef: objectId,
+  venueRef: z.string().min(1, "Choose a venue").regex(/^[a-f\d]{24}$/i, "Choose a valid venue"),
+  homeSeasonTeamRef: z.string().min(1, "Choose the home team").regex(/^[a-f\d]{24}$/i, "Choose a valid home team"),
+  awaySeasonTeamRef: z.string().min(1, "Choose the away team").regex(/^[a-f\d]{24}$/i, "Choose a valid away team"),
   notes: z.string().trim().max(1000, "Notes must be 1000 characters or fewer").transform(value => value || null),
 }).superRefine((value, context) => {
   if (value.homeSeasonTeamRef === value.awaySeasonTeamRef) context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "Home and away teams must be different" });

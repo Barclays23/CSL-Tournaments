@@ -18,6 +18,7 @@ function loadDatabase(): SeasonMockDatabase {
       const availableSeasonTeams = Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams;
       const storedMatches = Array.isArray(stored.matches) ? stored.matches : seeded.matches;
       const availableVenues: MockVenue[] = Array.isArray(stored.venues) ? stored.venues : [...seeded.venues];
+      if (availableVenues.length === 0) availableVenues.push(...seeded.venues);
       for (const match of storedMatches) {
         const venueName = String((match as any).venue ?? "").trim();
         if (!venueName || availableVenues.some((venue) => venue.name.trim().toLowerCase() === venueName.toLowerCase())) continue;

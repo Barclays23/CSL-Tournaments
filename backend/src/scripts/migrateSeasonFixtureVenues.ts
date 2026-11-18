@@ -15,6 +15,7 @@ async function migrate(): Promise<void> {
     const byName = new Map<string, any>();
     for (const venue of venueRows) byName.set(venue.normalizedName || normalize(venue.name), venue);
     const plans: Array<{ matchId: string; venueName: string; venueId: string; roundNumber: number }> = [];
+    let unresolvedFixtures = 0;
     const newVenues: any[] = [];
     for (const match of rows) {
       const venueName = String(match.venue ?? "").trim();
@@ -30,16 +31,23 @@ async function migrate(): Promise<void> {
       }
       if (!venue) {
         console.error("Fixture has no venue and cannot be migrated automatically:", String(match._id));
+        unresolvedFixtures += 1;
         process.exitCode = 2;
         continue;
       }
       const roundNumber = Number.isInteger(match.roundNumber) && match.roundNumber > 0 ? match.roundNumber : 1;
-      if (!match.venueRef || !match.roundNumber) plans.push({ matchId: String(match._id), venueName: venue.name, venueId: String(venue._id), roundNumber });
-      if (apply && (!match.venueRef || !match.roundNumber)) {
-        await matches.updateOne({ _id: match._id }, { $set: { venueRef: venue._id, roundNumber } });
+      if (!match.venueRef || !match.roundNumber || match.venue !== undefined) plans.push({ matchId: String(match._id), venueName: venue.name, venueId: String(venue._id), roundNumber });
+    }
+    if (apply && unresolvedFixtures > 0) throw new Error(`Cannot apply migration: ${unresolvedFixtures} fixture(s) have no venue name to migrate. No database records were changed.`);
+    if (apply && newVenues.length) await venues.insertMany(newVenues, { ordered: true });
+    if (apply) {
+      for (const plan of plans) {
+        await matches.updateOne({ _id: new mongoose.Types.ObjectId(plan.matchId) }, {
+          $set: { venueRef: new mongoose.Types.ObjectId(plan.venueId), roundNumber: plan.roundNumber },
+          $unset: { venue: "" },
+        });
       }
     }
-    if (apply && newVenues.length) await venues.insertMany(newVenues, { ordered: true });
     console.log(JSON.stringify({ mode: apply ? "apply" : "dry-run", fixturesToUpdate: plans.length, venuesToCreate: newVenues.map(v => v.name), changes: plans }, null, 2));
     if (!apply) console.log("Dry run only. Run with --apply to create venue master records and link existing fixtures.");
   } finally { await mongoose.disconnect(); }
