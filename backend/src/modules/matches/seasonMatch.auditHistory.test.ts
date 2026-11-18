@@ -134,6 +134,20 @@ test("successful status changes store from/to status, reason, authenticated user
   assert.equal(response.statusHistory[0].toStatus, "postponed");
 });
 
+test("Live to Completed also records a status event with an optional reason", async () => {
+  const harness = makeHarness(createMatch({ status: "live" }));
+
+  const response = await harness.service.update(matchId, { status: "completed" }, actorId);
+
+  const entry = harness.writes[0]?.statusAudit?.entry;
+  assert.ok(entry);
+  assert.equal(entry.fromStatus, "live");
+  assert.equal(entry.toStatus, "completed");
+  assert.equal(entry.reason, null);
+  assert.equal(String(entry.changedBy), actorId);
+  assert.equal(response.statusHistory.length, 1);
+});
+
 test("cancellation and abandonment preserve legacy resolution history and add audit entries", async () => {
   const legacyResolution = {
     status: "cancelled" as const,

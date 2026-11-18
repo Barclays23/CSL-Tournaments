@@ -72,6 +72,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(statusReasonValue!==undefined&&resolutionReasonValue!==undefined&&statusReasonValue!==resolutionReasonValue){
    throw new AppError("Use one consistent reason for the status change",422,"CONFLICTING_STATUS_REASONS",{statusReason:"Use one consistent reason"});
   }
+  if(input.resolutionReason!==undefined&&nextStatus!=="cancelled"&&nextStatus!=="abandoned")throw new AppError("A resolution reason is only valid when cancelling or abandoning a fixture",422,"INVALID_FIXTURE_RESOLUTION");
   const statusReason=statusReasonValue??resolutionReasonValue??null;
   if(!statusChanged&&(input.statusReason!==undefined||input.resolutionReason!==undefined)){
    throw new AppError("A status-change reason can only be supplied when the match status changes",422,"STATUS_REASON_WITHOUT_TRANSITION");
