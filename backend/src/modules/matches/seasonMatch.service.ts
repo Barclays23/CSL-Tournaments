@@ -2,6 +2,7 @@ import {Types} from "mongoose";
 import {getPairFixtureError} from "./seasonMatch.fixtureRules.js";
 import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
+import {assertMatchStatusTransition} from "./seasonMatch.statusRules.js";
 import {AppError} from "../../shared/errors/appError.js";
 import type {PaginatedResult} from "../../shared/types/common.types.js";
 import type {SeasonMatchRepository} from "./seasonMatch.repository.js";
@@ -62,6 +63,8 @@ export class SeasonMatchService implements ISeasonMatchService{
   this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
   const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(["completed","archived"].includes(season.status))throw new AppError("Completed or archived season matches are read-only",409,"SEASON_CLOSED");
+  const nextStatus=input.status??existing.status;
+  assertMatchStatusTransition(existing.status,nextStatus);
   if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Correct goals through goal management; fixture details cannot be rewritten.",409,"MATCH_COMPLETED_READ_ONLY");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const homeId=input.homeSeasonTeamRef??String(existing.homeSeasonTeamRef),awayId=input.awaySeasonTeamRef??String(existing.awaySeasonTeamRef);
@@ -81,8 +84,6 @@ export class SeasonMatchService implements ISeasonMatchService{
   if((teamsChanged||structureChanged)&&(existing.goals.length>0||(existing.resolutionHistory??[]).length>0))throw new AppError("Participating teams, stage and group cannot be changed after goal or resolution history has been recorded",409,"MATCH_HAS_HISTORY");
   const number=input.matchNumber??existing.matchNumber;
   if(number!==existing.matchNumber){const duplicate=await this.repo.findByNumber(String(existing.seasonRef),number);if(duplicate&&String(duplicate._id)!==id)throw new AppError("Match number already exists in this season",409,"DUPLICATE_MATCH_NUMBER");}
-  const nextStatus=input.status??existing.status;
-  if(["cancelled","abandoned"].includes(existing.status)&&nextStatus!==existing.status)throw new AppError("A cancelled or abandoned fixture cannot be reopened; create a replacement fixture with a new match number",409,"FIXTURE_RESOLUTION_LOCKED");
   const resolutionHistory=[...(existing.resolutionHistory??[])];
   if(input.resolutionReason!==undefined&&(nextStatus!=="cancelled"&&nextStatus!=="abandoned"))throw new AppError("A resolution reason is only valid when cancelling or abandoning a fixture",422,"INVALID_FIXTURE_RESOLUTION");
   if(nextStatus==="cancelled"||nextStatus==="abandoned"){
