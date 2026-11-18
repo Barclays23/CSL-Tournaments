@@ -10,6 +10,7 @@ on:
       - feature/season-management-complete
       - feature/season-management-final-hardening
       - feature/match-status-transition-rules
+      - feature/match-completion-validation
   pull_request:
     branches:
       - main
