@@ -1,7 +1,6 @@
 export const TOURNAMENT_DEFAULTS={
   singletonKey:"CSL_CURRENT",
   maxActivePlayers:54,
-  maxActiveTeams:6,
   maxPlayersPerTeam:9,
   auctionBudgetPerTeam:10000,
   requiredIconPlayers:1,
