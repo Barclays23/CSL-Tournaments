@@ -640,6 +640,12 @@ export const seasonPreviewRepository = {
     if (match.penaltyShootout) fail(422, "A shootout is only allowed when normal-time scores are tied");
     match.winnerSeasonTeamRef = homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
   },
+  async getVenue(id: string) {
+    const db = readSeasonDb();
+    const venue = db.venues.find((item) => item._id === id);
+    if (!venue) return fail(404, "Venue not found");
+    return ok("Venue fetched", venue as Venue);
+  },
   async getVenues(status: "active" | "inactive" | "all" = "active") {
     const db = readSeasonDb();
     const items = db.venues.filter((venue) => status === "all" || venue.status === status).sort((a, b) => a.name.localeCompare(b.name));
