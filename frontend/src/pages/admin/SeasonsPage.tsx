@@ -100,7 +100,6 @@ function SeasonsBody() {
   const [groupDrafts, setGroupDrafts] = useState<Record<string, { groupName: string; displayOrder: number }>>({});
   const [saving, setSaving] = useState(false);
   const [optionalAwardType, setOptionalAwardType] = useState<"golden_boot"|"golden_glove"|"player_of_the_season"|"best_young_player"|"best_defender"|"best_midfielder">("golden_boot");
-  const [optionalAwardLotId, setOptionalAwardLotId] = useState("");
   const [optionalAwardLotIds, setOptionalAwardLotIds] = useState<string[]>([]);
   const [completionBlockers, setCompletionBlockers] = useState<string[]>([]);
 
@@ -335,7 +334,7 @@ function SeasonsBody() {
     try {
       if (existing) await updateSeasonAward(selected._id, existing._id, { recipients });
       else await createSeasonAward(selected._id, { awardType: optionalAwardType, recipients });
-      toast.success("Optional award saved"); setOptionalAwardLotIds([]); setOptionalAwardLotId(""); awardsQuery.reload();
+      toast.success("Optional award saved"); setOptionalAwardLotIds([]); awardsQuery.reload();
     } catch (error) { toast.error(errorMessage(error)); } finally { setSaving(false); }
   };
 
