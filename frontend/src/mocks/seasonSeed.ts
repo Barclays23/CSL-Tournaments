@@ -63,7 +63,7 @@ export interface MockSeasonMatch {
   status: "scheduled" | "live" | "completed" | "postponed" | "cancelled" | "abandoned";
   goals: Array<{ _id: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: "normal" | "own_goal"; createdAt: string }>;
   penaltyShootout: null | { status: "pending" | "completed"; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: "scored" | "missed" | "saved" }> };
-  winnerSeasonTeamRef: string | null; notes: string | null; resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>; createdAt: string; updatedAt: string;
+  winnerSeasonTeamRef: string | null; notes: string | null; resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>; statusHistory?: Array<{ fromStatus: MockSeasonMatch["status"]; toStatus: MockSeasonMatch["status"]; reason: string | null; changedBy: string; changedAt: string; fromKickoffAt: string | null; toKickoffAt: string | null }>; createdAt: string; updatedAt: string;
 }
 export interface MockVenue { _id:string; name:string; location:string|null; notes:string|null; status:"active"|"inactive"; createdAt:string; updatedAt:string; }
 export interface MockSeasonAwardRecipient { _id:string; recipientType:"season_team"|"player"; seasonTeamRef:string; playerRef:string|null; displayNameSnapshot:string; profileImageSnapshot:Asset|null; teamNameSnapshot:string; teamLogoSnapshot:Asset|null; }
