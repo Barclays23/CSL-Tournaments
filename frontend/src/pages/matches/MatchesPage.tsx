@@ -149,6 +149,41 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
         {selectedSeason ? <p className="mt-1 text-xs text-muted">Showing fixtures for {selectedSeason.name}.</p> : null}
       </div>
       {seasons.error ? <ErrorState message={seasons.error} onRetry={seasons.reload} /> : null}
+      {selectedSeason ? (
+        <section
+          aria-label="Selected season information"
+          className="mb-5 rounded-2xl border border-line bg-glass p-4 shadow-sm sm:p-5"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
+                Season {selectedSeason.year} <span aria-hidden="true">·</span> Edition {selectedSeason.seasonNumber}
+              </p>
+              <h2 className="mt-1 truncate font-display text-xl text-fg sm:text-2xl">
+                {selectedSeason.name}
+              </h2>
+              <p className="mt-2 text-sm text-muted">
+                {dateLabel(selectedSeason.startDate)} <span aria-hidden="true">–</span> {dateLabel(selectedSeason.endDate)}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-line bg-surface px-3 py-1.5">
+              <span
+                aria-hidden="true"
+                className={`h-2 w-2 rounded-full ${
+                  selectedSeason.status === "active" ? "bg-success"
+                    : selectedSeason.status === "upcoming" ? "bg-info"
+                      : selectedSeason.status === "completed" ? "bg-muted"
+                        : selectedSeason.status === "archived" ? "bg-warning"
+                          : "bg-line"
+                }`}
+              />
+              <span className="text-xs font-semibold capitalize text-fg">
+                Status: {selectedSeason.status}
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : null}
       <Tabs tabs={TABS} value={status} onChange={(value) => { setStatus(value as SeasonMatchStatus | ""); setPage(1); }} />
       <div className="my-4 grid gap-3 md:grid-cols-3">
         <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search match number or team" />
