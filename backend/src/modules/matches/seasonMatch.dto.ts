@@ -1,6 +1,7 @@
 import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, ShootoutStatus, ShootoutKickResult } from "./seasonMatch.types.js";
 export interface SeasonMatchResolutionDto { status: "cancelled" | "abandoned"; reason: string; decidedAt: string; }
-export interface SeasonMatchStatusHistoryDto { fromStatus: SeasonMatchStatus; toStatus: SeasonMatchStatus; reason: string | null; changedBy: string; changedAt: string; }
+export interface SeasonMatchStatusHistoryDto { fromStatus: SeasonMatchStatus; toStatus: SeasonMatchStatus; reason: string | null; changedBy: string; changedAt: string; fromKickoffAt: string | null; toKickoffAt: string | null; }
+export interface RescheduleSeasonMatchDto { kickoffAt: Date; reason?: string; }
 export interface CreateSeasonMatchDto { matchNumber: number; roundNumber: number; stage: SeasonMatchStage; groupRef?: string | null; kickoffAt: Date; venueRef: string; homeSeasonTeamRef: string; awaySeasonTeamRef: string; status?: SeasonMatchStatus; notes?: string | null; penaltyShootout?: { status: ShootoutStatus; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }> } | null; }
 export type UpdateSeasonMatchDto = Partial<CreateSeasonMatchDto> & { resolutionReason?: string; statusReason?: string };
 export interface SeasonMatchQueryDto { page: number; limit: number; stage?: SeasonMatchStage; groupRef?: string | null; status?: SeasonMatchStatus; dateFrom?: Date; dateTo?: Date; seasonTeamRef?: string; search?: string; }

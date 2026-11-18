@@ -38,5 +38,10 @@ export const seasonMatchUpdateSchema = z.object({
   if (v.stage && v.stage !== "group" && v.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
  });
 
+export const seasonMatchRescheduleSchema = z.object({
+ kickoffAt: z.coerce.date(),
+ reason: z.string().trim().min(3).max(500).optional(),
+}).strict();
+
 export const seasonMatchQuerySchema = paginationSchema.extend({ stage: stage.optional(), groupRef: objectId.nullable().optional(), status: status.optional(), dateFrom: z.coerce.date().optional(), dateTo: z.coerce.date().optional(), seasonTeamRef: objectId.optional(), search: z.string().trim().max(100).optional() }).strict();
 export const seasonGoalSchema = z.object({ scoringSeasonTeamRef: objectId, scorerPlayerRef: objectId.nullable().optional(), goalType: z.enum(["normal", "own_goal"]) }).strict();

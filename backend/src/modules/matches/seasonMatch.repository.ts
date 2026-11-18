@@ -143,6 +143,17 @@ export class SeasonMatchRepository {
         if (statusAudit.entry.fromStatus === statusAudit.entry.toStatus) {
           throw new AppError("A status history entry must represent an actual status change.", 409, "DUPLICATE_MATCH_STATUS_HISTORY");
         }
+        const expectedKickoff = statusAudit.entry.fromKickoffAt;
+        if (expectedKickoff && current.kickoffAt.getTime() !== expectedKickoff.getTime()) {
+          throw new AppError("This match kickoff was changed by another update. Refresh the fixture and try again.", 409, "MATCH_KICKOFF_CONFLICT");
+        }
+        const destinationKickoff = statusAudit.entry.toKickoffAt;
+        if (destinationKickoff) {
+          const requestedKickoff = data.kickoffAt ?? current.kickoffAt;
+          if (requestedKickoff.getTime() !== destinationKickoff.getTime()) {
+            throw new AppError("The recorded rescheduling time does not match the fixture update.", 409, "MATCH_KICKOFF_HISTORY_CONFLICT");
+          }
+        }
       }
 
       const next = { ...current, ...data };

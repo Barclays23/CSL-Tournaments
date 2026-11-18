@@ -5,7 +5,7 @@ export type SeasonGoalType="normal"|"own_goal";
 export type ShootoutStatus="pending"|"completed";
 export type ShootoutKickResult="scored"|"missed"|"saved";
 export interface SeasonMatchResolutionEntry{status:"cancelled"|"abandoned";reason:string;decidedAt:Date;}
-export interface SeasonMatchStatusHistoryEntry{fromStatus:SeasonMatchStatus;toStatus:SeasonMatchStatus;reason:string|null;changedBy:Types.ObjectId;changedAt:Date;}
+export interface SeasonMatchStatusHistoryEntry{fromStatus:SeasonMatchStatus;toStatus:SeasonMatchStatus;reason:string|null;changedBy:Types.ObjectId;changedAt:Date;fromKickoffAt?:Date|null;toKickoffAt?:Date|null;}
 export interface SeasonGoalFields{_id?:Types.ObjectId;scoringSeasonTeamRef:Types.ObjectId;scorerPlayerRef:Types.ObjectId|null;playerSeasonTeamRef:Types.ObjectId|null;goalType:SeasonGoalType;createdAt?:Date;}
 export interface SeasonShootoutKick{seasonTeamRef:Types.ObjectId;playerRef:Types.ObjectId|null;result:ShootoutKickResult;}
 export interface SeasonPenaltyShootout{status:ShootoutStatus;homeTeamScore:number;awayTeamScore:number;kicks:SeasonShootoutKick[];}
