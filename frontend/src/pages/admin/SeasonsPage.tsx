@@ -461,7 +461,6 @@ function SeasonsBody() {
           <Button onClick={() => {
             const nextNumber = (seasons.data?.data.reduce((max, season) => Math.max(max, season.seasonNumber), 0) ?? 0) + 1;
             setCreateForm(defaultForm(nextNumber));
-            setInitialTeamIds([]);
             setCreateOpen(true);
           }}>
             <Plus className="h-4 w-4" /> Create season
