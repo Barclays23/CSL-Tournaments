@@ -5,7 +5,6 @@ export const settingsUpdateSchema = z.object({
   startDate: z.coerce.date().optional(),
   endDate: z.coerce.date().optional(),
   maxActivePlayers: z.coerce.number().int().min(1).max(200).optional(),
-  maxActiveTeams: z.coerce.number().int().min(1).max(32).optional(),
   maxPlayersPerTeam: z.coerce.number().int().min(1).max(30).optional(),
   auctionBudgetPerTeam: z.coerce.number().min(0).max(1000000).optional(),
   requiredIconPlayers: z.coerce.number().int().min(0).max(11).optional(),
