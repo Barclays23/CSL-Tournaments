@@ -5,7 +5,6 @@ export interface UpdateSettingsDto {
   startDate?: Date;
   endDate?: Date;
   maxActivePlayers?: number;
-  maxActiveTeams?: number;
   maxPlayersPerTeam?: number;
   auctionBudgetPerTeam?: number;
   requiredIconPlayers?: number;
