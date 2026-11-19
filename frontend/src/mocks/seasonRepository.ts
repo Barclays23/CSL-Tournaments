@@ -583,8 +583,8 @@ export const seasonPreviewRepository = {
     if (reason !== null && (reason.length < 3 || reason.length > 500)) {
       fail(422, "Enter a rescheduling reason between 3 and 500 characters", "INVALID_RESCHEDULE_REASON", { reason: "Reason must contain 3 to 500 characters" });
     }
-    const session = readSession();
-    if (!session?._id) fail(401, "An authenticated user is required to reschedule a match", "UNAUTHENTICATED");
+    const sessionId = readSession()?._id;
+    if (!sessionId) fail(401, "An authenticated user is required to reschedule a match", "UNAUTHENTICATED");
 
     const changedAt = now();
     const previousKickoff = match.kickoffAt;
@@ -593,7 +593,7 @@ export const seasonPreviewRepository = {
       fromStatus: "postponed",
       toStatus: "scheduled",
       reason,
-      changedBy: session._id,
+      changedBy: sessionId,
       changedAt,
       fromKickoffAt: previousKickoff,
       toKickoffAt: kickoff.toISOString(),
@@ -623,8 +623,8 @@ export const seasonPreviewRepository = {
     if (match.status !== "completed") fail(409, "Only Completed matches can use the correction workflow", "MATCH_NOT_COMPLETED");
     const reason = input.reason.trim();
     if (reason.length < 3 || reason.length > 1000) fail(422, "Enter a correction reason between 3 and 1000 characters", "MATCH_CORRECTION_REASON_REQUIRED", { reason: "A correction reason is required" });
-    const session = readSession();
-    if (!session?._id) fail(403, "An authenticated administrator is required to correct a completed match", "FORBIDDEN");
+    const correctedBy = readSession()?._id;
+    if (!correctedBy) fail(403, "An authenticated administrator is required to correct a completed match", "FORBIDDEN");
 
     const originalGoals = match.goals.map((goal) => ({ ...goal }));
     const originalShootout = match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
@@ -682,7 +682,7 @@ export const seasonPreviewRepository = {
     match.correctionHistory ??= [];
     match.correctionHistory.push({
       reason,
-      correctedBy: session._id,
+      correctedBy,
       correctedAt,
       originalResult: { ...originalScore, goals: originalGoals, penaltyShootout: originalShootout, winnerSeasonTeamRef: originalWinner },
       correctedResult: { ...correctedScore, goals: correctedGoals.map((goal) => ({ ...goal })), penaltyShootout: shootout ? { ...shootout, kicks: shootout.kicks.map((kick) => ({ ...kick })) } : null, winnerSeasonTeamRef: correctedWinner },
