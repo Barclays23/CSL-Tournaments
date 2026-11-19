@@ -71,13 +71,13 @@ export class SeasonMatchRepository {
    * MongoDB's transaction conflict detection prevents completion from observing
    * a fixture snapshot that is concurrently being changed.
    */
-  private async withSeasonWriteLock<T>(seasonId: string, work: (session: ClientSession) => Promise<T>): Promise<T> {
+  private async withSeasonWriteLock<T>(seasonId: string, work: (session: ClientSession) => Promise<T>, allowCompleted = false): Promise<T> {
     const session = await mongoose.startSession();
     try {
       let result!: T;
       await session.withTransaction(async () => {
         const lock = await SeasonModel.updateOne(
-          { _id: new Types.ObjectId(seasonId), status: { $in: ["upcoming", "active"] } },
+          { _id: new Types.ObjectId(seasonId), status: { $in: allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"] } },
           { $inc: { auctionRevision: 1 } },
           { session },
         ).exec();
@@ -274,7 +274,7 @@ export class SeasonMatchRepository {
         throw new AppError("This completed match changed while the correction was being prepared. Refresh and try again.", 409, "MATCH_CORRECTION_CONFLICT");
       }
       return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: { correctionHistory: historyEntry } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
-    });
+    }, true);
   }
 
   async delete(id: string): Promise<boolean> {
