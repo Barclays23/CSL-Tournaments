@@ -45,11 +45,13 @@ export function AuctionsPage() {
 
   useEffect(() => {
     if (!seasonId && seasons.data?.data.length) {
+      const auctionOpen = seasons.data.data.find((season) => season.status === "upcoming" && !season.auctionClosedAt);
       const active = seasons.data.data.find((season) => season.status === "active");
-      setSeasonId(active ? active._id : seasons.data.data[0]._id);
+      setSeasonId(auctionOpen?._id ?? active?._id ?? seasons.data.data[0]._id);
     }
   }, [seasonId, seasons.data]);
 
+  const [playerSearch, setPlayerSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<AuctionLotStatus | "">("");
   const [positionFilter, setPositionFilter] = useState<SeasonPlayerPosition | "">("");
@@ -86,7 +88,6 @@ export function AuctionsPage() {
 
   const [nominateOpen, setNominateOpen] = useState(false);
   const [playerId, setPlayerId] = useState("");
-  const [playerSearch, setPlayerSearch] = useState("");
   const [playerPosition, setPlayerPosition] = useState<SeasonPlayerPosition | "">("");
   const [isIconPlayer, setIsIconPlayer] = useState(false);
   const [isGoalkeeper, setIsGoalkeeper] = useState(false);
