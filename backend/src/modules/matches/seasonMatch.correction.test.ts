@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
+import { requireAdmin } from "../../middlewares/authorizeAdmin.middleware.js";
+import type { Request, Response } from "express";
 import { SeasonMatchService } from "./seasonMatch.service.js";
 import type { SeasonMatchRepository } from "./seasonMatch.repository.js";
 import type { SeasonMatchEntity } from "./seasonMatch.types.js";
@@ -83,6 +85,27 @@ function serviceFor(match = completedMatch()) {
     getGoals: () => persistedGoals as any,
   };
 }
+
+
+test("correction route authorization rejects non-admin users and permits admins", () => {
+  let rejected: unknown;
+  let continued = false;
+  requireAdmin(
+    { user: { id: ids.admin, role: "user" } } as Request,
+    {} as Response,
+    (error) => { rejected = error; },
+  );
+  assert.ok(rejected instanceof AppError);
+  assert.equal((rejected as AppError).statusCode, 403);
+  assert.equal((rejected as AppError).errorCode, "FORBIDDEN");
+
+  requireAdmin(
+    { user: { id: ids.admin, role: "admin" } } as Request,
+    {} as Response,
+    (error) => { assert.equal(error, undefined); continued = true; },
+  );
+  assert.equal(continued, true);
+});
 
 test("completed match correction requires an authenticated admin identity and reason", async () => {
   const { service } = serviceFor();
