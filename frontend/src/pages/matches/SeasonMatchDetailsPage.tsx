@@ -226,7 +226,11 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
       : null;
   const venueName = match.venueRef && typeof match.venueRef === "object" ? match.venueRef.name : match.venue || null;
 
-  const showEdit = isAdmin && !["completed", "cancelled", "abandoned"].includes(match.status);
+  const matchCards = (match as SeasonMatch & { cards?: unknown[] }).cards ?? [];
+  const hasRecordedMatchEvents = match.goals.length > 0 || matchCards.length > 0;
+  const showEdit = isAdmin
+    && (match.status === "scheduled" || match.status === "live")
+    && !hasRecordedMatchEvents;
 
   const saveGoal = async () => {
     if (!canManageGoals) {
