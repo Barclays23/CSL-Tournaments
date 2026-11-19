@@ -28,6 +28,7 @@ import type { SeasonMatch, SeasonMatchTeamRef, SeasonMatchWrite } from "@/types/
 import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
+import { canEditSeasonMatch } from "@/utils/seasonMatchPermissions";
 
 const STAGE_LABEL: Record<SeasonMatch["stage"], string> = {
   group: "Group stage",
@@ -226,11 +227,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
       : null;
   const venueName = match.venueRef && typeof match.venueRef === "object" ? match.venueRef.name : match.venue || null;
 
-  const matchCards = (match as SeasonMatch & { cards?: unknown[] }).cards ?? [];
-  const hasRecordedMatchEvents = match.goals.length > 0 || matchCards.length > 0;
-  const showEdit = isAdmin
-    && (match.status === "scheduled" || match.status === "live")
-    && !hasRecordedMatchEvents;
+  const showEdit = isAdmin && canEditSeasonMatch(match);
 
   const saveGoal = async () => {
     if (!canManageGoals) {

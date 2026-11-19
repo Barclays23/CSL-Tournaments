@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import type { SeasonMatch, SeasonMatchTeamRef } from "@/types/seasonMatch.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
+import { canEditSeasonMatch } from "@/utils/seasonMatchPermissions";
 
 const STAGE_LABEL: Record<SeasonMatch["stage"], string> = {
   group: "Group stage",
@@ -75,7 +76,7 @@ export function SeasonFixtureCard({
           {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}{match.venue ? ` · ${match.venue}` : ""}
         </p>
       </Link>
-      {onEdit && !["completed", "cancelled", "abandoned"].includes(match.status) ? <div className="mt-3 flex justify-end border-t border-line pt-3"><Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button></div> : null}
+      {onEdit && canEditSeasonMatch(match) ? <div className="mt-3 flex justify-end border-t border-line pt-3"><Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button></div> : null}
     </GlassCard>
   );
 }
