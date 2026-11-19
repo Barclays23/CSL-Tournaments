@@ -17,7 +17,7 @@ import { getTeams } from "@/services/teamService";
 import { getManagers } from "@/services/managerService";
 import { getSeasonAwards, createSeasonAward, updateSeasonAward, deleteSeasonAward } from "@/services/seasonAwardService";
 import {
-  archiveSeason, completeSeason, createSeason, deleteSeason, getAuctionLots,
+  archiveSeason, closeSeasonAuction, completeSeason, createSeason, deleteSeason, getAuctionLots,
   getSeasonTeams, getSeasons, registerSeasonTeams, removeSeasonTeam,
   transitionSeason, updateSeason, updateSeasonTeam, withdrawSeasonTeam, recallSeasonTeam,
 } from "@/services/seasonService";
@@ -431,9 +431,36 @@ function SeasonsBody() {
       toast.success(labels[action] + " successful"); refreshSelected();
     } catch (error) {
       toast.error(errorMessage(error));
-      const response = (error as { response?: { data?: { fieldErrors?: Record<string, string> } } }).response?.data;
-      setCompletionBlockers(Object.values(response?.fieldErrors ?? {}).filter((value): value is string => typeof value === "string"));
+      const fieldErrors = (error as { fieldErrors?: Record<string, string> }).fieldErrors;
+      const blockers = Object.values(fieldErrors ?? {}).filter((value): value is string => typeof value === "string");
+      if (blockers.length) setCompletionBlockers(blockers);
+      else if (action === "complete") setCompletionBlockers([errorMessage(error)]);
     } finally { setSaving(false); }
+  };
+
+  const closeAuction = async () => {
+    if (!selected) return;
+    const pendingLots = seasonLots.filter((lot) => lot.auctionStatus === "pending").length;
+    if (pendingLots > 0) {
+      toast.error("Resolve all " + pendingLots + " pending auction lot(s) before closing the auction.");
+      return;
+    }
+    const yes = await confirm({
+      title: "Close season auction?",
+      description: "This closes the auction for this Upcoming season. All nominated players must already be Sold, Unsold or Withdrawn. After closure, auction lots cannot be changed and the season can be activated.",
+      confirmLabel: "Close auction",
+    });
+    if (!yes) return;
+    setSaving(true);
+    try {
+      await closeSeasonAuction(selected._id);
+      toast.success("Season auction closed");
+      refreshSelected();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const removeSelectedSeason = async () => {
@@ -737,7 +764,11 @@ function SeasonsBody() {
 
               <div className="relative mt-4 flex flex-wrap gap-2">
                 {selected.status === "draft" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("upcoming")}>Move to Upcoming</Button> : null}
-                {selected.status === "upcoming" ? <><Button size="sm" disabled={saving} onClick={() => void runLifecycle("draft")} variant="surface">Return to Draft</Button><Button size="sm" disabled={saving} onClick={() => void runLifecycle("active")}>Activate Season</Button></> : null}
+                {selected.status === "upcoming" ? <>
+                  <Button size="sm" disabled={saving || hasAuctionHistory || hasFixtures} onClick={() => void runLifecycle("draft")} variant="surface">Return to Draft</Button>
+                  {!selected.auctionClosedAt ? <Button size="sm" disabled={saving || seasonLots.some((lot) => lot.auctionStatus === "pending")} onClick={() => void closeAuction()}>Close Auction</Button> : <Badge tone="success">Auction closed</Badge>}
+                  <Button size="sm" disabled={saving || !selected.auctionClosedAt} onClick={() => void runLifecycle("active")}>Activate Season</Button>
+                </> : null}
                 {selected.status === "active" ? <Button size="sm" disabled={saving} variant="danger" onClick={() => void runLifecycle("complete")}>Complete Season</Button> : null}
                 {selected.status === "completed" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("archive")}>Archive Season</Button> : null}
                 {selected.status === "draft" ? <Button size="sm" disabled={saving || dependenciesExist} variant="danger" onClick={() => void removeSelectedSeason()}>Delete empty Draft</Button> : null}
