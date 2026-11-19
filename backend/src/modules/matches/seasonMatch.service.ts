@@ -84,7 +84,6 @@ export class SeasonMatchService implements ISeasonMatchService{
    throw new AppError("The original kickoff date must be preserved when postponing. Use the dedicated reschedule operation to set a new date and time.",422,"POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED");
   }
   assertMatchStatusTransition(existing.status,nextStatus);
-  if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Use the audited completed-match correction workflow to amend their results.",409,"MATCH_COMPLETED_READ_ONLY");
   const fixtureDetailFields=["matchNumber","roundNumber","stage","groupRef","kickoffAt","venueRef","homeSeasonTeamRef","awaySeasonTeamRef","notes","penaltyShootout"] as const;
   const isFixtureDetailsEdit=fixtureDetailFields.some((field)=>input[field]!==undefined);
   const existingCards=(existing as SeasonMatchEntity&{cards?:unknown[]}).cards??[];
