@@ -266,7 +266,7 @@ export class SeasonMatchRepository {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
-      const filter: Record<string, unknown> = { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "completed", updatedAt: expectedUpdatedAt };
+      const filter: any = { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "completed", updatedAt: expectedUpdatedAt };
       const current = await SeasonMatchModel.findOne(filter).session(session).lean<SeasonMatchEntity>().exec();
       if (!current) {
         const latest = await SeasonMatchModel.findById(id).session(session).select("status").lean<{ status: string }>().exec();
