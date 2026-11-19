@@ -1,10 +1,13 @@
 import mongoose from "mongoose";
 import { PlayerModel } from "../modules/players/player.model.js";
+import { SeasonModel } from "../modules/seasons/season.model.js";
+import { AuctionLotModel } from "../modules/auctionLots/auctionLot.model.js";
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set("strictQuery", true);
   await mongoose.connect(uri);
   await ensureOptionalPlayerMobileIndex();
+  await migrateAuctionLifecycleStatus();
   console.log("MongoDB connected");
 }
 async function ensureOptionalPlayerMobileIndex(): Promise<void> {
@@ -40,6 +43,33 @@ async function ensureOptionalPlayerMobileIndex(): Promise<void> {
       { name: "mobile_1", unique: true, partialFilterExpression: { mobile: { $type: "string", $gt: "" } } },
     );
   }
+}
+
+async function migrateAuctionLifecycleStatus(): Promise<void> {
+  // Convert legacy timestamp closure into an explicit, reversible lifecycle state.
+  const legacySeasons = await SeasonModel.find({ auctionLifecycleStatus: { $exists: false } })
+    .select("_id status auctionClosedAt")
+    .lean<Array<{ _id: import("mongoose").Types.ObjectId; status: string; auctionClosedAt?: Date | null }>>()
+    .exec();
+
+  for (const season of legacySeasons) {
+    const hasLots = await AuctionLotModel.exists({ seasonRef: season._id });
+    const auctionLifecycleStatus = season.auctionClosedAt
+      ? "completed"
+      : hasLots || season.status === "upcoming" || season.status === "active"
+        ? "in_progress"
+        : "not_started";
+    await SeasonModel.updateOne(
+      { _id: season._id, auctionLifecycleStatus: { $exists: false } },
+      { $set: { auctionLifecycleStatus }, $unset: { auctionClosedAt: "" } },
+    ).exec();
+  }
+
+  // Remove the obsolete field from documents that already received the new state.
+  await SeasonModel.updateMany(
+    { auctionLifecycleStatus: { $exists: true }, auctionClosedAt: { $exists: true } },
+    { $unset: { auctionClosedAt: "" } },
+  ).exec();
 }
 
 export async function disconnectDatabase(): Promise<void> {
