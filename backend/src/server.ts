@@ -10,8 +10,14 @@ async function startServer(): Promise<void> {
   await connectDatabase(appConfig.MONGODB_URI);
   await settingsService.initializeTournamentSettings();
 
-  const server = app.listen(appConfig.PORT, () => {
-    console.log(`CSL API running at http://localhost:${appConfig.PORT}${appConfig.API_PREFIX}`);
+  // const server = app.listen(appConfig.PORT, () => {
+  //   console.log(`CSL API running at http://localhost:${appConfig.PORT}${appConfig.API_PREFIX}`);
+  // });
+
+  const server = app.listen(appConfig.PORT, "0.0.0.0", () => {
+    console.log(
+      `CSL API running on port ${appConfig.PORT}${appConfig.API_PREFIX}`
+    );
   });
 
   const shutdown = (signal: string): void => {

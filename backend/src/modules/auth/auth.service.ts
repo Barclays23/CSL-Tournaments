@@ -34,12 +34,18 @@ export class AuthService implements IAuthService {
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) throw new AppError("Incorrect password", 401, "INVALID_CREDENTIALS");
 
-    const token = jwt.sign(
-      { role: user.role, email: user.email },
-      appConfig.JWT_SECRET,
-      { subject: String(user._id), expiresIn: appConfig.JWT_EXPIRES_IN },
-    );
+    const tokenPayload = { 
+      role: user.role, 
+      email: user.email 
+    }
+
+    const token = jwt.sign(tokenPayload, appConfig.JWT_SECRET, {
+      subject: String(user._id), 
+      expiresIn: appConfig.JWT_EXPIRES_IN
+    });
+
     await this._userRepository.updateLastLoginAt(String(user._id), new Date());
+
     return { token, user: this.toAuthUserDTO(user) };
   }
 

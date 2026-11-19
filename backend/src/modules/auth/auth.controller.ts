@@ -8,6 +8,7 @@ import type { IAuthController, IAuthService } from "./auth.interfaces.js";
 import type { AuthSessionDTO } from "./auth.types.js";
 import type { AdminUserDTO } from "../users/user.types.js";
 import { loginSchema } from "./auth.schema.js";
+import { getCookieMaxAge } from "../../utils/cookie.utils.js";
 
 export class AuthController implements IAuthController {
   constructor(private readonly _authService: IAuthService) {}
@@ -15,22 +16,39 @@ export class AuthController implements IAuthController {
   login = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const credentials = loginSchema.parse(request.body);
+      
       const session: AuthSessionDTO = await this._authService.login(credentials);
+
       response.cookie(AUTH_COOKIE_NAME, session.token, {
-        httpOnly: true, secure: appConfig.COOKIE_SECURE, sameSite: appConfig.COOKIE_SAME_SITE,
-        path: "/", maxAge: 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: appConfig.COOKIE_SECURE, 
+        sameSite: appConfig.COOKIE_SAME_SITE,
+        path: "/", 
+        // maxAge: 24 * 60 * 60 * 1000, // 1 day
+        maxAge: getCookieMaxAge(),
       });
+
       response.status(HTTP_STATUS.OK).json(ApiResponse.success<AdminUserDTO>(AUTH_MESSAGES.LOGIN_SUCCESS, session.user));
-    } catch (error) { next(error); }
+
+    } catch (error) {
+      next(error);
+    }
   };
 
   logout = async (_request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       response.clearCookie(AUTH_COOKIE_NAME, {
-        httpOnly: true, secure: appConfig.COOKIE_SECURE, sameSite: appConfig.COOKIE_SAME_SITE, path: "/",
+        httpOnly: true, 
+        secure: appConfig.COOKIE_SECURE, 
+        sameSite: appConfig.COOKIE_SAME_SITE, 
+        path: "/",
       });
+
       response.status(HTTP_STATUS.OK).json(ApiResponse.success<null>(AUTH_MESSAGES.LOGOUT_SUCCESS, null));
-    } catch (error) { next(error); }
+
+    } catch (error) { 
+      next(error);
+    }
   };
 
   getCurrentUser = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
