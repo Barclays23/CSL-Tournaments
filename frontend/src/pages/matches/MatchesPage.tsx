@@ -115,8 +115,6 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
   const fixtureCreationAllowed = Boolean(!seasons.loading && !seasonTeams.loading && !venues.loading && !fixtureBlockReason);
   const canCreateFixture = Boolean(isAdmin && fixtureCreationAllowed);
   const pagination = matches.data?.pagination;
-  const resultStart = pagination && pagination.total > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0;
-  const resultEnd = pagination ? Math.min(pagination.page * pagination.limit, pagination.total) : 0;
   const dateLabel = (value?: string | null) => {
     if (!value) return "Not configured";
     const date = new Date(value);
