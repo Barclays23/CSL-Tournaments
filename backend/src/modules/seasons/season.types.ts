@@ -36,6 +36,7 @@ export interface SeasonFields {
   status: SeasonStatus;
   historyCompleteness: SeasonHistoryCompleteness;
   auctionSettings: SeasonAuctionSettings | null;
+  auctionClosedAt?: Date | null;
   pointsRules: SeasonPointsRules | null;
   standingsTieBreakers: SeasonTieBreaker[] | null;
   matchRules: SeasonMatchRules | null;
