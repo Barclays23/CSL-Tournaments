@@ -47,6 +47,7 @@ export interface SeasonResponseDto {
   status: SeasonStatus;
   historyCompleteness: import("./season.types.js").SeasonHistoryCompleteness;
   auctionSettings: SeasonAuctionSettings | null;
+  auctionClosedAt?: string | null;
   pointsRules: SeasonPointsRules | null;
   standingsTieBreakers: SeasonTieBreaker[] | null;
   matchRules: SeasonMatchRules | null;
