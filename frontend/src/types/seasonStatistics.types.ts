@@ -1,5 +1,6 @@
 import type { Asset } from "@/types/api.types";
-import type { SeasonBriefDto, SeasonTeamBriefDto, SeasonPlayerPosition } from "@/types/season.types";
+import type { SeasonBriefDto, SeasonTeamBriefDto, SeasonPlayerPosition, SeasonStatus, AuctionLotStatus } from "@/types/season.types";
+import type { SeasonMatchStage, SeasonMatchStatus } from "@/types/seasonMatch.types";
 
 export interface SeasonStandingRow {
   position: number;
@@ -43,9 +44,9 @@ export interface SeasonTopScorers {
 export interface SeasonFixture {
   _id: string;
   matchNumber: number;
-  stage: string;
+  stage: SeasonMatchStage;
   kickoffAt: string;
-  status: string;
+  status: SeasonMatchStatus;
   home: SeasonTeamBriefDto;
   away: SeasonTeamBriefDto;
   homeScore: number;
@@ -61,7 +62,7 @@ export interface SeasonTeamDashboard {
   seasonTeam: SeasonTeamBriefDto | null;
   managers: Array<{ _id: string; name: string; role: string | null; profilePic: Asset | null }>;
   squad: Array<{
-    player: { _id: string; name: string; profilePic: unknown };
+    player: { _id: string; name: string; profilePic: Asset | null };
     position: SeasonPlayerPosition;
     jerseyNo: number | null;
     purchasePrice: number | null;
@@ -88,7 +89,7 @@ export interface PlayerHistory {
     _id: string;
     name: string;
     profilePic: unknown;
-    status: string;
+    status: SeasonStatus;
   };
   currentSeason: SeasonBriefDto | null;
   currentSeasonTeam: {
@@ -102,7 +103,7 @@ export interface PlayerHistory {
   } | null;
   auctionHistory: Array<{
     season: SeasonBriefDto;
-    status: string;
+    status: AuctionLotStatus;
     team: SeasonTeamBriefDto | null;
     position: SeasonPlayerPosition;
     jerseyNo: number | null;
