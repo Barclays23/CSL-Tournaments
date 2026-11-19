@@ -65,3 +65,31 @@ test("creating a season saves only season configuration; teams are registered se
   assert.equal(result._id, id);
   assert.equal(Object.prototype.hasOwnProperty.call(received, "teamIds"), false);
 });
+
+test("Draft season name remains editable after teams and groups are registered", async () => {
+  const now = new Date("2026-11-18T00:00:00.000Z");
+  const current = {
+    _id: id, seasonNumber: 1, name: "Season One", year: 2026,
+    startDate: null, endDate: null, timeZone: "Asia/Kolkata" as const,
+    groupStageEnabled: true, homeAndAwayFixtures: false, status: "draft" as const,
+    historyCompleteness: "not_applicable" as const,
+    auctionSettings: { currency: "INR" as const, budgetPerTeam: 10000, playersCount: 50, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 },
+    pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points" as const],
+    matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false as const, shootoutCountsForPlayerGoals: false as const },
+    auctionClosedAt: null, createdAt: now, updatedAt: now,
+  };
+  const instance = service({
+    findById: async () => current,
+    countSeasonTeams: async () => 2,
+    countGroups: async () => 2,
+    countLots: async () => 0,
+    countMatches: async () => 0,
+    getMaxSoldSquadSize: async () => 0,
+    findByNormalizedName: async () => null,
+    update: async (_seasonId: string, patch: Record<string, unknown>) => ({ ...current, ...patch }),
+  });
+  const result = await instance.update(id, { name: "Renamed Season" });
+  assert.equal(result.name, "Renamed Season");
+  await assert.rejects(() => instance.update(id, { seasonNumber: 2 }), (error: unknown) =>
+    error instanceof AppError && error.errorCode === "SEASON_IDENTITY_LOCKED");
+});
