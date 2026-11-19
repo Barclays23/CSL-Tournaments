@@ -71,6 +71,18 @@ export class SeasonTeamRepository {
     return ManagerModel.countDocuments({ _id: { $in: ids }, status: "active" }).session(session ?? null).exec();
   }
 
+  async findConflictingManagerAssignments(
+    seasonId: string, seasonTeamId: string, managerIds: Types.ObjectId[], session?: ClientSession,
+  ): Promise<string[]> {
+    if (!managerIds.length) return [];
+    const assignedTeams = await SeasonTeamModel.find({
+      seasonRef: new Types.ObjectId(seasonId),
+      _id: { $ne: new Types.ObjectId(seasonTeamId) },
+      managerRefs: { $in: managerIds },
+    }).select("displayName").session(session ?? null).lean<Array<{ displayName: string }>>().exec();
+    return assignedTeams.map((team) => team.displayName);
+  }
+
   async countFixtures(seasonId: string, session?: ClientSession): Promise<number> {
     return SeasonMatchModel.countDocuments({ seasonRef: new Types.ObjectId(seasonId) }).session(session ?? null).exec();
   }
