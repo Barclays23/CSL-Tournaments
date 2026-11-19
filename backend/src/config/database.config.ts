@@ -46,11 +46,12 @@ async function ensureOptionalPlayerMobileIndex(): Promise<void> {
 }
 
 async function migrateAuctionLifecycleStatus(): Promise<void> {
-  // Convert legacy timestamp closure into an explicit, reversible lifecycle state.
-  const legacySeasons = await SeasonModel.find({ auctionLifecycleStatus: { $exists: false } })
-    .select("_id status auctionClosedAt")
-    .lean<Array<{ _id: import("mongoose").Types.ObjectId; status: string; auctionClosedAt?: Date | null }>>()
-    .exec();
+  // Read directly from the collection because auctionClosedAt is intentionally
+  // no longer part of the current Mongoose schema.
+  const legacySeasons = await SeasonModel.collection.find(
+    { auctionLifecycleStatus: { $exists: false } },
+    { projection: { _id: 1, status: 1, auctionClosedAt: 1 } },
+  ).toArray();
 
   for (const season of legacySeasons) {
     const hasLots = await AuctionLotModel.exists({ seasonRef: season._id });
@@ -59,17 +60,16 @@ async function migrateAuctionLifecycleStatus(): Promise<void> {
       : hasLots || season.status === "upcoming" || season.status === "active"
         ? "in_progress"
         : "not_started";
-    await SeasonModel.updateOne(
+    await SeasonModel.collection.updateOne(
       { _id: season._id, auctionLifecycleStatus: { $exists: false } },
       { $set: { auctionLifecycleStatus }, $unset: { auctionClosedAt: "" } },
-    ).exec();
+    );
   }
 
-  // Remove the obsolete field from documents that already received the new state.
-  await SeasonModel.updateMany(
+  await SeasonModel.collection.updateMany(
     { auctionLifecycleStatus: { $exists: true }, auctionClosedAt: { $exists: true } },
     { $unset: { auctionClosedAt: "" } },
-  ).exec();
+  );
 }
 
 export async function disconnectDatabase(): Promise<void> {
