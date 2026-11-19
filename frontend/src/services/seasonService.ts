@@ -59,5 +59,7 @@ export function updateAuctionLot(id: string, data: UpdateAuctionLotInput) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.updateAuctionLot(id, data) : api.patch<ApiResponse<AuctionLot>>("/auction-lots/" + id, data).then((r) => r.data));
 }
 export function updateAuctionLotStatus(id: string, auctionStatus: AuctionLotStatus) {
-  return run(() => USE_MOCK_API\n    ? seasonPreviewRepository.updateAuctionLot(id, { auctionStatus })\n    : api.patch<ApiResponse<AuctionLot>>("/auction-lots/" + id + "/status", { auctionStatus }).then((r) => r.data));
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.updateAuctionLot(id, { auctionStatus })
+    : api.patch<ApiResponse<AuctionLot>>("/auction-lots/" + id + "/status", { auctionStatus }).then((r) => r.data));
 }
