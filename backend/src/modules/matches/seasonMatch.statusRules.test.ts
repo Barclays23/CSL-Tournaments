@@ -117,7 +117,7 @@ test("goal add, edit and delete operations are restricted to Live matches", asyn
         () => operation.run(service),
         (error: unknown) => error instanceof AppError
           && error.statusCode === 409
-          && error.errorCode === "MATCH_NOT_LIVE",
+          && error.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED",
         `${operation.name} should be rejected when the match status is ${status}`,
       );
     }
