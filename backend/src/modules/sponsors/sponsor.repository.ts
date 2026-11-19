@@ -18,7 +18,7 @@ export class SponsorRepository implements ISponsorRepository {
       .limit(limit);
 
     if (includePrivateFields) {
-      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +notes");
+      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +email +notes");
     }
 
     const [items, total] = await Promise.all([
