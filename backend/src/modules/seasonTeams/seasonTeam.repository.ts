@@ -7,6 +7,7 @@ import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
 import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { SeasonTeamModel } from "./seasonTeam.model.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "./seasonTeam.types.js";
+import type { SeasonStatus } from "../seasons/season.types.js";
 
 export class SeasonTeamRepository {
   async findBySeason(seasonId: string, session?: ClientSession): Promise<SeasonTeamEntity[]> {
@@ -39,7 +40,7 @@ export class SeasonTeamRepository {
       .lean<{ _id: Types.ObjectId; status: string; groupStageEnabled: boolean }>().exec();
   }
 
-  async lockSeason(seasonId: string, statuses: string[], session: ClientSession): Promise<boolean> {
+  async lockSeason(seasonId: string, statuses: SeasonStatus[], session: ClientSession): Promise<boolean> {
     const result = await SeasonModel.updateOne(
       { _id: new Types.ObjectId(seasonId), status: { $in: statuses } },
       { $inc: { auctionRevision: 1 } }, { session },
