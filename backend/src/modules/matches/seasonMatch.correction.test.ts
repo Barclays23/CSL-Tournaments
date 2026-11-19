@@ -53,7 +53,7 @@ function completedMatch(overrides: Partial<SeasonMatchEntity> = {}): SeasonMatch
   };
 }
 
-function serviceFor(match = completedMatch()) {
+function serviceFor(match = completedMatch(), playerStatus = "active") {
   let persistedHistory: unknown;
   let persistedGoals: unknown;
   const repository = {
@@ -63,7 +63,7 @@ function serviceFor(match = completedMatch()) {
       matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true },
       pointsRules: { win: 3, draw: 1, loss: 0 },
     }),
-    findPlayer: async () => ({ status: "active" }),
+    findPlayer: async () => ({ status: playerStatus }),
     findSoldLot: async () => ({ seasonTeamRef: new Types.ObjectId(ids.home) }),
     correctCompletedMatch: async (_id: string, _updatedAt: Date, goals: unknown, _shootout: unknown, _winner: unknown, history: unknown) => {
       persistedGoals = goals;
@@ -147,6 +147,22 @@ test("correction revalidates the result and records original and corrected snaps
   assert.equal(history.originalResult.goals.length, 1);
   assert.equal(history.correctedResult.goals.length, 0);
   assert.equal(getGoals().length, 0);
+});
+
+test("unchanged historical goal events are preserved without revalidating current player status", async () => {
+  const original = completedMatch();
+  const originalGoalId = String(original.goals[0]._id);
+  const { service, getGoals } = serviceFor(original, "inactive");
+  await service.correctCompletedMatch(ids.match, {
+    reason: "Confirm the existing goal event while correcting the result.",
+    goals: [{
+      scoringSeasonTeamRef: ids.home,
+      scorerPlayerRef: ids.player,
+      goalType: "normal",
+    }],
+    penaltyShootout: null,
+  }, ids.admin);
+  assert.equal(String(getGoals()[0]._id), originalGoalId);
 });
 
 test("knockout correction must satisfy the configured penalty shootout rules", async () => {
