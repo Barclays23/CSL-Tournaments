@@ -204,7 +204,18 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(season.status==="archived")throw new AppError("Archived seasons cannot be corrected",409,"SEASON_CLOSED");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const correctedAt=new Date();
-  const correctedGoals=await Promise.all(input.goals.map(async goal=>({...await this.buildGoal(existing,goal),_id:new Types.ObjectId(),createdAt:correctedAt})));
+  const reusedGoalIds=new Set<string>();
+  const correctedGoals=await Promise.all(input.goals.map(async goal=>{
+   const existingGoal=existing.goals.find(candidate=>{
+    const candidateId=String(candidate._id);
+    return !reusedGoalIds.has(candidateId)
+     && String(candidate.scoringSeasonTeamRef)===goal.scoringSeasonTeamRef
+     && String(candidate.scorerPlayerRef??"")===(goal.scorerPlayerRef??"")
+     && candidate.goalType===goal.goalType;
+   });
+   if(existingGoal){reusedGoalIds.add(String(existingGoal._id));return existingGoal;}
+   return {...await this.buildGoal(existing,goal),_id:new Types.ObjectId(),createdAt:correctedAt};
+  }));
   const shootout=input.penaltyShootout?this.buildShootout(input.penaltyShootout):null;
   if(shootout)await this.validateShootout(String(existing.seasonRef),existing,shootout);
   const correctedMatch:SeasonMatchFields={...existing,status:"completed",goals:correctedGoals,penaltyShootout:shootout,winnerSeasonTeamRef:null};
