@@ -389,7 +389,7 @@ export const seasonPreviewRepository = {
     if(input.awardType==="special"&&!input.title?.trim()) fail(422,"A title is required for a special award");
     const recipients=input.recipients.map((item)=>{
       const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));
-      if(!st) fail(422,"Recipient SeasonTeam is invalid for this season");
+      if(!st) return fail(422,"Recipient SeasonTeam is invalid for this season");
       const player=item.playerId?db.players.find((x)=>x._id===item.playerId):null;
       const currentTeam=teamById(db,st.teamRef);
       if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold"))) fail(422,"Player is not rostered for this SeasonTeam");
@@ -411,13 +411,13 @@ export const seasonPreviewRepository = {
     requireAdmin();const db=readSeasonDb();const season=seasonById(db,seasonId);
     if(season.status!=="active") fail(409,"Awards can only be edited while a season is Active");
     const readiness = mockAwardReadiness(db, seasonId); if (readiness.length) fail(409, readiness.join("; "));
-    const award=db.awards.find((a)=>a._id===awardId&&a.seasonRef===seasonId);if(!award)fail(404,"Season award not found");
+    const award=db.awards.find((a)=>a._id===awardId&&a.seasonRef===seasonId);if(!award)return fail(404,"Season award not found");
     const nextType=input.awardType??award.awardType;
     if(input.awardType&&db.awards.some((a)=>a._id!==awardId&&a.seasonRef===seasonId&&a.awardType===input.awardType))fail(409,"This award category already exists");
     if(input.recipients) {
       if(!input.recipients.length||input.recipients.length>20)fail(422,"An award must have one to twenty recipients");
       const replacement=input.recipients.map((item)=>{
-        const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));if(!st)fail(422,"Recipient SeasonTeam is invalid for this season");
+        const st=db.seasonTeams.find((x)=>x._id===item.seasonTeamId&&x.seasonRef===seasonId&&["registered","active"].includes(x.status));if(!st)return fail(422,"Recipient SeasonTeam is invalid for this season");
         const player=item.playerId?db.players.find((x)=>x._id===item.playerId):null;
         const currentTeam=teamById(db,st.teamRef);
         if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold")))fail(422,"Player is not rostered for this SeasonTeam");
@@ -720,7 +720,7 @@ export const seasonPreviewRepository = {
     if (input.stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
     validateMockPair(db, season, input.stage, input.stage === "group" ? input.groupRef ?? null : null, input.roundNumber, input.homeSeasonTeamRef, input.awaySeasonTeamRef);
     const venue = db.venues.find((item) => item._id === input.venueRef && item.status === "active");
-    if (!venue) fail(422, "Choose an active venue from the venue list");
+    if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (input.stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, input.stage);
       if (!eligible.has(input.homeSeasonTeamRef) || !eligible.has(input.awaySeasonTeamRef)) fail(422, "Both teams must have qualified for this knockout stage");
@@ -790,7 +790,7 @@ export const seasonPreviewRepository = {
     const pairingChanged = homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef || roundNumber !== match.roundNumber;
     if (pairingChanged) validateMockPair(db, season, stage, groupRef, roundNumber, homeId, awayId, matchId);
     const venue = db.venues.find((item) => item._id === venueRef && (item.status === "active" || item._id === match.venueRef));
-    if (!venue) fail(422, "Choose an active venue from the venue list");
+    if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (homeId === awayId) fail(422, "A team cannot play itself");
     if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
       && (match.goals.length > 0 || (match.resolutionHistory?.length ?? 0) > 0)) {
@@ -808,7 +808,7 @@ export const seasonPreviewRepository = {
     }
     if (stage === "group") {
       const group = groupRef ? db.groups.find((item) => item._id === groupRef && item.seasonRef === seasonId) : null;
-      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) fail(422, "Both teams must belong to the selected group");
+      if (!group || home.groupRef !== group._id || away.groupRef !== group._id) return fail(422, "Both teams must belong to the selected group");
     } else if (groupRef) fail(422, "Knockout fixtures cannot belong to a group");
     const kickoff = new Date(input.kickoffAt ?? match.kickoffAt);
     if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
@@ -850,7 +850,7 @@ export const seasonPreviewRepository = {
     if (scorerId) {
       const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
       const expectedTeam = input.goalType === "normal" ? scoring : (scoring === home ? away : home);
-      if (!lot || lot.seasonTeamRef !== expectedTeam) fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
+      if (!lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
       playerSeasonTeamRef = lot.seasonTeamRef;
     }
     match.goals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, createdAt: now() });
@@ -877,7 +877,7 @@ export const seasonPreviewRepository = {
     if (scorerId) {
       const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
       const expectedTeam = input.goalType === "normal" ? scoring : (scoring === home ? away : home);
-      if (!lot || lot.seasonTeamRef !== expectedTeam) fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
+      if (!lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
       playerSeasonTeamRef = lot.seasonTeamRef;
     }
     match.goals[index] = { ...match.goals[index], scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType };
@@ -1152,7 +1152,7 @@ export const seasonPreviewRepository = {
     const season = seasonById(db, seasonId);
     if (!["draft", "upcoming"].includes(season.status)) fail(409, "SeasonTeam registrations can only be removed before activation");
     const team = db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonId);
-    if (!team) fail(404, "SeasonTeam not found");
+    if (!team) return fail(404, "SeasonTeam not found");
     if (db.auctionLots.some((lot) => lot.seasonRef === seasonId && lot.seasonTeamRef === id)
       || db.matches.some((match) => match.seasonRef === seasonId && (match.homeSeasonTeamRef === id || match.awaySeasonTeamRef === id))) {
       fail(409, "This SeasonTeam has auction or fixture history and cannot be hard-deleted");
@@ -1164,7 +1164,7 @@ export const seasonPreviewRepository = {
     requireAdmin(); const db = readSeasonDb(); const season = seasonById(db, seasonId);
     if (season.status !== "active") fail(409, "A withdrawn team can only be recalled during an Active season");
     const team = db.seasonTeams.find((st) => st._id === id && st.seasonRef === seasonId);
-    if (!team) fail(404, "SeasonTeam not found");
+    if (!team) return fail(404, "SeasonTeam not found");
     if (team.status !== "withdrawn") fail(409, "Only a withdrawn SeasonTeam can be recalled");
     const normalizedReason = reason.trim();
     if (normalizedReason.length < 3 || normalizedReason.length > 500) fail(422, "Provide a recall reason between 3 and 500 characters");
