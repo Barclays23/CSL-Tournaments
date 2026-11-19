@@ -46,7 +46,7 @@ export class TeamRepository implements ITeamRepository {
     const objectId = new Types.ObjectId(teamId);
     const [players, managers, matches, seasonTeams] = await Promise.all([
       PlayerModel.collection.countDocuments({ teamRef: objectId }),
-      Promise.resolve(0),
+      (async () => (await SeasonTeamModel.distinct("managerRefs", { teamRef: objectId }).exec()).length)(),
       (async () => {
         const seasonTeamIds = await SeasonTeamModel.distinct("_id", { teamRef: objectId }).exec();
         if (!seasonTeamIds.length) return 0;
