@@ -469,8 +469,8 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         error={lotsQuery.error}
         onSubmit={saveGoal}
       />
-      <CompletedMatchCorrectionDrawer
-        open={correctionOpen}
+      {correctionOpen ? <CompletedMatchCorrectionDrawer
+        open={true}
         onClose={() => setCorrectionOpen(false)}
         match={match}
         home={{ id: home.id, name: home.name }}
@@ -493,7 +493,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
             setSavingCorrection(false);
           }
         }}
-      />
+      /> : null}
       <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
         <SeasonMatchForm
           seasonTeams={teamsQuery.data?.data ?? []}
