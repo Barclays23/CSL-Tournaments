@@ -25,10 +25,10 @@ export function logout() {
   );
 }
 
-export function getCurrentUser() {
-  return run(() =>
+export function getCurrentUser(): Promise<ApiResponse<AdminUser | null>> {
+  return run<ApiResponse<AdminUser | null>>(() =>
     USE_MOCK_API
       ? previewRepository.me()
-      : api.get<ApiResponse<AdminUser>>("/auth/me").then((response) => response.data),
+      : api.get<ApiResponse<AdminUser | null>>("/auth/me").then((response) => response.data),
   );
 }

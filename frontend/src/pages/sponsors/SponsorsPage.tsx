@@ -15,9 +15,8 @@ import { useServiceQuery } from "@/hooks/useServiceQuery";
 import type { SponsorFormValues } from "@/schemas/sponsor.schema";
 import { createSponsor, deleteSponsor, getSponsors, updateSponsor } from "@/services/sponsorService";
 import type { Asset } from "@/types/api.types";
-import type { PublicSponsor } from "@/types/sponsor.types";
+import type { AdminSponsor, PublicSponsor } from "@/types/sponsor.types";
 import { errorMessage } from "@/utils/errorHandler";
-import { isAdminRecord } from "@/utils/forms";
 
 export function SponsorsPage() {
   const { isAdmin } = useAuth();
@@ -59,9 +58,9 @@ export function SponsorsPage() {
         {visible.map((sponsor) => (
           <div key={sponsor._id} className="grid gap-2">
             <SponsorCard sponsor={sponsor} />
-            {isAdmin && isAdminRecord(sponsor) ? (
+            {isAdmin ? (
               <p className="px-1 text-xs text-muted">
-                {"notes" in sponsor && sponsor.notes ? sponsor.notes : "No internal notes"}
+                {(sponsor as AdminSponsor).notes || "No internal notes"}
               </p>
             ) : null}
             {isAdmin ? (

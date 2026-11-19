@@ -71,7 +71,7 @@ function GroupStandingsCard({
                     >
                       <Avatar name={row.team.displayName} asset={row.team.logo} className="h-7 w-7 rounded-lg" />
                       <span>{row.team.displayName}</span>
-                      {isCurrentTeam ? <Badge tone="success">This team</Badge> : null}
+                      {isCurrentTeam ? <Badge tone="primary">This team</Badge> : null}
                     </Link>
                   </td>
                   {[
