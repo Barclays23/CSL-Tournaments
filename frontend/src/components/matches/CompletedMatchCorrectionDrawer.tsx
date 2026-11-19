@@ -28,6 +28,7 @@ export function CompletedMatchCorrectionDrawer({
   const [teamId, setTeamId] = useState(home.id);
   const [goalType, setGoalType] = useState<"normal" | "own_goal">("normal");
   const [playerId, setPlayerId] = useState("");
+  const [shootout, setShootout] = useState<SeasonMatch["penaltyShootout"]>(match.penaltyShootout);
 
   useEffect(() => {
     if (!open) return;
@@ -40,6 +41,7 @@ export function CompletedMatchCorrectionDrawer({
     setTeamId(home.id);
     setGoalType("normal");
     setPlayerId("");
+    setShootout(match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null);
   }, [open, match, home.id]);
 
   const playerTeamId = goalType === "normal" ? teamId : teamId === home.id ? away.id : home.id;
@@ -61,7 +63,7 @@ export function CompletedMatchCorrectionDrawer({
     onSubmit({
       reason: trimmed,
       goals,
-      penaltyShootout: match.penaltyShootout,
+      penaltyShootout: shootout,
     });
   };
 
@@ -109,6 +111,33 @@ export function CompletedMatchCorrectionDrawer({
             <Button type="button" variant="surface" onClick={addGoal} disabled={goalType === "normal" && !playerId}>Add corrected goal</Button>
           </div>
         </section>
+
+
+        {match.stage !== "group" ? (
+          <section className="grid gap-2 rounded-xl border border-line p-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold text-fg">Penalty shootout</h3>
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input type="checkbox" checked={shootout !== null} onChange={(event) => setShootout(event.target.checked ? { status: "completed", homeTeamScore: 0, awayTeamScore: 0, kicks: [] } : null)} />
+                Include shootout
+              </label>
+            </div>
+            {shootout ? (
+              <>
+                <p className="text-xs text-muted">Shootout scores are validated against the competition rules. Existing kick details are retained unless cleared.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="grid gap-1 text-xs text-muted">{home.name} shootout score
+                    <input type="number" min="0" step="1" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg" value={shootout.homeTeamScore} onChange={(event) => setShootout({ ...shootout, homeTeamScore: Number(event.target.value) })} />
+                  </label>
+                  <label className="grid gap-1 text-xs text-muted">{away.name} shootout score
+                    <input type="number" min="0" step="1" className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg" value={shootout.awayTeamScore} onChange={(event) => setShootout({ ...shootout, awayTeamScore: Number(event.target.value) })} />
+                  </label>
+                </div>
+                {shootout.kicks.length ? <button type="button" className="text-left text-xs font-semibold text-warning" onClick={() => setShootout({ ...shootout, kicks: [] })}>Clear kick-by-kick details and use score-only shootout record</button> : null}
+              </>
+            ) : <p className="text-xs text-muted">No penalty shootout will be recorded. If the corrected knockout score is tied and the season requires a shootout, validation will reject the correction.</p>}
+          </section>
+        ) : null}
 
         <label className="grid gap-1 text-sm font-semibold text-fg">Mandatory correction reason
           <textarea className="min-h-24 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-normal text-fg" value={reason} onChange={(event) => setReason(event.target.value)} maxLength={1000} placeholder="Explain why this completed match result needs correction." />
