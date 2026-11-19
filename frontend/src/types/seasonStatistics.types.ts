@@ -1,5 +1,5 @@
 import type { Asset } from "@/types/api.types";
-import type { SeasonBriefDto, SeasonTeamBriefDto, SeasonPlayerPosition, SeasonStatus, AuctionLotStatus } from "@/types/season.types";
+import type { SeasonBriefDto, SeasonTeamBriefDto, SeasonPlayerPosition, AuctionLotStatus } from "@/types/season.types";
 import type { SeasonMatchStage, SeasonMatchStatus } from "@/types/seasonMatch.types";
 
 export interface SeasonStandingRow {
