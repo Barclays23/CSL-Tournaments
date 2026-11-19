@@ -235,13 +235,13 @@ export class SeasonMatchRepository {
       const filter = {
         _id: new Types.ObjectId(id),
         seasonRef: existing.seasonRef,
-        ...(statusAudit ? { status: statusAudit.expectedStatus } : {}),
-        ...(statusAudit?.requireNoGoals ? { goals: { $size: 0 } } : {}),
-        ...(options?.requireEditableWithoutEvents ? {
-          status: { $in: ["scheduled", "live"] },
-          goals: { $size: 0 },
-          $or: [{ cards: { $exists: false } }, { cards: { $size: 0 } }],
-        } : {}),
+        ...(options?.requireEditableWithoutEvents
+          ? { status: statusAudit ? statusAudit.expectedStatus : { $in: ["scheduled", "live"] } }
+          : statusAudit ? { status: statusAudit.expectedStatus } : {}),
+        ...(statusAudit?.requireNoGoals || options?.requireEditableWithoutEvents ? { goals: { $size: 0 } } : {}),
+        ...(options?.requireEditableWithoutEvents
+          ? { $or: [{ cards: { $exists: false } }, { cards: { $size: 0 } }] }
+          : {}),
       };
       const update: {
         $set: Partial<SeasonMatchFields>;
