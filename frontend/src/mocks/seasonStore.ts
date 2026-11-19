@@ -7,7 +7,7 @@ let memory: SeasonMockDatabase | null = null;
 
 function withoutInlineImage(asset: Asset | null | undefined): Asset | null {
   if (!asset) return asset ?? null;
-  return asset.url.startsWith("data:image/") ? null : asset;
+  return asset.url.startsWith("data:") ? null : asset;
 }
 
 /**
@@ -41,7 +41,7 @@ function compactSeasonDatabase(database: SeasonMockDatabase): SeasonMockDatabase
 function loadDatabase(): SeasonMockDatabase {
   if (memory) return memory;
   if (typeof window === "undefined") {
-    memory = createSeasonDatabase();
+    memory = compactSeasonDatabase(createSeasonDatabase());
     return memory;
   }
   try {
