@@ -11,7 +11,7 @@ export class PlayerService implements IPlayerService {
   async getPlayers(query: PlayerQueryDTO, isAdmin: boolean): Promise<PaginatedResult<PlayerResponseDTO>> {
     const filter: PlayerListFilter = {};
     if (query.search) {
-      const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\      const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\\]\\]/g, "\\\\$&");");
+      const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const normalizedMobileSearch = query.search.replace(/[\s()-]/g, "").replace(/^\+?91/, "");
       filter.$or = [
         { name: { $regex: escapeRegex(query.search), $options: "i" } },
