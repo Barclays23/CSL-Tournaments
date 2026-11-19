@@ -1,7 +1,7 @@
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import { VenueRepository } from "./venue.repository.js";
-import type { VenueDto, VenueEntity, VenueWriteDto } from "./venue.types.js";
+import type { VenueDto, VenueEntity, VenueWriteDto, VenueUpdateDto } from "./venue.types.js";
 export class VenueService {
   constructor(private readonly repo: VenueRepository) {}
   async list(status: "active" | "inactive" | "all" = "active"): Promise<VenueDto[]> { return (await this.repo.list(status)).map(v => this.map(v)); }
@@ -17,7 +17,7 @@ export class VenueService {
     try { return this.map(await this.repo.create({ name: input.name.trim(), normalizedName, location: input.location?.trim() || null, notes: input.notes?.trim() || null })); }
     catch (error) { if ((error as { code?: number }).code === 11000) throw new AppError("A venue with this name already exists", 409, "DUPLICATE_VENUE", { name: "Choose a unique venue name" }); throw error; }
   }
-  async update(id: string, input: VenueWriteDto): Promise<VenueDto> {
+  async update(id: string, input: VenueUpdateDto): Promise<VenueDto> {
     this.ensureId(id);
     const current = await this.repo.findById(id); if (!current) throw new AppError("Venue not found", 404, "VENUE_NOT_FOUND");
     const name = input.name?.trim() ?? current.name, normalizedName = this.normalize(name);
