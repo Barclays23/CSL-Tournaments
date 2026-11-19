@@ -76,7 +76,7 @@ test("Draft season name remains editable after teams and groups are registered",
     auctionSettings: { currency: "INR" as const, budgetPerTeam: 10000, playersCount: 50, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 },
     pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points" as const],
     matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false as const, shootoutCountsForPlayerGoals: false as const },
-    auctionClosedAt: null, createdAt: now, updatedAt: now,
+    auctionLifecycleStatus: "not_started" as const, createdAt: now, updatedAt: now,
   };
   const instance = service({
     findById: async () => current,
