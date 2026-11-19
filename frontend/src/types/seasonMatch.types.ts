@@ -121,7 +121,7 @@ export interface SeasonMatchQuery {
   page?: number;
   limit?: number;
   stage?: SeasonMatchStage;
-  groupRef?: string;
+  groupRef?: string | null;
   status?: SeasonMatchStatus;
   search?: string;
   dateFrom?: string;
