@@ -143,7 +143,7 @@ export interface AuctionSummary {
     _id: string;
     name: string;
     year: number;
-    status: string;
+    status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
   };
   totals: {
