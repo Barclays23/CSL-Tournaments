@@ -708,7 +708,6 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
-    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Fixtures can only be created for Upcoming or Active seasons");
     if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season");
     if (db.matches.some((match) => match.seasonRef === seasonId && match.matchNumber === input.matchNumber)) {
@@ -1072,6 +1071,12 @@ export const seasonPreviewRepository = {
     const blockers: string[] = [];
     if (teams.length < 2) blockers.push("At least two eligible participating teams are required");
     if (allTeams.length > season.auctionSettings.seasonTeamCount) blockers.push("Registered teams exceed the configured team limit");
+    if (!Number.isFinite(season.auctionSettings.budgetPerTeam) || season.auctionSettings.budgetPerTeam < 0) blockers.push("Team budget setting must be zero or greater");
+    if (!Number.isInteger(season.auctionSettings.playersCount) || season.auctionSettings.playersCount < 1) blockers.push("Season player limit must be a positive whole number");
+    if (!Number.isInteger(season.auctionSettings.seasonTeamCount) || season.auctionSettings.seasonTeamCount < 2) blockers.push("Season team limit must be at least two teams");
+    if (!Number.isInteger(season.auctionSettings.teamSquadSize) || season.auctionSettings.teamSquadSize < 1) blockers.push("Team squad size must be a positive whole number");
+    if (!Number.isInteger(season.auctionSettings.iconPlayerLimit) || season.auctionSettings.iconPlayerLimit < 0 || season.auctionSettings.iconPlayerLimit > season.auctionSettings.teamSquadSize) blockers.push("Icon Player limit must be between zero and the team squad size");
+    if (!Number.isInteger(season.auctionSettings.goalkeeperLimit) || season.auctionSettings.goalkeeperLimit < 0 || season.auctionSettings.goalkeeperLimit > season.auctionSettings.teamSquadSize) blockers.push("Goalkeeper limit must be between zero and the team squad size");
     if (lots.length > season.auctionSettings.playersCount) blockers.push("Nominated players exceed the configured player limit");
     const pending = lots.filter((lot) => lot.auctionStatus === "pending").length;
     if (pending) blockers.push(pending + " pending auction lot(s) remain; resolve every lot as Sold, Unsold or Withdrawn");
@@ -1120,7 +1125,6 @@ export const seasonPreviewRepository = {
     db.auctionLots.splice(index, 1);
     season.auctionRevision += 1;
     season.updatedAt = now();
-    db.auctionLots.filter((item) => item.seasonRef === season._id).sort((a, b) => (a.lotNumber ?? 0) - (b.lotNumber ?? 0)).forEach((item, itemIndex) => { item.lotNumber = itemIndex + 1; });
     commitSeasonDb(db);
     return ok("Pending auction lot removed", null);
   },  async completeSeason(id: string) {
@@ -1405,7 +1409,7 @@ export const seasonPreviewRepository = {
     if (!lot) return fail(404, "Auction lot not found");
     const season = seasonById(db, lot.seasonRef);
     if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "in_progress") fail(409, "Auction changes are available only while an Upcoming season auction is in progress.", "SEASON_NOT_AUCTION_READY");
-    if (season.status === "completed" || season.status === "archived") fail(409, "Auction is closed for this season");
+    if (lot.auctionStatus !== "pending" && input.auctionStatus === "pending") fail(409, "Resolved auction lots cannot be moved back to Pending. This preserves sale and auction history.", "LOT_STATUS_ROLLBACK_NOT_ALLOWED");
 
     const nextPosition = input.playerPosition ?? lot.playerPosition;
     const nextIconStatus = input.isIconPlayer ?? lot.isIconPlayer;
