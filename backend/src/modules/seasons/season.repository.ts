@@ -9,6 +9,7 @@ import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { TeamModel } from "../teams/team.model.js";
 import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
 import { getSeasonCompletionBlockers } from "./season.completion.js";
+import { getAuctionCompletionBlockers } from "./auction.completion.js";
 import type { CreateSeasonDto } from "./season.dto.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 import type { SeasonMatchEntity } from "../matches/seasonMatch.types.js";
@@ -70,7 +71,7 @@ export class SeasonRepository implements ISeasonRepository {
   async updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null> {
     return SeasonModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), status: current },
-      { $set: { status: next, ...(next === "draft" ? { auctionClosedAt: null } : {}) } },
+      { $set: { status: next, auctionLifecycleStatus: next === "draft" ? "not_started" : next === "upcoming" ? "in_progress" : undefined } },
       { returnDocument: "after", runValidators: true },
     ).lean<SeasonEntity>().exec();
   }
