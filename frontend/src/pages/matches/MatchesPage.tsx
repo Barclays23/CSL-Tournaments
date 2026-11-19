@@ -114,7 +114,6 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
             : null;
   const fixtureCreationAllowed = Boolean(!seasons.loading && !seasonTeams.loading && !venues.loading && !fixtureBlockReason);
   const canCreateFixture = Boolean(isAdmin && fixtureCreationAllowed);
-  const pagination = matches.data?.pagination;
   const dateLabel = (value?: string | null) => {
     if (!value) return "Not configured";
     const date = new Date(value);
@@ -241,7 +240,8 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
                 await updateSeasonMatch(seasonId, editingMatch._id, values);
                 toast.success("Season fixture updated");
               } else {
-                await createSeasonMatch(seasonId, values);
+                if (!values.kickoffAt) throw new Error("Kick-off date and time are required to create a fixture.");
+                await createSeasonMatch(seasonId, { ...values, kickoffAt: values.kickoffAt });
                 toast.success("Season fixture created");
               }
               setOpen(false);
