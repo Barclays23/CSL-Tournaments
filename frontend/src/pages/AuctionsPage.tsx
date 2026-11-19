@@ -487,7 +487,7 @@ export function AuctionsPage() {
             Auction status
             <Select className="mt-1" value={editStatus} onChange={(event) => setEditStatus(event.target.value as AuctionLotStatus)}>
               {LOT_STATUSES.map((status) => (
-                <option key={status} value={status} disabled={status === "pending" && editingLot.auctionStatus !== "pending"}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                <option key={status} value={status} disabled={status === "pending" && editingLot?.auctionStatus !== "pending"}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
               ))}
             </Select>
           </label>
