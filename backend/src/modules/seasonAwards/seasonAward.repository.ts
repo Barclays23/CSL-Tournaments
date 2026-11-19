@@ -1,17 +1,24 @@
 import mongoose, { Types, type ClientSession } from "mongoose";
 import { SeasonAwardModel } from "./seasonAward.model.js";
-import type { SeasonAwardEntity, SeasonAwardFields } from "./seasonAward.types.js";
+import type { SeasonAwardEntity, SeasonAwardFields, SeasonAwardType } from "./seasonAward.types.js";
 import { SeasonModel } from "../seasons/season.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import { PlayerModel } from "../players/player.model.js";
 import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
+import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
+import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
+import type { Asset } from "../../shared/types/common.types.js";
+
+type PopulatedAwardTeam = Omit<SeasonTeamEntity, "teamRef"> & {
+  teamRef: Types.ObjectId | { _id: Types.ObjectId; name: string; logo: Asset | null };
+};
 
 export class SeasonAwardRepository {
   async getAwardReadinessSnapshot(seasonId: string) {
     const seasonRef = new Types.ObjectId(seasonId);
     const [matches, seasonTeams, pendingAuctionLots] = await Promise.all([
       SeasonMatchModel.find({ seasonRef }).select("matchNumber stage status homeSeasonTeamRef awaySeasonTeamRef winnerSeasonTeamRef resolutionHistory").lean().exec(),
-      SeasonTeamModel.find({ seasonRef }).select("_id").lean().exec(),
+      SeasonTeamModel.find({ seasonRef }).select("_id").lean<Array<{ _id: Types.ObjectId }>>().exec(),
       AuctionLotModel.countDocuments({ seasonRef, auctionStatus: "pending" }).exec(),
     ]);
     return { matches, seasonTeamIds: seasonTeams.map((team) => team._id), pendingAuctionLots };
@@ -37,16 +44,16 @@ export class SeasonAwardRepository {
       .lean<SeasonAwardEntity>().exec();
   }
 
-  async findAwardTypeInSeason(seasonId: string, awardType: string, session?: ClientSession): Promise<SeasonAwardEntity | null> {
+  async findAwardTypeInSeason(seasonId: string, awardType: SeasonAwardType, session?: ClientSession): Promise<SeasonAwardEntity | null> {
     return SeasonAwardModel.findOne({ seasonRef: new Types.ObjectId(seasonId), awardType })
       .session(session ?? null).lean<SeasonAwardEntity>().exec();
   }
 
-  async findSeasonTeam(seasonId: string, seasonTeamId: string) {
+  async findSeasonTeam(seasonId: string, seasonTeamId: string): Promise<PopulatedAwardTeam | null> {
     return SeasonTeamModel.findOne({
       _id: new Types.ObjectId(seasonTeamId),
       seasonRef: new Types.ObjectId(seasonId),
-    }).populate({ path: "teamRef", select: "name logo" }).lean().exec();
+    }).populate({ path: "teamRef", select: "name logo" }).lean<PopulatedAwardTeam | null>().exec();
   }
 
   async findPlayerForSeasonTeam(seasonId: string, seasonTeamId: string, playerId: string) {
