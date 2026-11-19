@@ -28,7 +28,8 @@ import {
 } from "@/mocks/store";
 import { ApiError } from "@/utils/errorHandler";
 import { getMatchScore } from "@/utils/getMatchScore";
-import type { MockPlayer } from "@/mocks/seasonSeed";
+import type { MockPlayer, MockTeam } from "@/mocks/seasonSeed";
+import { createMockObjectId as generateMockObjectId } from "@/mocks/objectId";
 import { commitSeasonDb, readSeasonDb } from "@/mocks/seasonStore";
 
 const PREVIEW_EMAIL = "admin@csl.local";
@@ -154,10 +155,6 @@ function presentSponsor(sponsor: StoredSponsor, admin: boolean): PublicSponsor |
   };
 }
 
-function createMockObjectId(): string {
-  return Array.from({ length: 24 }, () => Math.floor(Math.random() * 16).toString(16)).join("");
-}
-
 function syncSeasonPlayer(seasonPlayers: MockPlayer[], player: StoredPlayer): void {
   const master: MockPlayer = {
     _id: player._id, __v: player.__v, name: player.name, mobile: player.mobile,
@@ -182,7 +179,7 @@ function applyPlayer(db: Database, input: PlayerWrite, existing?: StoredPlayer):
   const now = new Date().toISOString();
   return {
     ...(existing ?? {
-      _id: createMockObjectId(),
+      _id: generateMockObjectId(),
       __v: 0,
       createdAt: now,
     }),
@@ -535,19 +532,33 @@ export const previewRepository = {
     if (db.teams.some((team) => team.name.toLowerCase() === input.name.trim().toLowerCase())) {
       fail(409, "A team with this name already exists", { name: "Team name must be unique" });
     }
+
+    // The legacy Team mock and season mock maintain separate copies of the permanent Team.
+    // Use Mongo-compatible IDs and create both records together so season registration can
+    // resolve a Team created from the Teams page.
+    const seasonDb = readSeasonDb();
+    const usedTeamIds = new Set([
+      ...db.teams.map((team) => team._id),
+      ...seasonDb.teams.map((team) => team._id),
+    ]);
+    const timestamp = new Date().toISOString();
     const team: StoredTeam = {
-      _id: uid("team"),
+      _id: generateMockObjectId(usedTeamIds),
       name: input.name.trim(),
       shortName: input.shortName?.trim() || null,
       description: input.description?.trim() || null,
       logo: input.logo ?? null,
       poster: input.poster ?? null,
       status: input.status,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: timestamp,
+      updatedAt: timestamp,
     };
+    const seasonTeam: MockTeam = { ...team, __v: 0 };
+
     db.teams.push(team);
+    seasonDb.teams.push(seasonTeam);
     commit(db);
+    commitSeasonDb(seasonDb);
     return ok("Team created", presentTeam(team));
   },
   async updateTeam(id: string, input: TeamWrite) {
@@ -580,6 +591,9 @@ export const previewRepository = {
       seasonTeamMaster.poster = team.poster;
       seasonTeamMaster.status = team.status;
       seasonTeamMaster.updatedAt = team.updatedAt;
+    } else {
+      // Backfill the season mock copy when editing a Team created by an older preview version.
+      seasonDb.teams.push({ ...team, __v: 0 });
     }
     const affectedSeasonTeamIds = new Set<string>();
     for (const seasonTeam of seasonDb.seasonTeams) {
