@@ -99,37 +99,77 @@ export class SeasonRepository implements ISeasonRepository {
     } finally { await session.endSession(); }
   }
 
-  async closeAuctionIfNoPendingLots(seasonId: string): Promise<{ season: SeasonEntity | null; pendingLots: number }> {
+  async completeAuctionIfReady(seasonId: string): Promise<{ season: SeasonEntity | null; blockers: string[] }> {
     const session = await mongoose.startSession();
     try {
-      let result: { season: SeasonEntity | null; pendingLots: number } = { season: null, pendingLots: 0 };
+      let result: { season: SeasonEntity | null; blockers: string[] } = { season: null, blockers: [] };
       await session.withTransaction(async () => {
         const season = await SeasonModel.findOne({
-          _id: new Types.ObjectId(seasonId), status: "upcoming", auctionClosedAt: null,
+          _id: new Types.ObjectId(seasonId), status: "upcoming", auctionLifecycleStatus: "in_progress",
         }).session(session).lean<SeasonEntity>().exec();
         if (!season) return;
 
+        // Serialize completion against nominations, lot edits/deletions and fixture writes.
         const lock = await SeasonModel.updateOne(
-          { _id: season._id, status: "upcoming", auctionClosedAt: null },
+          { _id: season._id, status: "upcoming", auctionLifecycleStatus: "in_progress" },
           { $inc: { auctionRevision: 1 } },
           { session },
         ).exec();
         if (lock.matchedCount !== 1) return;
 
-        const pendingLots = await AuctionLotModel.countDocuments({
-          seasonRef: season._id, auctionStatus: "pending",
-        }).session(session).exec();
-        if (pendingLots > 0) {
-          result = { season: null, pendingLots };
+        const [teams, lots] = await Promise.all([
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status").session(session).lean().exec(),
+          AuctionLotModel.find({ seasonRef: season._id }).select("auctionStatus seasonTeamRef purchasePrice isIconPlayer isGoalkeeper jerseyNo").session(session).lean().exec(),
+        ]);
+        if (!season.auctionSettings) {
+          result = { season: null, blockers: ["Auction settings are missing from this season"] };
+          return;
+        }
+        const blockers = getAuctionCompletionBlockers(season.auctionSettings, teams, lots);
+        if (blockers.length) {
+          result = { season: null, blockers };
           return;
         }
 
-        const closed = await SeasonModel.findOneAndUpdate(
-          { _id: season._id, status: "upcoming", auctionClosedAt: null },
-          { $set: { auctionClosedAt: new Date() }, $inc: { auctionRevision: 1 } },
+        const completed = await SeasonModel.findOneAndUpdate(
+          { _id: season._id, status: "upcoming", auctionLifecycleStatus: "in_progress" },
+          { $set: { auctionLifecycleStatus: "completed" }, $inc: { auctionRevision: 1 } },
           { session, returnDocument: "after" },
         ).lean<SeasonEntity>().exec();
-        result = { season: closed, pendingLots: 0 };
+        result = { season: completed, blockers: [] };
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async reopenAuction(seasonId: string): Promise<{ season: SeasonEntity | null; fixtureCount: number }> {
+    const session = await mongoose.startSession();
+    try {
+      let result: { season: SeasonEntity | null; fixtureCount: number } = { season: null, fixtureCount: 0 };
+      await session.withTransaction(async () => {
+        const season = await SeasonModel.findOne({
+          _id: new Types.ObjectId(seasonId), status: "upcoming", auctionLifecycleStatus: "completed",
+        }).session(session).lean<SeasonEntity>().exec();
+        if (!season) return;
+        const lock = await SeasonModel.updateOne(
+          { _id: season._id, status: "upcoming", auctionLifecycleStatus: "completed" },
+          { $inc: { auctionRevision: 1 } },
+          { session },
+        ).exec();
+        if (lock.matchedCount !== 1) return;
+        const fixtureCount = await SeasonMatchModel.countDocuments({ seasonRef: season._id }).session(session).exec();
+        if (fixtureCount > 0) {
+          result = { season: null, fixtureCount };
+          return;
+        }
+        const reopened = await SeasonModel.findOneAndUpdate(
+          { _id: season._id, status: "upcoming", auctionLifecycleStatus: "completed" },
+          { $set: { auctionLifecycleStatus: "in_progress" }, $inc: { auctionRevision: 1 } },
+          { session, returnDocument: "after" },
+        ).lean<SeasonEntity>().exec();
+        result = { season: reopened, fixtureCount: 0 };
       });
       return result;
     } finally {
