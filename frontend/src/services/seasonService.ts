@@ -16,10 +16,20 @@ export function updateSeason(id: string, data: SeasonPatch) {
 export function transitionSeason(id: string, status: Extract<SeasonStatus, "draft" | "upcoming" | "active">) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.transitionSeason(id, status) : api.patch<ApiResponse<Season>>("/seasons/" + id + "/lifecycle", { status }).then((r) => r.data));
 }
-export function closeSeasonAuction(id: string) {
+export function completeSeasonAuction(id: string) {
   return run(() => USE_MOCK_API
-    ? Promise.reject(new Error("Auction closure is available in the real API only"))
-    : api.post<ApiResponse<Season>>("/seasons/" + id + "/auction/close").then((r) => r.data));
+    ? Promise.reject(new Error("Auction completion is available in the real API only"))
+    : api.post<ApiResponse<Season>>("/seasons/" + id + "/auction/complete").then((r) => r.data));
+}
+export function reopenSeasonAuction(id: string) {
+  return run(() => USE_MOCK_API
+    ? Promise.reject(new Error("Auction reopening is available in the real API only"))
+    : api.post<ApiResponse<Season>>("/seasons/" + id + "/auction/reopen").then((r) => r.data));
+}
+export function deletePendingAuctionLot(id: string) {
+  return run(() => USE_MOCK_API
+    ? Promise.reject(new Error("Pending lot deletion is available in the real API only"))
+    : api.delete<ApiResponse<null>>("/auction-lots/" + id).then((r) => r.data));
 }
 export function completeSeason(id: string) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.completeSeason(id) : api.post<ApiResponse<Season>>("/seasons/" + id + "/complete").then((r) => r.data));
