@@ -22,6 +22,7 @@ import { createSeasonMatch, getSeasonGroups, getSeasonMatches, updateSeasonMatch
 import type { SeasonMatch, SeasonMatchStage, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { errorMessage } from "@/utils/errorHandler";
 import { getVenues } from "@/services/venueService";
+import { canEditSeasonMatch } from "@/utils/seasonMatchPermissions";
 
 const TABS: { value: SeasonMatchStatus | ""; label: string }[] = [
   { value: "", label: "All" },
@@ -222,7 +223,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
             key={match._id}
             match={match}
             groupName={(groups.data?.data ?? []).find((group) => group._id === match.groupRef)?.groupName ?? null}
-            onEdit={isAdmin && ["upcoming", "active"].includes(selectedSeason?.status ?? "") ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
+            onEdit={isAdmin && ["upcoming", "active"].includes(selectedSeason?.status ?? "") && canEditSeasonMatch(match) ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
           />
         ))}
       </div>
