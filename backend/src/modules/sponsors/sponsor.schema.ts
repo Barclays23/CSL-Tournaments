@@ -7,6 +7,8 @@ export const sponsorCreateSchema = z.object({
   website: z.union([z.url(), z.literal(""), z.null()]).optional().transform((value) => value || null),
   contactPerson: z.string().trim().max(80).nullable().optional(),
   contactMobile: z.string().trim().max(20).nullable().optional(),
+  email: z.union([z.email(), z.literal(""), z.null()]).optional().transform((value) => value || null),
+  displayOrder: z.coerce.number().int().min(0).max(10000).optional(),
   notes: z.string().trim().max(500).nullable().optional(),
   status: z.enum(["active", "inactive"]).default("active"),
 }).strict();
