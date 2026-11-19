@@ -766,7 +766,7 @@ function SeasonsBody() {
                 {selected.status === "draft" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("upcoming")}>Move to Upcoming</Button> : null}
                 {selected.status === "upcoming" ? <>
                   <Button size="sm" disabled={saving || hasAuctionHistory || hasFixtures} onClick={() => void runLifecycle("draft")} variant="surface">Return to Draft</Button>
-                  {!selected.auctionClosedAt ? <Button size="sm" disabled={saving || seasonLots.some((lot) => lot.auctionStatus === "pending")} onClick={() => void closeAuction()}>Close Auction</Button> : <Badge tone="success">Auction closed</Badge>}
+                  {!selected.auctionClosedAt ? <Button size="sm" disabled={saving || seasonLots.some((lot) => lot.auctionStatus === "pending")} onClick={() => void closeAuction()}>Close Auction</Button> : <Badge tone="accent">Auction closed</Badge>}
                   <Button size="sm" disabled={saving || !selected.auctionClosedAt} onClick={() => void runLifecycle("active")}>Activate Season</Button>
                 </> : null}
                 {selected.status === "active" ? <Button size="sm" disabled={saving} variant="danger" onClick={() => void runLifecycle("complete")}>Complete Season</Button> : null}
