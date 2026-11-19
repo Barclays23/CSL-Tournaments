@@ -232,7 +232,7 @@ export class SeasonMatchRepository {
         || next.roundNumber !== current.roundNumber;
       if (pairChanged) await this.assertPairRules(next, homeAndAway, id, session);
 
-      const filter: mongoose.FilterQuery<SeasonMatchFields> = {
+      const filter: any = {
         _id: new Types.ObjectId(id),
         seasonRef: existing.seasonRef,
         ...(options?.requireEditableWithoutEvents
