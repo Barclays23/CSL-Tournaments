@@ -1,8 +1,42 @@
 import { createSeasonDatabase, type MockVenue, type SeasonMockDatabase } from "@/mocks/seasonSeed";
+import type { Asset } from "@/types/api.types";
 import { createMockObjectId } from "@/mocks/objectId";
 
 const DB_KEY = "csl-season-preview-db-v4";
 let memory: SeasonMockDatabase | null = null;
+
+function withoutInlineImage(asset: Asset | null | undefined): Asset | null {
+  if (!asset) return asset ?? null;
+  return asset.url.startsWith("data:image/") ? null : asset;
+}
+
+/**
+ * Team and player documents are the authoritative owners of uploaded image bytes.
+ * SeasonTeam and award snapshots keep their other historical fields, but avoid
+ * persisting another Base64 copy of those same images in the season preview store.
+ */
+function compactSeasonDatabase(database: SeasonMockDatabase): SeasonMockDatabase {
+  return {
+    ...database,
+    teams: database.teams.map((team) => ({
+      ...team,
+      logo: withoutInlineImage(team.logo),
+      poster: withoutInlineImage(team.poster),
+    })),
+    seasonTeams: database.seasonTeams.map((team) => ({
+      ...team,
+      logoSnapshot: withoutInlineImage(team.logoSnapshot),
+    })),
+    awards: database.awards.map((award) => ({
+      ...award,
+      recipients: award.recipients.map((recipient) => ({
+        ...recipient,
+        profileImageSnapshot: withoutInlineImage(recipient.profileImageSnapshot),
+        teamLogoSnapshot: withoutInlineImage(recipient.teamLogoSnapshot),
+      })),
+    })),
+  };
+}
 
 function loadDatabase(): SeasonMockDatabase {
   if (memory) return memory;
@@ -84,13 +118,15 @@ function loadDatabase(): SeasonMockDatabase {
           award.recipients.every((recipient) => availableSeasonTeams.some((team) => team._id === recipient.seasonTeamRef) && (!recipient.playerRef || availablePlayers.some((player) => player._id === recipient.playerRef))),
         ),
       };
-      window.localStorage.setItem(DB_KEY, JSON.stringify(memory));
+      // Compact old preview records in memory. The next normal commit persists the
+      // smaller representation without deleting seasons, registrations or history.
+      memory = compactSeasonDatabase(memory);
       return memory;
     }
   } catch {
     memory = null;
   }
-  memory = createSeasonDatabase();
+  memory = compactSeasonDatabase(createSeasonDatabase());
   window.localStorage.setItem(DB_KEY, JSON.stringify(memory));
   return memory;
 }
@@ -100,13 +136,16 @@ export function readSeasonDb(): SeasonMockDatabase {
 }
 
 export function commitSeasonDb(database: SeasonMockDatabase): void {
-  memory = database;
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(DB_KEY, JSON.stringify(database));
-  } catch {
-    throw new Error("Season preview storage is full. Reset the sample data and try again.");
+  const compacted = compactSeasonDatabase(database);
+  if (typeof window !== "undefined") {
+    try {
+      // Persist first: if storage is still full, keep the last saved in-memory state.
+      window.localStorage.setItem(DB_KEY, JSON.stringify(compacted));
+    } catch {
+      throw new Error("Season preview storage is full. Remove a large uploaded image or free browser storage, then try again.");
+    }
   }
+  memory = compacted;
 }
 
 export function resetSeasonPreviewData(): SeasonMockDatabase {
