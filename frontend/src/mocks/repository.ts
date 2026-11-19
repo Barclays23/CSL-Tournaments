@@ -693,7 +693,7 @@ export const previewRepository = {
     const manager = await this.saveManager(input, db.managers[index]);
     db.managers[index] = manager;
     commit(db);
-    return ok("Manager updated", presentManager(db, manager, true) as AdminManager);
+    return ok("Manager updated", presentManager(manager, true) as AdminManager);
   },
   async deleteManager(id: string) {
     requireAdmin();
