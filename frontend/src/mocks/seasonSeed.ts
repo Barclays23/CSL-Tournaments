@@ -128,7 +128,8 @@ const sponsors: MockSponsor[] = [
 ].map((sponsor, index) => ({
   _id: oid(400 + index), __v: 0, ...sponsor,
   logo: asset(`https://placehold.co/360x180/173c32/ffffff?text=${encodeURIComponent(sponsor.name)}`, `mock/sponsors/sponsor-${index + 1}`),
-  email: null, displayOrder: index + 1,\n  status: index === 3 ? "inactive" : "active",
+  email: null, displayOrder: index + 1,
+  status: index === 3 ? "inactive" : "active",
   createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
 
