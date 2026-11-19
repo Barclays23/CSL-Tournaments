@@ -508,14 +508,14 @@ export const seasonPreviewRepository = {
     const statusReason = input.statusReason?.trim();
     const resolutionReason = input.resolutionReason?.trim();
     if (statusReason !== undefined && resolutionReason !== undefined && statusReason !== resolutionReason) {
-      fail(422, "Use one consistent reason for the status change");
+      fail(422, "Use one consistent reason for the status change", "CONFLICTING_STATUS_REASONS", { statusReason: "Use one consistent reason" });
     }
     if (resolutionReason !== undefined && nextStatus !== "cancelled" && nextStatus !== "abandoned") {
-      fail(422, "A resolution reason is only valid when cancelling or abandoning a fixture");
+      fail(422, "A resolution reason is only valid when cancelling or abandoning a fixture", "INVALID_FIXTURE_RESOLUTION");
     }
     const reason = statusReason ?? resolutionReason;
     const changed = nextStatus !== match.status;
-    if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes");
+    if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes", "STATUS_REASON_WITHOUT_TRANSITION");
     const requiresReason = ["postponed", "cancelled", "abandoned"].includes(nextStatus)
       || (match.status === "live" && nextStatus === "scheduled");
     if (changed && requiresReason && !reason) {
@@ -569,14 +569,14 @@ export const seasonPreviewRepository = {
     assertMockStatusTransition(match.status, "scheduled", fail);
 
     const kickoff = new Date(input.kickoffAt);
-    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required", "INVALID_RESCHEDULE_KICKOFF");
+    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required", "RESCHEDULE_KICKOFF_REQUIRED", { kickoffAt: "Enter a valid date and kick-off time" });
     if (kickoff.getTime() <= Date.now()) fail(422, "Choose a future date and kick-off time when rescheduling", "RESCHEDULE_KICKOFF_NOT_FUTURE", { kickoffAt: "The new kickoff must be in the future" });
     if (kickoff.getTime() === new Date(match.kickoffAt).getTime()) fail(422, "Choose a new date or kick-off time different from the postponed fixture", "RESCHEDULE_KICKOFF_UNCHANGED", { kickoffAt: "Choose a different date or time" });
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(kickoff);
     const start = season.startDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.startDate)) : null;
     const end = season.endDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.endDate)) : null;
-    if (start && day < start) fail(422, "Fixture date is before the season start date", "FIXTURE_OUTSIDE_SEASON");
-    if (end && day > end) fail(422, "Fixture date is after the season end date", "FIXTURE_OUTSIDE_SEASON");
+    if (start && day < start) fail(422, "Fixture date is before the season start date", "FIXTURE_BEFORE_SEASON");
+    if (end && day > end) fail(422, "Fixture date is after the season end date", "FIXTURE_AFTER_SEASON");
 
     const reason = input.reason?.trim() || null;
     if (reason !== null && (reason.length < 3 || reason.length > 500)) {
