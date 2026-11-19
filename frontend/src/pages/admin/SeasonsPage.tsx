@@ -29,7 +29,7 @@ import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from 
 import { SeasonConfigurationForm, type SeasonFormState } from "@/components/forms/SeasonConfigurationForm";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
 import {
-  Award, CalendarDays, Check, Layers3, Lock, Medal, Plus, Search, Settings2, ShieldCheck, Trophy, Users,
+  Award, CalendarDays, Check, Layers3, Lock, Medal, Plus, Search, ChevronDown, Settings2, ShieldCheck, Trophy, UserPlus, Users, X,
 } from "lucide-react";
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -99,14 +99,14 @@ function IconTile({ icon: Icon, tone = "surface" }: { icon: typeof Users; tone?:
   );
 }
 
-function SectionHeader({ icon, title, hint, aside }: { icon: typeof Users; title: string; hint?: string; aside?: ReactNode }) {
+function SectionHeader({ icon, title, hint, aside }: { icon: typeof Users; title: string; hint?: ReactNode; aside?: ReactNode }) {
   return (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
       <div className="flex items-start gap-3">
         <IconTile icon={icon} />
         <div>
           <h3 className="font-display text-xl text-fg">{title}</h3>
-          {hint ? <p className="mt-0.5 text-xs text-muted">{hint}</p> : null}
+          {hint ? <div className="mt-0.5 text-xs text-muted">{hint}</div> : null}
         </div>
       </div>
       {aside}
@@ -198,6 +198,17 @@ function Chip({ selected, disabled, onClick, children }: { selected: boolean; di
   );
 }
 
+const initials = (name: string) =>
+  name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join("") || "?";
+
+function TeamAvatar({ name, muted = false }: { name: string; muted?: boolean }) {
+  return (
+    <span className={"flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-line text-xs font-bold " + (muted ? "bg-surface/60 text-faint" : "bg-primary/25 text-accent")}>
+      {initials(name)}
+    </span>
+  );
+}
+
 /* ───────────────────────── page ───────────────────────── */
 
 export function SeasonsPage() {
@@ -225,6 +236,9 @@ function SeasonsBody() {
   const [optionalAwardType, setOptionalAwardType] = useState<OptionalAwardType>("golden_boot");
   const [optionalAwardLotIds, setOptionalAwardLotIds] = useState<string[]>([]);
   const [completionBlockers, setCompletionBlockers] = useState<string[]>([]);
+  const [teamsTab, setTeamsTab] = useState<"registered" | "add">("registered");
+  const [teamSearch, setTeamSearch] = useState("");
+  const [openManagerTeamId, setOpenManagerTeamId] = useState<string | null>(null);
 
   useEffect(() => {
     const list = seasons.data?.data ?? [];
@@ -243,6 +257,10 @@ function SeasonsBody() {
     setGroupDrafts({});
     setNewGroupName("");
     setNewGroupOrder(1);
+    setOpenManagerTeamId(null);
+    setRegistrationIds([]);
+    setTeamSearch("");
+    setTeamsTab("registered");
   }, [selectedSeasonId]);
   useEffect(() => {
     // Reset the edit draft when the server record changes or another season is selected.
@@ -435,7 +453,7 @@ function SeasonsBody() {
   const registerTeams = async () => {
     if (!selected || !registrationIds.length) return;
     setSaving(true);
-    try { await registerSeasonTeams(selected._id, registrationIds); toast.success("Teams registered"); setRegistrationIds([]); refreshSelected(); }
+    try { await registerSeasonTeams(selected._id, registrationIds); toast.success("Teams registered"); setRegistrationIds([]); setTeamsTab("registered"); refreshSelected(); }
     catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
   };
@@ -593,6 +611,15 @@ function SeasonsBody() {
   const years = [...new Set((seasons.data?.data ?? []).map((season) => season.year))].sort((a, b) => b - a);
 
   const availableManagers = (managersQuery.data?.data ?? []).filter((manager) => manager.status === "active");
+  const groupsLocked = !preActivation || hasFixtures || selected?.groupStageEnabled === false;
+  const assignableTeams = registeredTeams.filter((team) => team.status !== "withdrawn");
+  const unassignedTeams = assignableTeams.filter((team) => !team.groupRef);
+  const assignedTeamCount = assignableTeams.length - unassignedTeams.length;
+  const teamCap = selected?.auctionSettings?.seasonTeamCount ?? 0;
+  const slotsLeft = Math.max(teamCap - registeredTeams.length, 0);
+  const activeTeamsTab = preActivation ? teamsTab : "registered";
+  const allCandidates = (permanentTeams.data?.data ?? []).filter((team) => team.status === "active" && !registeredTeamIds.has(team._id));
+  const candidateTeams = allCandidates.filter((team) => !teamSearch.trim() || team.name.toLowerCase().includes(teamSearch.trim().toLowerCase()));
   const soldLots = seasonLots.filter((lot) => lot.auctionStatus === "sold" && typeof lot.playerRef === "object" && typeof lot.seasonTeamRef === "object");
 
   /* ── render ── */
@@ -794,184 +821,186 @@ function SeasonsBody() {
             </div>
 
             <div className="grid items-start gap-5 lg:grid-cols-5">
+              {/* ───── Left column ───── */}
+              <div className="space-y-5 lg:col-span-2">
               {/* ───── Teams ───── */}
-              <GlassCard className="p-5 sm:p-6 lg:col-span-3">
+              <GlassCard className="p-5 sm:p-6">
                 <SectionHeader
                   icon={Users}
                   title="Participating teams"
-                  hint="Season-only registrations, group assignments and managers."
-                  aside={<Badge>{registeredTeams.length} / {selected.auctionSettings?.seasonTeamCount ?? 0}</Badge>}
+                  hint="Season-only registrations and managers. Assign groups in Season groups."
+                  aside={<Badge tone={teamCap > 0 && slotsLeft === 0 ? "accent" : "info"}>{registeredTeams.length} / {teamCap} slots</Badge>}
                 />
-                <p className="mb-3 text-xs text-muted">Permanent teams stay separate. Registration is open in Draft and Upcoming, and freezes when the season becomes Active.</p>
-                {seasonTeams.loading ? <Skeleton className="h-20" /> : null}
-                {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
 
-                <div className="space-y-3">
-                  {registeredTeams.map((team) => {
-                    const linked = seasonLots.some((lot) => typeof lot.seasonTeamRef === "object" && lot.seasonTeamRef?._id === team._id) || seasonFixtures.some((match) => {
-                      const home = typeof match.homeSeasonTeamRef === "object" ? match.homeSeasonTeamRef._id : match.homeSeasonTeamRef;
-                      const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
-                      return home === team._id || away === team._id;
-                    });
-                    const managersLocked = saving || !["draft", "upcoming", "active"].includes(selected.status);
-                    return (
-                      <div key={team._id} className={panel + " p-4"}>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-semibold text-fg">{team.displayName}</p>
-                            <p className="mt-0.5 text-xs text-muted">{team.group?.groupName ?? "No group"} · {team.managers.length} manager(s)</p>
-                          </div>
-                          <Badge tone={team.status === "withdrawn" ? "danger" : "accent"}>{team.status}</Badge>
-                        </div>
-
-                        <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,12rem)]">
-                          <details className="group rounded-xl border border-line bg-surface/40 px-3 py-2">
-                            <summary className="flex cursor-pointer list-none items-center justify-between text-xs font-medium text-fg">
-                              Managers
-                              <span className="text-muted">{team.managerRefs.length} selected</span>
-                            </summary>
-                            <div className="mt-2 flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
-                              {availableManagers.map((manager) => (
-                                <Chip
-                                  key={manager._id}
-                                  selected={team.managerRefs.includes(manager._id)}
-                                  disabled={managersLocked}
-                                  onClick={() => void assignManagers(team, team.managerRefs.includes(manager._id) ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
-                                >
-                                  {manager.name}
-                                </Chip>
-                              ))}
-                              {!availableManagers.length ? <span className="text-xs text-muted">No active managers available.</span> : null}
-                            </div>
-                          </details>
-                          <Select
-                            aria-label={"Group for " + team.displayName}
-                            value={team.groupRef ?? ""}
-                            disabled={!preActivation || hasFixtures || team.status === "withdrawn" || selected.groupStageEnabled === false}
-                            onChange={(e) => void changeGroupAssignment(team, e.target.value)}
-                          >
-                            <option value="">Unassigned group</option>
-                            {seasonGroups.map((group) => <option key={group._id} value={group._id}>{group.groupName}</option>)}
-                          </Select>
-                        </div>
-
-                        {team.managers.length ? (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {team.managers.map((manager) => <span key={manager._id} className="rounded-full border border-line bg-surface/50 px-2 py-0.5 text-xs text-muted">{manager.name}</span>)}
-                          </div>
-                        ) : null}
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {preActivation && team.status !== "withdrawn" ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team, "remove")}>Remove</Button> : null}
-                          {selected.status === "active" && ["registered", "active"].includes(team.status) ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team, "withdraw")}>Withdraw</Button> : null}
-                          {selected.status === "active" && team.status === "withdrawn" ? <Button size="sm" disabled={saving} onClick={() => void manageSeasonTeam(team, "recall")}>Recall / Reinstate</Button> : null}
-                          {preActivation && linked ? <span className="flex items-center gap-1 text-xs text-muted"><Lock className="h-3 w-3" /> Has auction or fixture history. Use withdrawal after activation.</span> : null}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {!registeredTeams.length ? <p className="text-sm text-muted">No teams are registered in this season yet. Pick teams below to get started.</p> : null}
+                {/* slot meter */}
+                <div className="mb-4">
+                  <div className="flex gap-1" role="img" aria-label={registeredTeams.length + " of " + teamCap + " team slots filled"}>
+                    {Array.from({ length: Math.min(Math.max(teamCap, 1), 24) }, (_, index) => (
+                      <span
+                        key={index}
+                        className={"h-1.5 flex-1 rounded-full transition-colors duration-300 " +
+                          (index < registeredTeams.length ? "bg-accent" : activeTeamsTab === "add" && index < registeredTeams.length + registrationIds.length ? "bg-accent/40" : "bg-line")}
+                      />
+                    ))}
+                  </div>
+                  <p className="mt-2 text-xs text-muted">
+                    {teamCap > 0 ? (slotsLeft ? slotsLeft + " slot(s) left. " : "All slots are filled. ") : "Set a team limit in the auction settings. "}
+                    Registration is open in Draft and Upcoming, and freezes when the season becomes Active.
+                  </p>
                 </div>
 
                 {preActivation ? (
-                  <div className="mt-5 border-t border-line pt-4">
-                    <h4 className="mb-2 font-semibold text-fg">Register teams</h4>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {permanentTeams.data?.data.filter((team) => team.status === "active" && !registeredTeamIds.has(team._id)).map((team) => {
-                        const checked = registrationIds.includes(team._id);
-                        return (
-                          <label key={team._id} className={"flex cursor-pointer items-center gap-2 rounded-xl border p-2.5 text-sm text-fg backdrop-blur-md transition " + (checked ? "border-accent bg-accent/10" : "border-line bg-surface/40 hover:border-accent/60")}>
-                            <input type="checkbox" className="h-4 w-4 accent-[var(--csl-accent)]" checked={checked} onChange={() => toggleTeam(team._id, registrationIds, setRegistrationIds)} />
-                            {team.name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                    <Button className="mt-3" size="sm" disabled={saving || !registrationIds.length || registeredTeams.length + registrationIds.length > (selected.auctionSettings?.seasonTeamCount ?? 0)} onClick={() => void registerTeams()}>
-                      Register selected teams
-                    </Button>
+                  <div role="tablist" aria-label="Team registration" className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-line bg-surface/40 p-1 backdrop-blur-md">
+                    {([["registered", "Registered", registeredTeams.length], ["add", "Add teams", allCandidates.length]] as const).map(([key, label, count]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={activeTeamsTab === key}
+                        onClick={() => setTeamsTab(key)}
+                        className={"flex items-center justify-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition " +
+                          (activeTeamsTab === key ? "bg-primary text-primary-fg shadow-glass" : "text-muted hover:text-fg")}
+                      >
+                        {label}
+                        <span className="rounded-full bg-bg/40 px-1.5 text-xs tabular">{count}</span>
+                      </button>
+                    ))}
                   </div>
                 ) : null}
-              </GlassCard>
 
-              {/* ───── Right column ───── */}
-              <div className="space-y-5 lg:col-span-2">
-                <GlassCard className="p-5 sm:p-6">
-                  <SectionHeader icon={Layers3} title="Season groups" hint="Set up groups before fixtures are created." />
-                  <p className="mb-3 text-xs text-muted">Groups belong to this season only. Counts come from this season's team registrations, and historical assignments stay visible.</p>
-
-                  {preActivation && !hasFixtures && selected.groupStageEnabled !== false ? (
-                    <form className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-end" onSubmit={createGroup}>
-                      <label className="block text-sm font-medium text-fg" htmlFor="season-group-name">
-                        Group name
-                        <Input id="season-group-name" className="mt-1" placeholder="For example, Group A" maxLength={40} required value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} />
-                      </label>
-                      <label className="block text-sm font-medium text-fg" htmlFor="season-group-order">
-                        Display order
-                        <Input id="season-group-order" className="mt-1" type="number" min="0" max="1000" step="1" required value={newGroupOrder} onChange={(e) => setNewGroupOrder(Number(e.target.value))} />
-                      </label>
-                      <Button type="submit" size="sm" disabled={saving || !newGroupName.trim() || !registeredTeams.length}>Add group</Button>
-                    </form>
-                  ) : selected.groupStageEnabled === false ? (
-                    <div className="mb-3"><Note>Group management is disabled for this season's format.</Note></div>
-                  ) : (
-                    <div className="mb-3"><Note>Group creation and editing are frozen after activation or fixture creation.</Note></div>
-                  )}
-                  {preActivation && !hasFixtures && selected.groupStageEnabled !== false && !registeredTeams.length ? (
-                    <div className="mb-3"><Note>Register participating teams before creating groups.</Note></div>
-                  ) : null}
-
-                  {groups.loading ? <Skeleton className="mb-3 h-20" /> : null}
-                  {groups.error ? <ErrorState message={groups.error} onRetry={groups.reload} /> : null}
-                  {!groups.loading && !groups.error && groups.data ? (
-                    <div className="space-y-2">
-                      {seasonGroups.map((group) => {
-                        const draft = groupDrafts[group._id];
-                        const assigned = registeredTeams.filter((team) => team.groupRef === group._id);
-                        const participatingCount = assigned.filter((team) => ["registered", "active"].includes(team.status)).length;
-                        const historicalCount = assigned.length - participatingCount;
+                {activeTeamsTab === "registered" ? (
+                  <>
+                    {seasonTeams.loading ? <Skeleton className="h-20" /> : null}
+                    {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
+                    <ul className="space-y-2">
+                      {registeredTeams.map((team) => {
+                        const linked = seasonLots.some((lot) => typeof lot.seasonTeamRef === "object" && lot.seasonTeamRef?._id === team._id) || seasonFixtures.some((match) => {
+                          const home = typeof match.homeSeasonTeamRef === "object" ? match.homeSeasonTeamRef._id : match.homeSeasonTeamRef;
+                          const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
+                          return home === team._id || away === team._id;
+                        });
+                        const managersLocked = saving || !["draft", "upcoming", "active"].includes(selected.status);
+                        const withdrawn = team.status === "withdrawn";
+                        const open = openManagerTeamId === team._id;
                         return (
-                          <div key={group._id} className={panel + " p-3"}>
-                            {!draft ? (
-                              <div className="flex flex-wrap items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <p className="font-semibold text-fg">{group.groupName}</p>
-                                  <p className="mt-0.5 text-xs text-muted">Display order {group.displayOrder}</p>
-                                </div>
+                          <li key={team._id} className={panel + " overflow-hidden"}>
+                            <div className="flex flex-wrap items-center gap-3 p-3">
+                              <TeamAvatar name={team.displayName} muted={withdrawn} />
+                              <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                  <Button size="sm" variant="surface" disabled={saving || !preActivation || hasFixtures || selected.groupStageEnabled === false} onClick={() => editGroup(group)}>Edit</Button>
-                                  <Button size="sm" variant="danger" disabled={saving || assigned.length > 0 || hasFixtures || !preActivation || selected.groupStageEnabled === false} onClick={() => void removeGroup(group)}>Delete</Button>
+                                  <p className={"truncate font-semibold " + (withdrawn ? "text-muted" : "text-fg")}>{team.displayName}</p>
+                                  {preActivation && linked ? <Lock className="h-3.5 w-3.5 shrink-0 text-faint" aria-label="Has auction or fixture history" /> : null}
+                                </div>
+                                <div className="mt-1 flex flex-wrap items-center gap-2">
+                                  <Badge tone={withdrawn ? "danger" : "accent"}>{team.status}</Badge>
+                                  {team.managers.length ? (
+                                    <span className="flex items-center gap-2" title={team.managers.map((manager) => manager.name).join(", ")}>
+                                      <span className="flex -space-x-1.5">
+                                        {team.managers.slice(0, 3).map((manager) => (
+                                          <span key={manager._id} className="flex h-5 w-5 items-center justify-center rounded-full border border-bg bg-info/30 text-[10px] font-bold text-fg">{initials(manager.name)}</span>
+                                        ))}
+                                      </span>
+                                      <span className="text-xs text-muted">{team.managers.length === 1 ? team.managers[0].name : team.managers.length + " managers"}</span>
+                                    </span>
+                                  ) : <span className="text-xs text-faint">No managers yet</span>}
                                 </div>
                               </div>
-                            ) : (
-                              <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem] sm:items-end">
-                                <label className="block text-sm font-medium text-fg">
-                                  Group name
-                                  <Input className="mt-1" maxLength={40} value={draft.groupName} disabled={saving} onChange={(e) => setGroupDrafts((current) => ({ ...current, [group._id]: { ...draft, groupName: e.target.value } }))} />
-                                </label>
-                                <label className="block text-sm font-medium text-fg">
-                                  Display order
-                                  <Input className="mt-1" type="number" min="0" max="1000" step="1" value={draft.displayOrder} disabled={saving} onChange={(e) => setGroupDrafts((current) => ({ ...current, [group._id]: { ...draft, displayOrder: Number(e.target.value) } }))} />
-                                </label>
-                                <div className="flex gap-2 sm:col-span-2">
-                                  <Button size="sm" disabled={saving} onClick={() => void saveGroup(group)}>{saving ? "Saving…" : "Save"}</Button>
-                                  <Button size="sm" variant="surface" disabled={saving} onClick={() => cancelGroupEdit(group._id)}>Cancel</Button>
-                                </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  aria-expanded={open}
+                                  onClick={() => setOpenManagerTeamId(open ? null : team._id)}
+                                  className={"inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition " + (open ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/50 text-muted hover:border-accent hover:text-fg")}
+                                >
+                                  Managers
+                                  <ChevronDown className={"h-3.5 w-3.5 transition-transform " + (open ? "rotate-180" : "")} />
+                                </button>
+                                {preActivation && !withdrawn ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team, "remove")}>Remove</Button> : null}
+                                {selected.status === "active" && ["registered", "active"].includes(team.status) ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team, "withdraw")}>Withdraw</Button> : null}
+                                {selected.status === "active" && withdrawn ? <Button size="sm" disabled={saving} onClick={() => void manageSeasonTeam(team, "recall")}>Recall / Reinstate</Button> : null}
                               </div>
-                            )}
-                            <p className="mt-2 text-xs text-muted">
-                              {assigned.length} {assigned.length === 1 ? "team" : "teams"} assigned · {participatingCount} currently participating
-                              {historicalCount > 0 ? " · " + historicalCount + " historical (withdrawn, eliminated or completed)" : ""}
-                            </p>
-                            {assigned.length > 0 ? <p className="mt-1 text-xs text-faint">Delete is unavailable while any team registration, including withdrawn or completed ones, refers to this group.</p> : null}
-                            {hasFixtures ? <p className="mt-1 text-xs text-faint">Groups are locked because this season already has fixtures.</p> : null}
-                          </div>
+                            </div>
+
+                            {open ? (
+                              <div className="border-t border-line bg-surface/30 px-3 py-3">
+                                <p className="mb-2 text-xs font-semibold text-fg">Assign managers <span className="font-normal text-muted">· tap to add or remove</span></p>
+                                <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
+                                  {availableManagers.map((manager) => (
+                                    <Chip
+                                      key={manager._id}
+                                      selected={team.managerRefs.includes(manager._id)}
+                                      disabled={managersLocked}
+                                      onClick={() => void assignManagers(team, team.managerRefs.includes(manager._id) ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
+                                    >
+                                      {manager.name}
+                                    </Chip>
+                                  ))}
+                                  {!availableManagers.length ? <span className="text-xs text-muted">No active managers available.</span> : null}
+                                </div>
+                                {preActivation && linked ? <p className="mt-2 flex items-center gap-1 text-xs text-muted"><Lock className="h-3 w-3" /> Has auction or fixture history. Use withdrawal after activation.</p> : null}
+                              </div>
+                            ) : null}
+                          </li>
                         );
                       })}
-                      {!seasonGroups.length ? <p className="text-sm text-muted">No groups created for this season.</p> : null}
+                    </ul>
+                    {!registeredTeams.length && !seasonTeams.loading ? (
+                      <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
+                        <p className="text-sm text-muted">No teams are registered in this season yet.</p>
+                        {preActivation ? <Button className="mt-3" size="sm" onClick={() => setTeamsTab("add")}><Plus className="h-4 w-4" /> Add teams</Button> : null}
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div>
+                    <div className="relative mb-3">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                      <Input className="pl-9" aria-label="Search permanent teams" placeholder="Search teams…" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} />
                     </div>
-                  ) : null}
-                </GlassCard>
+                    {allCandidates.length ? (
+                      candidateTeams.length ? (
+                        <div className="grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                          {candidateTeams.map((team) => {
+                            const checked = registrationIds.includes(team._id);
+                            const blocked = !checked && registrationIds.length >= slotsLeft;
+                            return (
+                              <button
+                                key={team._id}
+                                type="button"
+                                role="checkbox"
+                                aria-checked={checked}
+                                disabled={blocked}
+                                onClick={() => toggleTeam(team._id, registrationIds, setRegistrationIds)}
+                                className={"flex items-center gap-2.5 rounded-xl border p-2.5 text-left text-sm backdrop-blur-md transition disabled:cursor-not-allowed disabled:opacity-45 " +
+                                  (checked ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/40 text-fg hover:border-accent/60")}
+                              >
+                                <TeamAvatar name={team.name} />
+                                <span className="min-w-0 flex-1 truncate font-medium">{team.name}</span>
+                                <span className={"flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition " + (checked ? "border-accent bg-accent text-accent-fg" : "border-line text-transparent")}>
+                                  <Check className="h-3 w-3" />
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-xs text-muted">No teams match your search.</p>
+                    ) : <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-xs text-muted">All active teams are already registered in this season.</p>}
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface/40 p-3 backdrop-blur-md">
+                      <p className="text-xs text-muted">
+                        <span className="font-semibold tabular text-fg">{registrationIds.length}</span> selected · {Math.max(slotsLeft - registrationIds.length, 0)} slot(s) left
+                      </p>
+                      <div className="flex gap-2">
+                        {registrationIds.length ? <Button size="sm" variant="surface" disabled={saving} onClick={() => setRegistrationIds([])}>Clear</Button> : null}
+                        <Button size="sm" disabled={saving || !registrationIds.length || registeredTeams.length + registrationIds.length > teamCap} onClick={() => void registerTeams()}>
+                          Register selected teams
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </GlassCard>
+
 
                 <GlassCard className="p-5 sm:p-6">
                   <SectionHeader icon={Lock} title="Setup status & locks" hint="Live dependency counts and lock rules." />
@@ -995,6 +1024,171 @@ function SeasonsBody() {
                   </ul>
                 </GlassCard>
               </div>
+
+              {/* ───── Season groups ───── */}
+              <GlassCard className="p-5 sm:p-6 lg:col-span-3">
+                <SectionHeader
+                  icon={Layers3}
+                  title="Season groups"
+                  hint={
+                    <div className="space-y-0.5">
+                      <p>Create groups and assign teams to them before fixtures are created.</p>
+                      <p>Delete is unavailable while any team registration, including withdrawn or completed ones, refers to this group.</p>
+                      {hasFixtures ? <p>Groups are locked because this season already has fixtures.</p> : null}
+                    </div>
+                  }
+                  aside={<Badge tone={assignableTeams.length > 0 && unassignedTeams.length === 0 ? "accent" : "info"}>{assignedTeamCount} / {assignableTeams.length} assigned</Badge>}
+                />
+
+                {assignableTeams.length > 0 ? (
+                  <div className={panel + " mb-4 p-3"}>
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-fg">{unassignedTeams.length ? unassignedTeams.length + " team(s) waiting for a group" : "Every team has a group"}</span>
+                      <span className="tabular text-muted">{assignedTeamCount} of {assignableTeams.length}</span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={assignableTeams.length} aria-valuenow={assignedTeamCount} aria-label="Teams assigned to groups">
+                      <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: (assignableTeams.length ? (assignedTeamCount / assignableTeams.length) * 100 : 0) + "%" }} />
+                    </div>
+                  </div>
+                ) : null}
+
+                {preActivation && !hasFixtures && selected.groupStageEnabled !== false ? (
+                  <form className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-end" onSubmit={createGroup}>
+                    <label className="block text-sm font-medium text-fg" htmlFor="season-group-name">
+                      Group name
+                      <Input id="season-group-name" className="mt-1" placeholder="For example, Group A" maxLength={40} required value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} />
+                    </label>
+                    <label className="block text-sm font-medium text-fg" htmlFor="season-group-order">
+                      Display order
+                      <Input id="season-group-order" className="mt-1" type="number" min="0" max="1000" step="1" required value={newGroupOrder} onChange={(e) => setNewGroupOrder(Number(e.target.value))} />
+                    </label>
+                    <Button type="submit" size="sm" disabled={saving || !newGroupName.trim() || !registeredTeams.length}>Add group</Button>
+                  </form>
+                ) : selected.groupStageEnabled === false ? (
+                  <div className="mb-3"><Note>Group management is disabled for this season's format.</Note></div>
+                ) : (
+                  <div className="mb-3"><Note>Group creation, editing and team assignment are frozen after activation or fixture creation.</Note></div>
+                )}
+                {preActivation && !hasFixtures && selected.groupStageEnabled !== false && !registeredTeams.length ? (
+                  <div className="mb-3"><Note>Register participating teams before creating groups.</Note></div>
+                ) : null}
+
+                {groups.loading ? <Skeleton className="mb-3 h-20" /> : null}
+                {groups.error ? <ErrorState message={groups.error} onRetry={groups.reload} /> : null}
+                {!groups.loading && !groups.error && groups.data ? (
+                  <div className="space-y-4">
+                    {seasonGroups.map((group) => {
+                      const draft = groupDrafts[group._id];
+                      const assigned = registeredTeams.filter((team) => team.groupRef === group._id);
+                      const historicalCount = assigned.filter((team) => !["registered", "active"].includes(team.status)).length;
+                      return (
+                        <div key={group._id} className={panel + " overflow-hidden"}>
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-primary/10 px-4 py-3">
+                            {!draft ? (
+                              <>
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary font-display text-lg text-primary-fg">{group.groupName.charAt(0).toUpperCase()}</span>
+                                  <div className="min-w-0">
+                                    <p className="truncate font-semibold text-fg">{group.groupName}</p>
+                                    <p className="text-xs text-muted">Display order {group.displayOrder} · {assigned.length} {assigned.length === 1 ? "team" : "teams"}</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button size="sm" variant="surface" disabled={saving || groupsLocked} onClick={() => editGroup(group)}>Edit</Button>
+                                  <Button size="sm" variant="danger" disabled={saving || assigned.length > 0 || groupsLocked} onClick={() => void removeGroup(group)}>Delete</Button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="grid w-full gap-3 sm:grid-cols-[minmax(0,1fr)_7rem] sm:items-end">
+                                <label className="block text-sm font-medium text-fg">
+                                  Group name
+                                  <Input className="mt-1" maxLength={40} value={draft.groupName} disabled={saving} onChange={(e) => setGroupDrafts((current) => ({ ...current, [group._id]: { ...draft, groupName: e.target.value } }))} />
+                                </label>
+                                <label className="block text-sm font-medium text-fg">
+                                  Display order
+                                  <Input className="mt-1" type="number" min="0" max="1000" step="1" value={draft.displayOrder} disabled={saving} onChange={(e) => setGroupDrafts((current) => ({ ...current, [group._id]: { ...draft, displayOrder: Number(e.target.value) } }))} />
+                                </label>
+                                <div className="flex gap-2 sm:col-span-2">
+                                  <Button size="sm" disabled={saving} onClick={() => void saveGroup(group)}>{saving ? "Saving…" : "Save"}</Button>
+                                  <Button size="sm" variant="surface" disabled={saving} onClick={() => cancelGroupEdit(group._id)}>Cancel</Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="space-y-4 p-4">
+                            <div>
+                              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-fg"><Users className="h-3.5 w-3.5 text-accent" /> Teams in this group</p>
+                              {assigned.length ? (
+                                <ul className="grid gap-2 sm:grid-cols-2">
+                                  {assigned.map((team) => {
+                                    const withdrawn = team.status === "withdrawn";
+                                    return (
+                                      <li key={team._id} className="flex items-center gap-2 rounded-xl border border-line bg-surface/50 px-2.5 py-2 backdrop-blur-md">
+                                        <TeamAvatar name={team.displayName} muted={withdrawn} />
+                                        <div className="min-w-0 flex-1">
+                                          <p className={"truncate text-sm font-medium " + (withdrawn ? "text-muted" : "text-fg")}>{team.displayName}</p>
+                                          {!["registered", "active"].includes(team.status) ? <p className="text-xs capitalize text-faint">{team.status}</p> : null}
+                                        </div>
+                                        {!groupsLocked && !withdrawn ? (
+                                          <button
+                                            type="button"
+                                            aria-label={"Remove " + team.displayName + " from " + group.groupName}
+                                            title="Remove from group"
+                                            disabled={saving}
+                                            onClick={() => void changeGroupAssignment(team, "")}
+                                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-line text-muted transition hover:border-danger hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                                          >
+                                            <X className="h-3.5 w-3.5" />
+                                          </button>
+                                        ) : null}
+                                      </li>
+                                    );
+                                  })}
+                                </ul>
+                              ) : (
+                                <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-xs text-muted">
+                                  No teams in this group yet.{!groupsLocked && unassignedTeams.length ? " Add teams from the list below." : ""}
+                                </p>
+                              )}
+                              {historicalCount > 0 ? <p className="mt-2 text-xs text-faint">{historicalCount} historical (withdrawn, eliminated or completed)</p> : null}
+                            </div>
+
+                            {!groupsLocked ? (
+                              <div className="border-t border-line pt-3">
+                                <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-fg">
+                                  <UserPlus className="h-3.5 w-3.5 text-accent" /> Add teams
+                                  <span className="font-normal text-muted">· {unassignedTeams.length} available</span>
+                                </p>
+                                {unassignedTeams.length ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {unassignedTeams.map((team) => (
+                                      <button
+                                        key={team._id}
+                                        type="button"
+                                        disabled={saving}
+                                        aria-label={"Add " + team.displayName + " to " + group.groupName}
+                                        onClick={() => void changeGroupAssignment(team, group._id)}
+                                        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface/50 py-1 pl-1.5 pr-3 text-xs font-medium text-muted backdrop-blur-md transition hover:border-accent hover:bg-accent/10 hover:text-fg disabled:opacity-50"
+                                      >
+                                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/30 text-accent"><Plus className="h-3 w-3" /></span>
+                                        {team.displayName}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-muted">{registeredTeams.length ? "All teams are assigned. Remove a team from a group to make it available again." : "Register teams to add them here."}</p>
+                                )}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {!seasonGroups.length ? <p className="text-sm text-muted">No groups created for this season.</p> : null}
+                  </div>
+                ) : null}
+              </GlassCard>
             </div>
 
             {/* ───── Awards ───── */}
