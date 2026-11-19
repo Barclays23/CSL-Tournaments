@@ -31,6 +31,20 @@ const statusHistorySchema = new Schema({
   toKickoffAt: { type: Date, default: null },
 }, { _id: false, timestamps: false });
 
+const correctionResultSchema = new Schema({
+  homeScore: { type: Number, min: 0, required: true },
+  awayScore: { type: Number, min: 0, required: true },
+  goals: { type: [goalSchema], default: [] },
+  penaltyShootout: { type: shootoutSchema, default: null },
+  winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
+}, { _id: false, timestamps: false });
+const correctionHistorySchema = new Schema({
+  reason: { type: String, required: true, trim: true, minlength: 3, maxlength: 1000 },
+  correctedBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  correctedAt: { type: Date, required: true },
+  originalResult: { type: correctionResultSchema, required: true },
+  correctedResult: { type: correctionResultSchema, required: true },
+}, { _id: false, timestamps: false });
 const resolutionSchema = new Schema({
   status: { type: String, enum: ["cancelled", "abandoned"], required: true },
   reason: { type: String, required: true, trim: true, minlength: 3, maxlength: 500 },
@@ -54,6 +68,7 @@ const schema = new Schema<SeasonMatchFields>({
   notes: { type: String, default: null, trim: true },
   resolutionHistory: { type: [resolutionSchema], default: [] },
   statusHistory: { type: [statusHistorySchema], default: [] },
+  correctionHistory: { type: [correctionHistorySchema], default: [] },
 }, { timestamps: true, versionKey: false });
 
 schema.index({ seasonRef:  1, matchNumber: 1 }, { unique: true });

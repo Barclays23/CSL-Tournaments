@@ -56,6 +56,26 @@ export interface SeasonMatchGoal {
   createdAt: string;
 }
 
+export interface SeasonMatchCorrectionResult {
+  homeScore: number;
+  awayScore: number;
+  goals: Array<{ _id: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: "normal" | "own_goal"; createdAt: string }>;
+  penaltyShootout: SeasonMatch["penaltyShootout"] | null;
+  winnerSeasonTeamRef: string | null;
+}
+export interface SeasonMatchCorrectionHistory {
+  reason: string;
+  correctedBy: string;
+  correctedAt: string;
+  originalResult: SeasonMatchCorrectionResult;
+  correctedResult: SeasonMatchCorrectionResult;
+}
+export interface SeasonMatchCorrectionWrite {
+  reason: string;
+  goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+  penaltyShootout: SeasonMatch["penaltyShootout"];
+}
+
 export interface SeasonMatch {
   _id: string;
   seasonRef: string;
@@ -70,6 +90,7 @@ export interface SeasonMatch {
   awaySeasonTeamRef: SeasonMatchTeamRef;
   status: SeasonMatchStatus;
   resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
+  correctionHistory?: SeasonMatchCorrectionHistory[];
   statusHistory?: Array<{
     fromStatus: SeasonMatchStatus;
     toStatus: SeasonMatchStatus;

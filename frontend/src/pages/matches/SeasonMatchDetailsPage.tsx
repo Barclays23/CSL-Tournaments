@@ -10,6 +10,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Drawer } from "@/components/ui/Drawer";
 import { GoalManagementDrawer } from "@/components/matches/GoalManagementDrawer";
+import { CompletedMatchCorrectionDrawer } from "@/components/matches/CompletedMatchCorrectionDrawer";
 import { MatchStatusManager } from "@/components/matches/MatchStatusManager";
 import { MatchEventIcon, type MatchEventKind } from "@/components/matches/MatchEventIcon";
 import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
@@ -17,6 +18,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import {
   addSeasonMatchGoal,
+  correctCompletedSeasonMatch,
   deleteSeasonMatchGoal,
   getSeasonMatchById,
   updateSeasonMatch,
@@ -24,7 +26,7 @@ import {
 } from "@/services/seasonMatchService";
 import { getSeasonTeams, getAuctionLots } from "@/services/seasonService";
 import { getVenues } from "@/services/venueService";
-import type { SeasonMatch, SeasonMatchTeamRef, SeasonMatchWrite } from "@/types/seasonMatch.types";
+import type { SeasonMatch, SeasonMatchTeamRef, SeasonMatchWrite, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
 import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
@@ -188,6 +190,8 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const [goalPlayerId, setGoalPlayerId] = useState("");
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [savingGoal, setSavingGoal] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [savingCorrection, setSavingCorrection] = useState(false);
 
   const matchQuery = useServiceQuery(() => getSeasonMatchById(seasonId, matchId), [seasonId, matchId]);
   const teamsQuery = useServiceQuery(() => getSeasonTeams(seasonId), [seasonId]);
@@ -302,6 +306,29 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         Back to matches
       </Link>
 
+      {isAdmin && match.status === "completed" ? (
+        <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 border border-warning/30 p-4">
+          <div className="min-w-0">
+            <h2 className="font-display text-lg text-fg">Completed result correction</h2>
+            <p className="mt-0.5 text-sm text-muted">Use the audited correction workflow to amend the official result. Ordinary goal editing is disabled.</p>
+          </div>
+          <Button size="sm" variant="surface" onClick={() => setCorrectionOpen(true)}>Correct completed result</Button>
+        </GlassCard>
+      ) : null}
+      {match.correctionHistory?.length ? (
+        <GlassCard className="mt-3 p-4">
+          <h2 className="font-display text-lg text-fg">Correction audit history</h2>
+          <ul className="mt-3 space-y-3">
+            {match.correctionHistory.map((entry, index) => (
+              <li key={entry.correctedAt + index} className="rounded-lg border border-line bg-surface p-3 text-sm">
+                <div className="flex flex-wrap justify-between gap-2"><strong className="text-fg">Correction {index + 1}</strong><span className="text-muted">{formatDate(entry.correctedAt)} · {new Date(entry.correctedAt).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span></div>
+                <p className="mt-1 text-muted">{entry.reason}</p>
+                <p className="mt-2 text-xs text-muted">Original: {entry.originalResult.homeScore} - {entry.originalResult.awayScore} · Corrected: {entry.correctedResult.homeScore} - {entry.correctedResult.awayScore} · Admin: {entry.correctedBy}</p>
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      ) : null}
       <MatchStatusManager
         seasonId={seasonId}
         match={match}
@@ -442,6 +469,31 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         error={lotsQuery.error}
         onSubmit={saveGoal}
       />
+      {correctionOpen ? <CompletedMatchCorrectionDrawer
+        open={true}
+        onClose={() => setCorrectionOpen(false)}
+        match={match}
+        home={{ id: home.id, name: home.name }}
+        away={{ id: away.id, name: away.name }}
+        players={(lotsQuery.data?.data ?? []).flatMap((lot) => {
+          const player = lotPlayer(lot);
+          return player ? [{ id: player._id, name: player.name, seasonTeamId: lotTeamId(lot) }] : [];
+        })}
+        saving={savingCorrection}
+        onSubmit={async (data: SeasonMatchCorrectionWrite) => {
+          setSavingCorrection(true);
+          try {
+            await correctCompletedSeasonMatch(seasonId, matchId, data);
+            toast.success("Completed match result corrected and audit history recorded");
+            setCorrectionOpen(false);
+            matchQuery.reload();
+          } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Unable to correct completed match");
+          } finally {
+            setSavingCorrection(false);
+          }
+        }}
+      /> : null}
       <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
         <SeasonMatchForm
           seasonTeams={teamsQuery.data?.data ?? []}
