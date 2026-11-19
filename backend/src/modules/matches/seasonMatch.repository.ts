@@ -262,6 +262,21 @@ export class SeasonMatchRepository {
     });
   }
 
+  async correctCompletedMatch(id: string, expectedUpdatedAt: Date, goals: SeasonMatchFields["goals"], penaltyShootout: SeasonMatchFields["penaltyShootout"], winnerSeasonTeamRef: Types.ObjectId | null, historyEntry: import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
+      const filter = { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "completed", updatedAt: expectedUpdatedAt };
+      const current = await SeasonMatchModel.findOne(filter).session(session).lean<SeasonMatchEntity>().exec();
+      if (!current) {
+        const latest = await SeasonMatchModel.findById(id).session(session).select("status").lean<{ status: string }>().exec();
+        if (!latest) return null;
+        throw new AppError("This completed match changed while the correction was being prepared. Refresh and try again.", 409, "MATCH_CORRECTION_CONFLICT");
+      }
+      return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: { correctionHistory: historyEntry } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
+    });
+  }
+
   async delete(id: string): Promise<boolean> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return false;
