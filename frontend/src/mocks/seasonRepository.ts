@@ -602,6 +602,96 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Match rescheduled", populatedSeasonMatch(db, match));
   },
+  async correctCompletedSeasonMatch(
+    seasonId: string,
+    matchId: string,
+    input: {
+      reason: string;
+      goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+      penaltyShootout: MockSeasonMatch["penaltyShootout"];
+    },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (season.status === "archived") fail(409, "Archived seasons cannot be corrected", "SEASON_CLOSED");
+    if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season", "SEASON_RULES_UNAVAILABLE");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    if (match.status !== "completed") fail(409, "Only Completed matches can use the correction workflow", "MATCH_NOT_COMPLETED");
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 1000) fail(422, "Enter a correction reason between 3 and 1000 characters", "MATCH_CORRECTION_REASON_REQUIRED", { reason: "A correction reason is required" });
+    const session = readSession();
+    if (!session?._id) fail(403, "An authenticated administrator is required to correct a completed match", "FORBIDDEN");
+
+    const originalGoals = match.goals.map((goal) => ({ ...goal }));
+    const originalShootout = match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
+    const originalWinner = match.winnerSeasonTeamRef;
+    const originalScore = {
+      homeScore: originalGoals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
+      awayScore: originalGoals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
+    };
+    const usedIds = new Set<string>();
+    const correctedGoals: MockSeasonMatch["goals"] = [];
+    for (const goal of input.goals) {
+      const scoring = goal.scoringSeasonTeamRef;
+      if (scoring !== match.homeSeasonTeamRef && scoring !== match.awaySeasonTeamRef) fail(422, "Credited team must be one of the match participants", "INVALID_SCORING_TEAM");
+      const scorerId = goal.scorerPlayerRef ?? null;
+      const existingGoal = originalGoals.find((item) => !usedIds.has(item._id)
+        && item.scoringSeasonTeamRef === scoring && item.scorerPlayerRef === scorerId && item.goalType === goal.goalType);
+      if (existingGoal) {
+        usedIds.add(existingGoal._id);
+        correctedGoals.push({ ...existingGoal });
+        continue;
+      }
+      let playerSeasonTeamRef: string | null = null;
+      if (goal.goalType === "normal") {
+        if (!scorerId) fail(422, "Select the goal scorer", "SCORER_REQUIRED");
+        const player = db.players.find((item) => item._id === scorerId && item.status === "active");
+        const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
+        if (!player || !lot || lot.seasonTeamRef !== scoring) fail(422, "Normal goal scorer must be an active player sold to the credited season team", "INVALID_SCORER");
+        playerSeasonTeamRef = scoring;
+      } else if (goal.goalType === "own_goal" && scorerId) {
+        const responsibleTeam = scoring === match.homeSeasonTeamRef ? match.awaySeasonTeamRef : match.homeSeasonTeamRef;
+        const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
+        if (!lot || lot.seasonTeamRef !== responsibleTeam) fail(422, "Own-goal player must belong to the opposing season team", "INVALID_OWN_GOAL_PLAYER");
+        playerSeasonTeamRef = responsibleTeam;
+      } else if (goal.goalType !== "own_goal") fail(422, "Unsupported goal type", "INVALID_GOAL_TYPE");
+      correctedGoals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: goal.goalType, createdAt: now() });
+    }
+
+    const shootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
+    if (shootout) {
+      assertMockShootoutScore(match, shootout, fail);
+      for (const kick of shootout.kicks) {
+        if (kick.playerRef) {
+          const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === kick.playerRef && item.auctionStatus === "sold");
+          if (!lot || lot.seasonTeamRef !== kick.seasonTeamRef) fail(422, "Shootout player must belong to the kicking team", "INVALID_SHOOTOUT_PLAYER");
+        }
+      }
+    }
+    const correctedMatch = { ...match, status: "completed" as const, goals: correctedGoals, penaltyShootout: shootout };
+    const correctedWinner = calculateMockCompletedWinner(correctedMatch, season, fail);
+    const correctedScore = {
+      homeScore: correctedGoals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
+      awayScore: correctedGoals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
+    };
+    const correctedAt = now();
+    match.correctionHistory ??= [];
+    match.correctionHistory.push({
+      reason,
+      correctedBy: session._id,
+      correctedAt,
+      originalResult: { ...originalScore, goals: originalGoals, penaltyShootout: originalShootout, winnerSeasonTeamRef: originalWinner },
+      correctedResult: { ...correctedScore, goals: correctedGoals.map((goal) => ({ ...goal })), penaltyShootout: shootout ? { ...shootout, kicks: shootout.kicks.map((kick) => ({ ...kick })) } : null, winnerSeasonTeamRef: correctedWinner },
+    });
+    match.goals = correctedGoals;
+    match.penaltyShootout = shootout;
+    match.winnerSeasonTeamRef = correctedWinner;
+    match.updatedAt = correctedAt;
+    commitSeasonDb(db);
+    return ok("Completed match corrected", populatedSeasonMatch(db, match));
+  },
   async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
     const reason = input.resolutionReason.trim();
     if (reason.length < 3 || reason.length > 500) fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
