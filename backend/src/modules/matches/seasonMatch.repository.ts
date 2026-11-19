@@ -77,13 +77,16 @@ export class SeasonMatchRepository {
       let result!: T;
       await session.withTransaction(async () => {
         const lock = await SeasonModel.updateOne(
-          { _id: new Types.ObjectId(seasonId), status: { $in: allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"] } },
+          { _id: new Types.ObjectId(seasonId), status: { $in: allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"] }, auctionLifecycleStatus: "completed" },
           { $inc: { auctionRevision: 1 } },
           { session },
         ).exec();
         if (lock.matchedCount !== 1) {
-          const exists = await SeasonModel.exists({ _id: new Types.ObjectId(seasonId) }).session(session);
-          if (!exists) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          const existingSeason = await SeasonModel.findById(seasonId).select("status auctionLifecycleStatus").session(session).lean<{ status: string; auctionLifecycleStatus: string } | null>().exec();
+          if (!existingSeason) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          if (existingSeason.auctionLifecycleStatus !== "completed") {
+            throw new AppError("Complete the auction and validate every team's roster before creating or changing fixtures.", 409, "AUCTION_NOT_COMPLETED");
+          }
           throw new AppError("Fixtures cannot be changed after the season is completed or archived", 409, "SEASON_WRITE_LOCKED");
         }
         result = await work(session);
