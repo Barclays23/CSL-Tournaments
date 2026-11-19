@@ -50,7 +50,11 @@ export class ManagerRepository implements IManagerRepository {
     }).lean<ManagerEntity>().exec();
   }
 
-  async countSeasonTeamAssignments(managerId: string): Promise<number> {\n    return SeasonTeamModel.countDocuments({ managerRefs: managerId }).exec();\n  }\n\n  async deleteManager(managerId: string): Promise<boolean> {
+  async countSeasonTeamAssignments(managerId: string): Promise<number> {
+    return SeasonTeamModel.countDocuments({ managerRefs: managerId }).exec();
+  }
+
+  async deleteManager(managerId: string): Promise<boolean> {
     const deleted = await ManagerModel.findByIdAndDelete(managerId).select("_id").lean().exec();
     return deleted !== null;
   }
