@@ -116,25 +116,21 @@ function presentMatch(db: Database, match: StoredMatch): Match {
   };
 }
 
-function presentManager(
-  db: Database,
-  manager: StoredManager,
-  admin: boolean,
-): PublicManager | AdminManager {
-  const team = manager.teamRef ? db.teams.find((item) => item._id === manager.teamRef) : null;
+function presentManager(manager: StoredManager, admin: boolean): PublicManager | AdminManager {
   const base: PublicManager = {
     _id: manager._id,
     name: manager.name,
-    email: manager.email,
-    dateOfBirth: manager.dateOfBirth,
-    teamRef: manager.teamRef,
-    team: team ? briefTeam(team) : null,
     role: manager.role,
     profilePic: manager.profilePic,
     status: manager.status,
   };
   if (!admin) return base;
-  return { ...base, mobile: manager.mobile };
+  return {
+    ...base,
+    mobile: manager.mobile,
+    email: manager.email,
+    dateOfBirth: manager.dateOfBirth,
+  };
 }
 
 function presentSponsor(sponsor: StoredSponsor, admin: boolean): PublicSponsor | AdminSponsor {
@@ -145,13 +141,11 @@ function presentSponsor(sponsor: StoredSponsor, admin: boolean): PublicSponsor |
     tier: sponsor.tier,
     website: sponsor.website,
     status: sponsor.status,
-  };
-  if (!admin) return base;
+    displayOrder: sponsor.displayOrder ?? 0,\n  };\n  if (!admin) return base;
   return {
     ...base,
     contactPerson: sponsor.contactPerson,
-    contactMobile: sponsor.contactMobile,
-    notes: sponsor.notes,
+    contactMobile: sponsor.contactMobile,\n    email: sponsor.email ?? null,\n    notes: sponsor.notes,
   };
 }
 
@@ -446,7 +440,7 @@ export const previewRepository = {
       items = items.filter((player) => player.name.toLowerCase().includes(needle));
     }
     if (admin && query.status) items = items.filter((player) => player.status === query.status);
-    items.sort((a, b) => a.name.localeCompare(b.name));
+    items.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
     const page = paginate(items, query.page ?? 1, query.limit ?? 12);
     return ok(
       "Players loaded",
@@ -644,12 +638,11 @@ export const previewRepository = {
       items = items.filter((manager) => manager.name.toLowerCase().includes(needle));
     }
     if (admin && query.status) items = items.filter((manager) => manager.status === query.status);
-    if (query.teamRef) items = items.filter((manager) => manager.teamRef === query.teamRef);
     items.sort((a, b) => a.name.localeCompare(b.name));
     const page = paginate(items, query.page ?? 1, query.limit ?? 12);
     return ok(
       "Managers loaded",
-      page.slice.map((manager) => presentManager(db, manager, admin)),
+      page.slice.map((manager) => presentManager(manager, admin)),
       page.pagination,
     );
   },
@@ -657,7 +650,7 @@ export const previewRepository = {
     const db = readDb();
     const manager = db.managers.find((item) => item._id === id);
     if (!manager || (!isAdmin() && manager.status !== "active")) fail(404, "Manager not found");
-    return ok("Manager loaded", presentManager(db, manager, isAdmin()));
+    return ok("Manager loaded", presentManager(manager, isAdmin()));
   },
   async saveManager(input: ManagerWrite, existing?: StoredManager) {
     const db = readDb();
@@ -668,16 +661,12 @@ export const previewRepository = {
     if (email && db.managers.some((manager) => manager.email === email && manager._id !== existing?._id)) {
       fail(409, "A manager with this email already exists", { email: "This email is already used" });
     }
-    if (input.teamRef && !db.teams.some((team) => team._id === input.teamRef)) {
-      fail(422, "Choose a valid team", { teamRef: "That team does not exist" });
-    }
     const manager: StoredManager = {
       _id: existing?._id ?? uid("manager"),
       name: input.name.trim(),
       mobile: input.mobile,
       email,
       dateOfBirth: input.dateOfBirth || null,
-      teamRef: input.teamRef || null,
       role: input.role?.trim() || null,
       profilePic: input.profilePic === undefined ? existing?.profilePic ?? null : input.profilePic,
       status: input.status,
@@ -690,7 +679,7 @@ export const previewRepository = {
     const manager = await this.saveManager(input);
     db.managers.push(manager);
     commit(db);
-    return ok("Manager created", presentManager(db, manager, true) as AdminManager);
+    return ok("Manager created", presentManager(manager, true) as AdminManager);
   },
   async updateManager(id: string, input: ManagerWrite): Promise<ApiResponse<AdminManager>> {
     requireAdmin();
@@ -704,7 +693,8 @@ export const previewRepository = {
   },
   async deleteManager(id: string) {
     requireAdmin();
-    const db = readDb();
+    const seasonDb = readSeasonDb();
+    if (seasonDb.seasonTeams.some((team) => team.managerRefs.includes(id))) {\n      fail(409, "This manager has season-team assignments. Remove those assignments first or deactivate the manager to preserve season history.");\n    }\n    const db = readDb();
     const before = db.managers.length;
     db.managers = db.managers.filter((manager) => manager._id !== id);
     if (db.managers.length === before) fail(404, "Manager not found");
@@ -738,8 +728,7 @@ export const previewRepository = {
       tier: input.tier?.trim() || null,
       website: input.website?.trim() || null,
       contactPerson: input.contactPerson?.trim() || null,
-      contactMobile: input.contactMobile || null,
-      notes: input.notes?.trim() || null,
+      contactMobile: input.contactMobile || null,\n      email: input.email?.trim().toLowerCase() || null,\n      displayOrder: input.displayOrder ?? 0,\n      notes: input.notes?.trim() || null,
       status: input.status,
     };
     db.sponsors.push(sponsor);
@@ -759,8 +748,7 @@ export const previewRepository = {
       tier: input.tier?.trim() || null,
       website: input.website?.trim() || null,
       contactPerson: input.contactPerson?.trim() || null,
-      contactMobile: input.contactMobile || null,
-      notes: input.notes?.trim() || null,
+      contactMobile: input.contactMobile || null,\n      email: input.email?.trim().toLowerCase() || null,\n      displayOrder: input.displayOrder ?? current.displayOrder ?? 0,\n      notes: input.notes?.trim() || null,
       status: input.status,
     };
     db.sponsors[index] = sponsor;
