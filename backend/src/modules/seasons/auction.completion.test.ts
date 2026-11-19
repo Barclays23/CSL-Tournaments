@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAuctionCompletionBlockers } from "./auction.completion.js";
+import { getAuctionCompletionBlockers, type AuctionCompletionLot } from "./auction.completion.js";
 
 const settings = { currency: "INR" as const, budgetPerTeam: 1000, playersCount: 20, seasonTeamCount: 4, teamSquadSize: 3, iconPlayerLimit: 1, goalkeeperLimit: 1 };
 const teams = [{ _id: "team-a", status: "registered" }, { _id: "team-b", status: "registered" }];
-const lot = (team: string, overrides: Record<string, unknown> = {}) => ({ auctionStatus: "sold", seasonTeamRef: team, purchasePrice: 100, isIconPlayer: false, isGoalkeeper: false, jerseyNo: null, ...overrides });
+const lot = (team: string, overrides: Partial<AuctionCompletionLot> = {}): AuctionCompletionLot => ({ auctionStatus: "sold", seasonTeamRef: team, purchasePrice: 100, isIconPlayer: false, isGoalkeeper: false, jerseyNo: null, ...overrides });
 
 test("auction completion is blocked while any nominated lot is pending", () => {
   const blockers = getAuctionCompletionBlockers(settings, teams, [lot("team-a"), lot("team-b"), lot("", { auctionStatus: "pending", seasonTeamRef: null })]);
