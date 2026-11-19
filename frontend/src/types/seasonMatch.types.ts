@@ -124,6 +124,9 @@ export interface SeasonMatchQuery {
   groupRef?: string;
   status?: SeasonMatchStatus;
   search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  seasonTeamRef?: string;
 }
 
 export interface SeasonMatchWrite {
