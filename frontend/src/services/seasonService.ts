@@ -18,17 +18,17 @@ export function transitionSeason(id: string, status: Extract<SeasonStatus, "draf
 }
 export function completeSeasonAuction(id: string) {
   return run(() => USE_MOCK_API
-    ? Promise.reject(new Error("Auction completion is available in the real API only"))
+    ? seasonPreviewRepository.completeSeasonAuction(id)
     : api.post<ApiResponse<Season>>("/seasons/" + id + "/auction/complete").then((r) => r.data));
 }
 export function reopenSeasonAuction(id: string) {
   return run(() => USE_MOCK_API
-    ? Promise.reject(new Error("Auction reopening is available in the real API only"))
+    ? seasonPreviewRepository.reopenSeasonAuction(id)
     : api.post<ApiResponse<Season>>("/seasons/" + id + "/auction/reopen").then((r) => r.data));
 }
 export function deletePendingAuctionLot(id: string) {
   return run(() => USE_MOCK_API
-    ? Promise.reject(new Error("Pending lot deletion is available in the real API only"))
+    ? seasonPreviewRepository.deletePendingAuctionLot(id)
     : api.delete<ApiResponse<null>>("/auction-lots/" + id).then((r) => r.data));
 }
 export function completeSeason(id: string) {
