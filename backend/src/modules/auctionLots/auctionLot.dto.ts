@@ -1,6 +1,6 @@
 import type { Asset } from "../../shared/types/common.types.js";
 import type { AuctionLotStatus } from "./auctionLot.types.js";
-import type { SeasonPlayerPosition, SeasonAuctionSettings, SeasonStatus } from "../seasons/season.types.js";
+import type { AuctionLifecycleStatus, SeasonPlayerPosition, SeasonAuctionSettings, SeasonStatus } from "../seasons/season.types.js";
 import type { SeasonTeamStatus } from "../seasonTeams/seasonTeam.types.js";
 
 export interface NominatePlayerDto {
@@ -72,7 +72,7 @@ export interface AuctionSummaryDto {
     year: number;
     status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
-    auctionClosedAt?: string | null;
+    auctionLifecycleStatus: AuctionLifecycleStatus;
   };
   totals: {
     participatingTeams: number;
