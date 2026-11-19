@@ -107,6 +107,7 @@ export class AuctionLotService implements IAuctionLotService{
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
 
     const nextStatus=input.auctionStatus;
+    if(lot.auctionStatus!=="pending"&&nextStatus==="pending")throw new AppError("Resolved auction lots cannot be moved back to Pending. This preserves sale and auction history.",409,"LOT_STATUS_ROLLBACK_NOT_ALLOWED");
     const nextPosition=input.playerPosition??lot.playerPosition;
     const nextIcon=input.isIconPlayer??lot.isIconPlayer;
     const nextGoalkeeper=input.isGoalkeeper??lot.isGoalkeeper;
@@ -186,14 +187,7 @@ export class AuctionLotService implements IAuctionLotService{
     if(lock.matchedCount!==1)throw new AppError("Season auction state changed. Refresh and try again.",409,"SEASON_STATE_CONFLICT");
     const deleted=await AuctionLotModel.deleteOne({_id:lot._id,auctionStatus:"pending",seasonTeamRef:null}).session(session).exec();
     if(deleted.deletedCount!==1)throw new AppError("Auction lot changed before it could be removed. Refresh and try again.",409,"LOT_DELETE_CONFLICT");
-    // Close the lot-number gap in ascending order so the next nomination can safely use count + 1.
-    const remainingLots=await AuctionLotModel.find({seasonRef:season._id}).sort({lotNumber:1,_id:1}).select("_id lotNumber").session(session).lean<Array<{_id:Types.ObjectId;lotNumber:number|null}>>().exec();
-    for(let index=0;index<remainingLots.length;index+=1){
-     const expectedLotNumber=index+1;
-     if(remainingLots[index].lotNumber!==expectedLotNumber){
-      await AuctionLotModel.updateOne({_id:remainingLots[index]._id},{$set:{lotNumber:expectedLotNumber}},{session}).exec();
-     }
-    }
+
    });
   }finally{await session.endSession();}
  }
