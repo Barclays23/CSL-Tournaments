@@ -2,7 +2,7 @@ import type { ApiResponse } from "@/types/api.types";
 import type { Venue, VenueWrite } from "@/types/venue.types";
 import type { AuctionLot, AuctionLotsQuery, AuctionSummary, Season, SeasonTeam, SeasonWrite, SeasonPatch, UpdateAuctionLotInput } from "@/types/season.types";
 import type { PlayerHistory, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
-import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite } from "@/types/seasonMatch.types";
+import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchWrite, SeasonMatchCreateWrite } from "@/types/seasonMatch.types";
 import { readSeasonDb, commitSeasonDb } from "@/mocks/seasonStore";
 import { readDb as readPrimaryDb, readSession, requireAdmin } from "@/mocks/store";
 import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, MockSeasonTeam, MockVenue, SeasonMockDatabase } from "@/mocks/seasonSeed";
@@ -701,7 +701,7 @@ export const seasonPreviewRepository = {
     if (reason.length < 3 || reason.length > 500) fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
     return this.updateSeasonMatchStatus(seasonId, matchId, { status: input.status, resolutionReason: reason });
   },
-  async createSeasonMatch(seasonId: string, input: SeasonMatchWrite) {
+  async createSeasonMatch(seasonId: string, input: SeasonMatchCreateWrite) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
