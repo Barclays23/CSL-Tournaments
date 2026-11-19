@@ -17,13 +17,10 @@ export function createSeed(): Database {
     dateOfBirth: player.dateOfBirth, status: player.status, profilePic: player.profilePic,
     notes: player.notes, createdAt: player.createdAt, updatedAt: player.updatedAt,
   }));
-  const managers = source.managers.map((manager) => {
-    const assigned = seasonTeams.find((item) => item.managerRefs.includes(manager._id));
-    return { _id: manager._id, name: manager.name, mobile: manager.mobile, email: manager.email, dateOfBirth: manager.dateOfBirth, teamRef: assigned?.teamRef ?? null, role: "Manager", profilePic: manager.profilePic, status: manager.status };
-  });
+  const managers = source.managers.map((manager) => ({ _id: manager._id, name: manager.name, mobile: manager.mobile, email: manager.email, dateOfBirth: manager.dateOfBirth, role: "Manager", profilePic: manager.profilePic, status: manager.status }));
   const sponsors = source.sponsors.map((sponsor) => ({
     _id: sponsor._id, name: sponsor.name, logo: sponsor.logo, tier: sponsor.tier, website: sponsor.website,
-    contactPerson: sponsor.contactPerson, contactMobile: sponsor.contactMobile, notes: sponsor.notes, status: sponsor.status,
+    contactPerson: sponsor.contactPerson, contactMobile: sponsor.contactMobile, email: sponsor.email, displayOrder: sponsor.displayOrder, notes: sponsor.notes, status: sponsor.status,
   }));
   const matches: StoredMatch[] = source.matches.filter((match) => match.seasonRef === activeSeason._id).map((match) => {
     const home = seasonTeams.find((item) => item._id === match.homeSeasonTeamRef)!;
