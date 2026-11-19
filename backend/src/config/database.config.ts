@@ -25,7 +25,7 @@ async function ensureOptionalPlayerMobileIndex(): Promise<void> {
   for (const index of indexes) {
     const keys = Object.keys(index.key ?? {});
     if (keys.length === 1 && index.key.mobile === 1 && index.name !== correctMobileIndex?.name) {
-      await PlayerModel.collection.dropIndex(index.name);
+      if (index.name) await PlayerModel.collection.dropIndex(index.name);
     }
   }
 
