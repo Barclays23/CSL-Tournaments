@@ -52,7 +52,7 @@ export interface SeasonFixture {
   homeScore: number;
   awayScore: number;
   winnerSeasonTeamRef: string | null;
-  penaltyShootout: { homeTeamScore: number; awayTeamScore: number; status: string } | null;
+  penaltyShootout: { homeTeamScore: number; awayTeamScore: number; status: "pending" | "completed" } | null;
 }
 
 export interface SeasonTeamDashboard {
@@ -78,7 +78,7 @@ export interface SeasonTeamDashboard {
     goalsConceded: number;
     goalDifference: number;
     cleanSheets: number;
-    topScorer: { player: { _id: string; name: string; profilePic: unknown }; goals: number } | null;
+    topScorer: { player: { _id: string; name: string; profilePic: Asset | null }; goals: number } | null;
   };
   recentFixtures: SeasonFixture[];
   upcomingFixtures: SeasonFixture[];
@@ -89,7 +89,7 @@ export interface PlayerHistory {
     _id: string;
     name: string;
     profilePic: unknown;
-    status: SeasonStatus;
+    status: "active" | "inactive";
   };
   currentSeason: SeasonBriefDto | null;
   currentSeasonTeam: {
@@ -114,7 +114,7 @@ export interface PlayerHistory {
   }>;
   teamMovementHistory: Array<{
     season: SeasonBriefDto;
-    status: string;
+    status: AuctionLotStatus;
     team: SeasonTeamBriefDto | null;
     position: SeasonPlayerPosition;
     jerseyNo: number | null;
