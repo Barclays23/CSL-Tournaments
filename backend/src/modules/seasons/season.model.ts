@@ -37,7 +37,7 @@ const seasonSchema = new Schema<SeasonFields>({
   status: { type: String, enum: ["draft", "upcoming", "active", "completed", "archived"], default: "draft", required: true },
   historyCompleteness: { type: String, enum: ["not_applicable", "metadata_only", "partial", "full"], default: "not_applicable", required: true },
   auctionSettings: { type: auctionSettingsSchema, default: null },
-  auctionClosedAt: { type: Date, default: null },
+  auctionLifecycleStatus: { type: String, enum: ["not_started", "in_progress", "completed"], default: "not_started", required: true },
   pointsRules: { type: pointsRulesSchema, default: null },
   standingsTieBreakers: { type: [{ type: String, enum: ["points", "goalDifference", "goalsScored", "teamNameAsc"] }], default: null },
   matchRules: { type: matchRulesSchema, default: null },
