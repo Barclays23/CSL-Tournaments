@@ -81,9 +81,9 @@ export class SeasonRepository implements ISeasonRepository {
     try {
       let result: { season: SeasonEntity | null; blockers: string[] } = { season: null, blockers: [] };
       await session.withTransaction(async () => {
-        const season = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: "active" }).session(session).lean<SeasonEntity>().exec();
+        const season = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: "active", auctionLifecycleStatus: "completed" }).session(session).lean<SeasonEntity>().exec();
         if (!season) { result = { season: null, blockers: [] }; return; }
-        await SeasonModel.updateOne({ _id: season._id, status: "active" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
+        await SeasonModel.updateOne({ _id: season._id, status: "active", auctionLifecycleStatus: "completed" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
         const [matches, seasonTeams, awards, pendingAuctionLots] = await Promise.all([
           SeasonMatchModel.find({ seasonRef: season._id }).session(session).lean().exec(),
           SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName").session(session).lean().exec(),
@@ -92,7 +92,7 @@ export class SeasonRepository implements ISeasonRepository {
         ]);
         const blockers = getSeasonCompletionBlockers({ matches, seasonTeams, awards, pendingAuctionLots });
         if (blockers.length) { result = { season: null, blockers }; return; }
-        const completed = await SeasonModel.findOneAndUpdate({ _id: season._id, status: "active" }, { $set: { status: "completed" } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
+        const completed = await SeasonModel.findOneAndUpdate({ _id: season._id, status: "active", auctionLifecycleStatus: "completed" }, { $set: { status: "completed" } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
         result = { season: completed, blockers: [] };
       });
       return result;
