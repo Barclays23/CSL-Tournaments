@@ -593,7 +593,7 @@ export const seasonPreviewRepository = {
       fromStatus: "postponed",
       toStatus: "scheduled",
       reason,
-      changedBy: sessionId,
+      changedBy: sessionId!,
       changedAt,
       fromKickoffAt: previousKickoff,
       toKickoffAt: kickoff.toISOString(),
@@ -682,7 +682,7 @@ export const seasonPreviewRepository = {
     match.correctionHistory ??= [];
     match.correctionHistory.push({
       reason,
-      correctedBy,
+      correctedBy: correctedBy!,
       correctedAt,
       originalResult: { ...originalScore, goals: originalGoals, penaltyShootout: originalShootout, winnerSeasonTeamRef: originalWinner },
       correctedResult: { ...correctedScore, goals: correctedGoals.map((goal) => ({ ...goal })), penaltyShootout: shootout ? { ...shootout, kicks: shootout.kicks.map((kick) => ({ ...kick })) } : null, winnerSeasonTeamRef: correctedWinner },
