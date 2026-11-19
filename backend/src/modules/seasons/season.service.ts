@@ -73,7 +73,7 @@ export class SeasonService implements ISeasonService {
           "This field is locked because the season has registered teams, groups, auction lots or fixtures, or is not in Draft",
         ])));
     }
-    if (input.auctionSettings && (lotCount > 0 || current.auctionClosedAt)) {
+    if (input.auctionSettings && (lotCount > 0 || current.auctionLifecycleStatus === "completed")) {
       throw new AppError("Auction settings are locked after auction activity or auction closure", 409, "SEASON_AUCTION_LOCKED", {
         auctionSettings: "Auction history already exists for this season",
       });
@@ -189,7 +189,7 @@ export class SeasonService implements ISeasonService {
     });
     if (next === "draft") {
       const [lots, matches] = await Promise.all([this.repo.countLots(id), this.repo.countMatches(id)]);
-      if (lots || matches) throw new AppError("An Upcoming season can only be reopened to Draft before auction or fixture activity", 409, "SEASON_REOPEN_BLOCKED");
+      if (lots || matches) throw new AppError("Remove all auction lots and ensure no fixtures exist before returning this season to Draft. Sold player assignments and fixture history cannot be discarded.", 409, "SEASON_REOPEN_BLOCKED");
     } else {
       await this.validateReadiness(current, next === "active");
     }
@@ -219,27 +219,30 @@ export class SeasonService implements ISeasonService {
     return this.map(result.season);
   }
 
-  async closeAuction(id: string): Promise<SeasonResponseDto> {
+  async completeAuction(id: string): Promise<SeasonResponseDto> {
     this.ensureId(id);
     const current = await this.repo.findById(id);
     if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-    if (current.status !== "upcoming") {
-      throw new AppError("Auction can only be closed for an Upcoming season", 409, "AUCTION_CLOSE_NOT_ALLOWED");
+    if (current.status !== "upcoming") throw new AppError("Auction can only be completed while the season is Upcoming", 409, "AUCTION_COMPLETE_NOT_ALLOWED");
+    if (current.auctionLifecycleStatus === "completed") throw new AppError("The auction is already completed", 409, "AUCTION_ALREADY_COMPLETED");
+    const result = await this.repo.completeAuctionIfReady(id);
+    if (result.blockers.length) {
+      throw new AppError("Auction completion is blocked: " + result.blockers.join("; "), 422, "AUCTION_COMPLETION_BLOCKED",
+        Object.fromEntries(result.blockers.map((message, index) => ["blocker." + (index + 1), message])));
     }
-    if (current.auctionClosedAt) {
-      throw new AppError("The auction is already closed for this season", 409, "AUCTION_ALREADY_CLOSED");
-    }
-    const result = await this.repo.closeAuctionIfNoPendingLots(id);
-    if (result.pendingLots > 0) {
-      throw new AppError(
-        "Resolve all pending auction lots before closing the auction (" + result.pendingLots + " pending)",
-        409, "AUCTION_PENDING_LOTS",
-        { pendingLots: result.pendingLots + " lot(s) still have Pending status" },
-      );
-    }
-    if (!result.season) {
-      throw new AppError("Season state changed while closing the auction. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
-    }
+    if (!result.season) throw new AppError("Season state changed while completing the auction. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
+    return this.map(result.season);
+  }
+
+  async reopenAuction(id: string): Promise<SeasonResponseDto> {
+    this.ensureId(id);
+    const current = await this.repo.findById(id);
+    if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+    if (current.status !== "upcoming") throw new AppError("Auction can only be reopened before the season is activated", 409, "AUCTION_REOPEN_NOT_ALLOWED");
+    if (current.auctionLifecycleStatus !== "completed") throw new AppError("Only a completed auction can be reopened", 409, "AUCTION_NOT_COMPLETED");
+    const result = await this.repo.reopenAuction(id);
+    if (result.fixtureCount > 0) throw new AppError("The auction cannot be reopened because fixtures already exist. Existing fixtures must remain consistent with the completed squads.", 409, "AUCTION_REOPEN_HAS_FIXTURES", { fixtures: result.fixtureCount + " fixture(s) already exist" });
+    if (!result.season) throw new AppError("Season state changed while reopening the auction. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
     return this.map(result.season);
   }
 
@@ -312,9 +315,9 @@ export class SeasonService implements ISeasonService {
   }
 
   private async validateReadiness(season: SeasonEntity, requireAuctionClosed = false): Promise<void> {
-    if (requireAuctionClosed && !season.auctionClosedAt) {
-      throw new AppError("Close the auction before activating this season", 409, "AUCTION_NOT_CLOSED", {
-        auction: "Open the Auctions page, resolve every Pending lot as Sold, Unsold or Withdrawn, then close the auction",
+    if (requireAuctionClosed && season.auctionLifecycleStatus !== "completed") {
+      throw new AppError("Complete the auction before activating this season", 409, "AUCTION_NOT_COMPLETED", {
+        auction: "Open the Auctions page, resolve every Pending lot, check all team roster limits, and complete the auction",
       });
     }
     if (!season.auctionSettings || !season.pointsRules || !season.standingsTieBreakers?.length || !season.matchRules) {
@@ -356,7 +359,7 @@ export class SeasonService implements ISeasonService {
       status: season.status,
       historyCompleteness: season.historyCompleteness ?? "not_applicable",
       auctionSettings: season.auctionSettings,
-      auctionClosedAt: season.auctionClosedAt?.toISOString() ?? null,
+      auctionLifecycleStatus: season.auctionLifecycleStatus,
       pointsRules: season.pointsRules,
       standingsTieBreakers: season.standingsTieBreakers,
       matchRules: season.matchRules,
