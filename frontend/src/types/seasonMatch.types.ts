@@ -134,7 +134,7 @@ export interface SeasonMatchWrite {
   roundNumber: number;
   stage: SeasonMatchStage;
   groupRef?: string | null;
-  kickoffAt: string;
+  kickoffAt?: string;
   venueRef: string;
   homeSeasonTeamRef: string;
   awaySeasonTeamRef: string;
@@ -142,3 +142,5 @@ export interface SeasonMatchWrite {
   notes?: string | null;
 }
 
+
+export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt"> & { kickoffAt: string };
