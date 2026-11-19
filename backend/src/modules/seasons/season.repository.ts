@@ -86,7 +86,7 @@ export class SeasonRepository implements ISeasonRepository {
         await SeasonModel.updateOne({ _id: season._id, status: "active" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
         const [matches, seasonTeams, awards, pendingAuctionLots] = await Promise.all([
           SeasonMatchModel.find({ seasonRef: season._id }).session(session).lean().exec(),
-          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status").session(session).lean().exec(),
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName").session(session).lean().exec(),
           SeasonAwardModel.find({ seasonRef: season._id }).session(session).lean().exec(),
           AuctionLotModel.countDocuments({ seasonRef: season._id, auctionStatus: "pending" }).session(session).exec(),
         ]);
