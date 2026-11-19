@@ -1,15 +1,11 @@
 import type { Asset } from "@/types/api.types";
-import type { TeamBrief } from "@/types/team.types";
 
 export type PersonStatus = "active" | "inactive";
 
+/** Public manager profile. Seasonal team assignments are returned by SeasonTeam, not Manager. */
 export interface PublicManager {
   _id: string;
   name: string;
-  email: string | null;
-  dateOfBirth: string | null;
-  teamRef: string | null;
-  team?: TeamBrief | null;
   role: string | null;
   profilePic: Asset | null;
   status: PersonStatus;
@@ -26,7 +22,6 @@ export interface ManagerQuery {
   limit?: number;
   search?: string;
   status?: PersonStatus | "";
-  teamRef?: string;
 }
 
 export interface ManagerWrite {
@@ -34,7 +29,6 @@ export interface ManagerWrite {
   mobile: string;
   email?: string | null;
   dateOfBirth?: string | null;
-  teamRef?: string | null;
   role?: string | null;
   profilePic?: Asset | null;
   status: PersonStatus;
