@@ -1,6 +1,5 @@
 import type { Types } from "mongoose";
 import type { Asset } from "../../shared/types/common.types.js";
-import type { ManagerListFilter } from "./manager.dto.js";
 
 export type ManagerStatus = "active" | "inactive";
 
