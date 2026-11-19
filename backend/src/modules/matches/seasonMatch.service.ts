@@ -301,7 +301,6 @@ export class SeasonMatchService implements ISeasonMatchService{
   this.id(id,"match");
   const match=await this.repo.findById(id);
   if(!match)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
-  if(match.status!=="live")throw new AppError("Goals can only be added, edited or removed while the match is Live.",409,"MATCH_NOT_LIVE");
   const season=await this.repo.findSeason(String(match.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived season match history is read-only",409,"SEASON_CLOSED");
