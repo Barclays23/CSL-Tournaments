@@ -32,7 +32,7 @@ export class SponsorRepository implements ISponsorRepository {
   async findSponsorById(sponsorId: string, includePrivateFields: boolean): Promise<SponsorEntity | null> {
     let sponsorQuery = SponsorModel.findById(sponsorId);
     if (includePrivateFields) {
-      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +notes");
+      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +email +notes");
     }
     return sponsorQuery.lean<SponsorEntity>().exec();
   }
@@ -55,7 +55,7 @@ export class SponsorRepository implements ISponsorRepository {
       { returnDocument: "after", runValidators: true },
     );
     if (includePrivateFields) {
-      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +notes");
+      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +email +notes");
     }
     return sponsorQuery.lean<SponsorEntity>().exec();
   }
