@@ -770,6 +770,7 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     if (match.status === "completed") fail(409, "Completed fixtures can only be changed through the audited correction workflow.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+    if (match.status === "postponed" && input.kickoffAt !== undefined) fail(409, "Postponed matches can only be rescheduled through the dedicated reschedule operation.", "MATCH_RESCHEDULE_REQUIRED");
     const fixtureDetailFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "notes"];
     const isFixtureDetailsEdit = fixtureDetailFields.some((field) => input[field] !== undefined);
     const matchCards = (match as MockSeasonMatch & { cards?: unknown[] }).cards ?? [];
@@ -777,7 +778,6 @@ export const seasonPreviewRepository = {
       if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be edited.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
       if (match.goals.length > 0 || matchCards.length > 0) fail(409, "Match details cannot be edited after goals or cards have been recorded.", "MATCH_HAS_EVENTS");
     }
-    if (match.status === "postponed" && input.kickoffAt !== undefined) fail(409, "Postponed matches can only be rescheduled through the dedicated reschedule operation.", "MATCH_RESCHEDULE_REQUIRED");
     const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
     const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
     if (match.status === "live") assertNoOtherLiveMatch(db, seasonId, homeId, awayId, matchId);
