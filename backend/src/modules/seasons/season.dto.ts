@@ -1,4 +1,4 @@
-import type { SeasonAuctionSettings, SeasonMatchRules, SeasonPointsRules, SeasonStatus, SeasonTieBreaker } from "./season.types.js";
+import type { AuctionLifecycleStatus, SeasonAuctionSettings, SeasonMatchRules, SeasonPointsRules, SeasonStatus, SeasonTieBreaker } from "./season.types.js";
 
 export interface CreateSeasonDto {
   seasonNumber: number;
@@ -47,7 +47,7 @@ export interface SeasonResponseDto {
   status: SeasonStatus;
   historyCompleteness: import("./season.types.js").SeasonHistoryCompleteness;
   auctionSettings: SeasonAuctionSettings | null;
-  auctionClosedAt?: string | null;
+  auctionLifecycleStatus: AuctionLifecycleStatus;
   pointsRules: SeasonPointsRules | null;
   standingsTieBreakers: SeasonTieBreaker[] | null;
   matchRules: SeasonMatchRules | null;
