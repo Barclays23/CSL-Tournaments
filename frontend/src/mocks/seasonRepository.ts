@@ -19,7 +19,9 @@ import {
 const newId = () => createMockObjectId();
 const now = () => new Date().toISOString();
 const ok = <T>(message: string, data: T): ApiResponse<T> => ({ success: true, message, data });
-function fail(status: number, message: string, errorCode?: string, fieldErrors?: Record<string, string>): never {\n  throw new ApiError(status, message, { errorCode: errorCode ?? (status === 409 ? "CONFLICT" : "RULE"), fieldErrors });\n}
+function fail(status: number, message: string, errorCode?: string, fieldErrors?: Record<string, string>): never {
+  throw new ApiError(status, message, { errorCode: errorCode ?? (status === 409 ? "CONFLICT" : "RULE"), fieldErrors });
+}
 
 function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   const season = db.seasons.find((item) => item._id === id);
