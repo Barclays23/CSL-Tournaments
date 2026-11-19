@@ -102,7 +102,7 @@ export function TeamsPage() {
           </GlassCard>
         ))}
       </div>
-      <Drawer open={editing !== undefined} title={editing ? "Edit team" : "Add team"} onClose={() => setEditing(undefined)}>
+      <Drawer open={editing !== undefined} title={editing ? "Edit Team" : "Add Team"} onClose={() => setEditing(undefined)}>
         <TeamForm team={editing} submitting={saving} onSubmit={save} />
       </Drawer>
     </PageContainer>
