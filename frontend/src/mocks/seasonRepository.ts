@@ -129,7 +129,7 @@ function summaryFor(db: SeasonMockDatabase, season: MockSeason): AuctionSummary 
     };
   });
   return {
-    season: { _id: season._id, name: season.name, year: season.year, status: season.status, auctionSettings: season.auctionSettings },
+    season: { _id: season._id, name: season.name, year: season.year, status: season.status, auctionSettings: season.auctionSettings, auctionLifecycleStatus: season.auctionLifecycleStatus },
     totals: {
       participatingTeams: teams.length, lots: lots.length,
       sold: lots.filter((lot) => lot.auctionStatus === "sold").length,
@@ -969,7 +969,7 @@ export const seasonPreviewRepository = {
     const season: MockSeason = {
       _id: newId(), seasonNumber: input.seasonNumber, name: input.name.trim(), year: input.year,
       startDate: input.startDate ?? null, endDate: input.endDate ?? null, timeZone: input.timeZone ?? "Asia/Kolkata",
-      groupStageEnabled: input.groupStageEnabled ?? true, homeAndAwayFixtures: input.homeAndAwayFixtures ?? false, status: "draft", auctionSettings: input.auctionSettings,
+      groupStageEnabled: input.groupStageEnabled ?? true, homeAndAwayFixtures: input.homeAndAwayFixtures ?? false, status: "draft", auctionLifecycleStatus: "not_started", auctionSettings: input.auctionSettings,
       pointsRules: input.pointsRules ?? { win: 3, draw: 1, loss: 0 },
       standingsTieBreakers: input.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
       matchRules: input.matchRules ?? { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false },
@@ -1026,7 +1026,8 @@ export const seasonPreviewRepository = {
     const season = seasonById(db, id);
     const allowed = (season.status === "draft" && next === "upcoming") || (season.status === "upcoming" && (next === "draft" || next === "active"));
     if (!allowed) fail(409, "This season lifecycle transition is not allowed");
-    if (next === "draft" && (db.auctionLots.some((lot) => lot.seasonRef === id) || db.matches.some((match) => match.seasonRef === id))) fail(409, "An Upcoming season can only return to Draft before auction or fixture activity");
+    if (next === "draft" && (db.auctionLots.some((lot) => lot.seasonRef === id) || db.matches.some((match) => match.seasonRef === id))) fail(409, "Remove all auction lots and ensure no fixtures exist before returning this season to Draft. Sold, Unsold and Withdrawn auction history cannot be deleted.");
+    if (next === "active" && season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate all team rosters before activating this season.", "AUCTION_NOT_COMPLETED");
     if (next === "upcoming" || next === "active") {
       const participants = db.seasonTeams.filter((st) => st.seasonRef === id && !["withdrawn", "eliminated", "completed"].includes(st.status));
       if (participants.length < 2) fail(422, "At least two participating teams are required");
@@ -1046,11 +1047,75 @@ export const seasonPreviewRepository = {
     }
     if (next === "active" && db.seasons.some((s) => s._id !== id && s.status === "active")) fail(409, "Another season is already Active");
     season.status = next;
+    if (next === "draft") season.auctionLifecycleStatus = "not_started";
+    if (next === "upcoming") season.auctionLifecycleStatus = "in_progress";
     season.updatedAt = now();
     commitSeasonDb(db);
     return ok("Season status updated", season as unknown as Season);
   },
-  async completeSeason(id: string) {
+  async completeSeasonAuction(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, id);
+    if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "in_progress") fail(409, "Only an Upcoming auction in progress can be completed", "AUCTION_COMPLETE_NOT_ALLOWED");
+    const allTeams = db.seasonTeams.filter((team) => team.seasonRef === id);
+    const teams = allTeams.filter((team) => ["registered", "active"].includes(team.status));
+    const lots = db.auctionLots.filter((lot) => lot.seasonRef === id);
+    const blockers: string[] = [];
+    if (teams.length < 2) blockers.push("At least two eligible participating teams are required");
+    if (allTeams.length > season.auctionSettings.seasonTeamCount) blockers.push("Registered teams exceed the configured team limit");
+    if (lots.length > season.auctionSettings.playersCount) blockers.push("Nominated players exceed the configured player limit");
+    const pending = lots.filter((lot) => lot.auctionStatus === "pending").length;
+    if (pending) blockers.push(pending + " pending auction lot(s) remain; resolve every lot as Sold, Unsold or Withdrawn");
+    for (const team of teams) {
+      const roster = lots.filter((lot) => lot.auctionStatus === "sold" && lot.seasonTeamRef === team._id);
+      const label = team.displayName;
+      if (!roster.length) blockers.push(label + " has no players purchased");
+      if (roster.length > season.auctionSettings.teamSquadSize) blockers.push(label + " exceeds the configured squad size");
+      if (roster.filter((lot) => lot.isIconPlayer).length > season.auctionSettings.iconPlayerLimit) blockers.push(label + " exceeds the Icon Player limit");
+      if (roster.filter((lot) => lot.isGoalkeeper).length > season.auctionSettings.goalkeeperLimit) blockers.push(label + " exceeds the Goalkeeper limit");
+      if (roster.reduce((sum, lot) => sum + (lot.purchasePrice ?? 0), 0) > season.auctionSettings.budgetPerTeam) blockers.push(label + " exceeds the team auction budget");
+      const jerseys = roster.map((lot) => lot.jerseyNo).filter((number): number is number => number !== null);
+      if (new Set(jerseys).size !== jerseys.length) blockers.push(label + " has duplicate jersey numbers");
+    }
+    const invalidLots = lots.filter((lot) => lot.auctionStatus === "sold" ? !teams.some((team) => team._id === lot.seasonTeamRef) : Boolean(lot.seasonTeamRef));
+    if (invalidLots.length) blockers.push(invalidLots.length + " auction lot(s) have invalid team assignments");
+    if (blockers.length) fail(422, "Auction completion is blocked: " + blockers.join("; "), "AUCTION_COMPLETION_BLOCKED", Object.fromEntries(blockers.map((message, index) => ["blocker." + (index + 1), message])));
+    season.auctionLifecycleStatus = "completed";
+    season.auctionRevision += 1;
+    season.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Auction completed", season as unknown as Season);
+  },
+  async reopenSeasonAuction(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, id);
+    if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "completed") fail(409, "Only a completed Upcoming auction can be resumed", "AUCTION_REOPEN_NOT_ALLOWED");
+    if (db.matches.some((match) => match.seasonRef === id)) fail(409, "The auction cannot be reopened because fixtures already exist", "AUCTION_REOPEN_HAS_FIXTURES");
+    season.auctionLifecycleStatus = "in_progress";
+    season.auctionRevision += 1;
+    season.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Auction reopened", season as unknown as Season);
+  },
+  async deletePendingAuctionLot(id: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const index = db.auctionLots.findIndex((lot) => lot._id === id);
+    if (index < 0) fail(404, "Auction lot not found");
+    const lot = db.auctionLots[index];
+    if (lot.auctionStatus !== "pending") fail(409, "Only pending auction lots can be removed. Sold, Unsold and Withdrawn lots are retained as auction history.", "LOT_DELETE_NOT_ALLOWED");
+    if (lot.seasonTeamRef) fail(409, "An auction lot assigned to a season team cannot be removed", "LOT_ALREADY_ASSIGNED");
+    const season = seasonById(db, lot.seasonRef);
+    if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "in_progress") fail(409, "Pending lots can only be removed while the Upcoming season auction is in progress");
+    db.auctionLots.splice(index, 1);
+    season.auctionRevision += 1;
+    season.updatedAt = now();
+    db.auctionLots.filter((item) => item.seasonRef === season._id).sort((a, b) => (a.lotNumber ?? 0) - (b.lotNumber ?? 0)).forEach((item, itemIndex) => { item.lotNumber = itemIndex + 1; });
+    commitSeasonDb(db);
+    return ok("Pending auction lot removed", null);
+  },  async completeSeason(id: string) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, id);
