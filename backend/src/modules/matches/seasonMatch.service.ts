@@ -84,6 +84,7 @@ export class SeasonMatchService implements ISeasonMatchService{
    throw new AppError("The original kickoff date must be preserved when postponing. Use the dedicated reschedule operation to set a new date and time.",422,"POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED");
   }
   assertMatchStatusTransition(existing.status,nextStatus);
+  if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Use the audited completed-match correction workflow to amend their results.",409,"MATCH_COMPLETED_READ_ONLY");
   const fixtureDetailFields=["matchNumber","roundNumber","stage","groupRef","kickoffAt","venueRef","homeSeasonTeamRef","awaySeasonTeamRef","notes","penaltyShootout"] as const;
   const isFixtureDetailsEdit=fixtureDetailFields.some((field)=>input[field]!==undefined);
   const existingCards=(existing as SeasonMatchEntity&{cards?:unknown[]}).cards??[];
@@ -122,7 +123,7 @@ export class SeasonMatchService implements ISeasonMatchService{
    if(!changedBy||!Types.ObjectId.isValid(changedBy))throw new AppError("An authenticated user is required to change match status",401,"UNAUTHENTICATED");
    statusHistoryEntry={fromStatus:existing.status,toStatus:nextStatus,reason:statusReason,changedBy:new Types.ObjectId(changedBy),changedAt:changedAt!,fromKickoffAt:existing.kickoffAt,toKickoffAt:input.kickoffAt??existing.kickoffAt};
   }
-  if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Use the audited completed-match correction workflow to amend their results.",409,"MATCH_COMPLETED_READ_ONLY");
+
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const homeId=input.homeSeasonTeamRef??String(existing.homeSeasonTeamRef),awayId=input.awaySeasonTeamRef??String(existing.awaySeasonTeamRef);
   const stage=input.stage??existing.stage,groupId=input.groupRef===undefined?(existing.groupRef?String(existing.groupRef):null):input.groupRef;
