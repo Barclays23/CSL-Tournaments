@@ -88,7 +88,7 @@ export interface PlayerHistory {
   player: {
     _id: string;
     name: string;
-    profilePic: unknown;
+    profilePic: Asset | null;
     status: "active" | "inactive";
   };
   currentSeason: SeasonBriefDto | null;
