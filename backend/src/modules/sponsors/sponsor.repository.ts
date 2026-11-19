@@ -13,7 +13,7 @@ export class SponsorRepository implements ISponsorRepository {
   ): Promise<SponsorListResult> {
     const mongoFilter: QueryFilter<SponsorRecord> = filter;
     let sponsorQuery = SponsorModel.find(mongoFilter)
-      .sort({ name: 1 })
+      .sort({ displayOrder: 1, name: 1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
