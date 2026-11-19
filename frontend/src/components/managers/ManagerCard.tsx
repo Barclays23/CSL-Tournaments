@@ -9,10 +9,9 @@ export function ManagerCard({ manager }: { manager: PublicManager }) {
       <Avatar name={manager.name} asset={manager.profilePic} className="h-14 w-14" />
       <div className="min-w-0">
         <p className="truncate font-semibold text-fg">{manager.name}</p>
-        <p className="truncate text-sm text-muted">{manager.team?.name ?? "No team assigned"}</p>
+        <p className="truncate text-sm text-muted">Tournament manager</p>
         {manager.role ? <Badge className="mt-2">{manager.role}</Badge> : null}
       </div>
-      {manager.team?.logo ? <img src={manager.team.logo.url} alt="" className="ml-auto h-10 w-10 rounded-lg object-cover" /> : null}
     </GlassCard>
   );
 }
