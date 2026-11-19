@@ -29,7 +29,6 @@ export interface StoredManager {
   mobile: string;
   email: string | null;
   dateOfBirth: string | null;
-  teamRef: string | null;
   role: string | null;
   profilePic: Asset | null;
   status: "active" | "inactive";
@@ -43,6 +42,8 @@ export interface StoredSponsor {
   website: string | null;
   contactPerson: string | null;
   contactMobile: string | null;
+  email: string | null;
+  displayOrder: number;
   notes: string | null;
   status: SponsorStatus;
 }
