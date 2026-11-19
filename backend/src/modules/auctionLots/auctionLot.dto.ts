@@ -1,6 +1,7 @@
 import type { Asset } from "../../shared/types/common.types.js";
 import type { AuctionLotStatus } from "./auctionLot.types.js";
-import type { SeasonPlayerPosition, SeasonAuctionSettings, SeasonTeamStatus, SeasonStatus } from "../seasons/season.types.js";
+import type { SeasonPlayerPosition, SeasonAuctionSettings, SeasonStatus } from "../seasons/season.types.js";
+import type { SeasonTeamStatus } from "../seasonTeams/seasonTeam.types.js";
 
 export interface NominatePlayerDto {
   seasonId: string;
