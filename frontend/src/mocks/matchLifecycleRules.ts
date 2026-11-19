@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<MatchLifecycleStatus, string> = {
   abandoned: "Abandoned",
 };
 
-export type MockFail = (status: number, message: string, errorCode?: string, details?: Record<string, unknown>) => never;
+export type MockFail = (status: number, message: string, errorCode?: string, details?: Record<string, string>) => never;
 
 export function assertMockStatusTransition(current: MatchLifecycleStatus, next: MatchLifecycleStatus, fail: MockFail): void {
   if (current === next || MATCH_STATUS_TRANSITIONS[current].includes(next)) return;
