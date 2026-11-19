@@ -17,6 +17,7 @@ import {
   getSeasons,
   getAuctionSummary,
   getAuctionLots,
+  closeSeasonAuction,
   nominatePlayer,
   updateAuctionLot,
 } from "@/services/seasonService";
@@ -80,10 +81,13 @@ export function AuctionsPage() {
   const data = summary.data?.data;
   const lotRows = lots.data?.data ?? [];
   const playerRows = (players.data?.data ?? []) as Array<PublicPlayer | AdminPlayer>;
+  const nominatedPlayerIds = new Set((data?.lots ?? []).map((lot) => typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef._id));
+  const availablePlayers = playerRows.filter((player) => !nominatedPlayerIds.has(player._id) && (!playerSearch.trim() || player.name.toLowerCase().includes(playerSearch.trim().toLowerCase())));
 
   const [nominateOpen, setNominateOpen] = useState(false);
   const [playerId, setPlayerId] = useState("");
-  const [playerPosition, setPlayerPosition] = useState<SeasonPlayerPosition>("midfielder");
+  const [playerSearch, setPlayerSearch] = useState("");
+  const [playerPosition, setPlayerPosition] = useState<SeasonPlayerPosition | "">("");
   const [isIconPlayer, setIsIconPlayer] = useState(false);
   const [isGoalkeeper, setIsGoalkeeper] = useState(false);
 
@@ -102,7 +106,7 @@ export function AuctionsPage() {
     lots.reload();
   };
 
-  const canEditAuction = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status));
+  const canEditAuction = Boolean(isAdmin && data && data.season.status === "upcoming" && !data.season.auctionClosedAt);
   const playerNameFor = (lot: AuctionLot) =>
     typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef.name;
   const playerImageFor = (lot: AuctionLot) =>
@@ -200,6 +204,20 @@ export function AuctionsPage() {
           </Select>
         </div>
         {canEditAuction ? <Button onClick={() => setNominateOpen(true)}>Nominate player</Button> : null}
+        {isAdmin && data?.season.status === "upcoming" && !data.season.auctionClosedAt ? (
+          <Button variant="surface" disabled={saving || data.totals.pending > 0} onClick={async () => {
+            if (!window.confirm("Close this season auction? No further nominations, sales or lot edits will be allowed.")) return;
+            setSaving(true);
+            try {
+              await closeSeasonAuction(seasonId);
+              toast.success("Season auction closed");
+              refresh();
+              seasons.reload();
+            } catch (error) { toast.error(errorMessage(error)); }
+            finally { setSaving(false); }
+          }}>Close auction</Button>
+        ) : null}
+        {data?.season.auctionClosedAt ? <span className="self-center text-xs font-medium text-success">Auction closed</span> : null}
       </div>
 
       {seasons.loading ? <Skeleton className="h-24" /> : null}
@@ -357,13 +375,15 @@ export function AuctionsPage() {
           className="grid gap-3"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!seasonId || !playerId) return;
+            if (!seasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
             setSaving(true);
             try {
               await nominatePlayer({ seasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
               toast.success("Player nominated");
               setNominateOpen(false);
               setPlayerId("");
+              setPlayerSearch("");
+              setPlayerPosition("");
               setIsIconPlayer(false);
               setIsGoalkeeper(false);
               refresh();
@@ -374,18 +394,27 @@ export function AuctionsPage() {
             }
           }}
         >
-          <label className="block text-sm text-fg">
-            Player
-            <Select className="mt-1" required value={playerId} onChange={(event) => setPlayerId(event.target.value)}>
-              <option value="">Select player</option>
-              {playerRows.map((player) => (
-                <option key={player._id} value={player._id}>{player.name}</option>
+          <div className="grid gap-2">
+            <label className="block text-sm text-fg">
+              Search available players
+              <Input className="mt-1" placeholder="Search by player name" value={playerSearch} onChange={(event) => setPlayerSearch(event.target.value)} />
+            </label>
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-line p-2">
+              {availablePlayers.map((player) => (
+                <button type="button" key={player._id} onClick={() => setPlayerId(player._id)} aria-pressed={playerId === player._id}
+                  className={"flex w-full items-center gap-3 rounded-xl border p-2 text-left transition " + (playerId === player._id ? "border-accent bg-primary/10" : "border-line hover:bg-surface")}>
+                  <Avatar name={player.name} asset={player.profilePic} className="h-10 w-10 shrink-0 rounded-lg" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{player.name}</span>
+                  {playerId === player._id ? <span className="text-xs text-accent">Selected</span> : null}
+                </button>
               ))}
-            </Select>
-          </label>
+              {!availablePlayers.length ? <p className="p-3 text-center text-xs text-muted">{playerRows.length ? "No available players match this search." : "No active players are available."}</p> : null}
+            </div>
+          </div>
           <label className="block text-sm text-fg">
             Season position
-            <Select className="mt-1" value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value as SeasonPlayerPosition)}>
+            <Select className="mt-1" required value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value as SeasonPlayerPosition | "")}>
+              <option value="">Select position</option>
               {Object.entries(POSITIONS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
@@ -402,7 +431,7 @@ export function AuctionsPage() {
           {players.error ? <p className="text-sm text-danger">{players.error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="surface" onClick={() => setNominateOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving || !playerId}>{saving ? "Saving…" : "Nominate"}</Button>
+            <Button type="submit" disabled={saving || !playerId || !playerPosition}>{saving ? "Saving…" : "Nominate"}</Button>
           </div>
         </form>
       </Modal>
