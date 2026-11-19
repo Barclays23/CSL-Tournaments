@@ -621,9 +621,6 @@ export const previewRepository = {
     if (seasonDb.seasonTeams.some((seasonTeam) => seasonTeam.teamRef === id)) {
       fail(422, "This team has season participation history and cannot be deleted.");
     }
-    if (db.managers.some((manager) => manager.teamRef === id)) {
-      fail(422, "Reassign this team's managers before deleting it");
-    }
     if (db.matches.some((match) => match.team1Ref === id || match.team2Ref === id)) {
       fail(422, "Delete or edit the fixtures that use this team first");
     }
