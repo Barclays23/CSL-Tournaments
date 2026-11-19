@@ -71,7 +71,7 @@ export class SeasonRepository implements ISeasonRepository {
   async updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null> {
     return SeasonModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), status: current },
-      { $set: { status: next, auctionLifecycleStatus: next === "draft" ? "not_started" : next === "upcoming" ? "in_progress" : undefined } },
+      { $set: { status: next, ...(next === "draft" ? { auctionLifecycleStatus: "not_started" } : next === "upcoming" ? { auctionLifecycleStatus: "in_progress" } : {}) } },
       { returnDocument: "after", runValidators: true },
     ).lean<SeasonEntity>().exec();
   }
