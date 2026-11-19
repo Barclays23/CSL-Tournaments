@@ -3,6 +3,7 @@ import type { Asset } from "@/types/api.types";
 export type SeasonStatus = "draft" | "upcoming" | "active" | "completed" | "archived";
 export type SeasonPlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
 export type AuctionLotStatus = "pending" | "sold" | "unsold" | "withdrawn";
+export type SeasonTeamStatus = "registered" | "active" | "withdrawn" | "eliminated" | "completed";
 
 export interface SeasonAuctionSettings {
   currency: "INR";
@@ -125,7 +126,7 @@ export interface AuctionTeamSummary {
   teamId: string;
   displayName: string;
   logoSnapshot: Asset | null;
-  status: string;
+  status: SeasonTeamStatus;
   budget: number;
   playersSigned: number;
   remainingSlots: number;
@@ -163,12 +164,12 @@ export interface SeasonTeam {
   seasonRef: string;
   teamRef: string;
   displayName: string;
-  logoSnapshot: unknown;
+  logoSnapshot: Asset | null;
   groupRef: string | null;
   managerRefs: string[];
-  status: "registered" | "active" | "withdrawn" | "eliminated" | "completed";
+  status: SeasonTeamStatus;
   participationHistory?: Array<{fromStatus:string;toStatus:string;reason:string;changedAt:string}>;
-  team: { _id: string; name: string; shortName: string | null; logo: unknown } | null;
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null } | null;
   group: { _id: string; groupName: string; displayOrder: number } | null;
   managers: Array<{ _id: string; name: string; role: string | null; profilePic: Asset | null }>;
 }
