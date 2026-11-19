@@ -710,7 +710,7 @@ function SeasonsBody() {
           <>
             {/* Hero */}
             <GlassCard className="relative overflow-hidden p-5 sm:p-6">
-              <div aria-hidden className="pitch-stripes pointer-events-none absolute inset-x-0 top-0 h-28 opacity-20 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
+              <div aria-hidden className="pitch-stripes pointer-events-none absolute inset-x-0 top-0 h-28 opacity-20 mask-[linear-gradient(to_bottom,black,transparent)]" />
               <div aria-hidden className="pitch-lines pointer-events-none absolute -right-10 -top-10 h-48 w-48 rounded-full" />
               <div className="relative flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-4">
