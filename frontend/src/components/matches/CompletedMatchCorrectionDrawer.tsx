@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import type { SeasonMatch, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
@@ -24,25 +24,11 @@ export function CompletedMatchCorrectionDrawer({
   onSubmit: (data: SeasonMatchCorrectionWrite) => void;
 }) {
   const [reason, setReason] = useState("");
-  const [goals, setGoals] = useState<EditableGoal[]>([]);
+  const [goals, setGoals] = useState<EditableGoal[]>(() => match.goals.map((goal) => ({ scoringSeasonTeamRef: refId(goal.scoringSeasonTeamRef), scorerPlayerRef: goal.scorerPlayerRef ? refId(goal.scorerPlayerRef) : null, goalType: goal.goalType })));
   const [teamId, setTeamId] = useState(home.id);
   const [goalType, setGoalType] = useState<"normal" | "own_goal">("normal");
   const [playerId, setPlayerId] = useState("");
-  const [shootout, setShootout] = useState<SeasonMatch["penaltyShootout"]>(match.penaltyShootout);
-
-  useEffect(() => {
-    if (!open) return;
-    setReason("");
-    setGoals(match.goals.map((goal) => ({
-      scoringSeasonTeamRef: refId(goal.scoringSeasonTeamRef),
-      scorerPlayerRef: goal.scorerPlayerRef ? refId(goal.scorerPlayerRef) : null,
-      goalType: goal.goalType,
-    })));
-    setTeamId(home.id);
-    setGoalType("normal");
-    setPlayerId("");
-    setShootout(match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null);
-  }, [open, match, home.id]);
+  const [shootout, setShootout] = useState<SeasonMatch["penaltyShootout"]>(() => match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null);
 
   const playerTeamId = goalType === "normal" ? teamId : teamId === home.id ? away.id : home.id;
   const eligiblePlayers = useMemo(() => players.filter((player) => player.seasonTeamId === playerTeamId), [players, playerTeamId]);
