@@ -10,6 +10,9 @@ import {
 const failure = (status: number, message: string, errorCode?: string, details?: Record<string, unknown>): never => {
   throw Object.assign(new Error(message), { status, errorCode, details });
 };
+const isMockError = (error: unknown, status: number, errorCode: string): boolean =>
+  error instanceof Error && "status" in error && error.status === status
+  && "errorCode" in error && error.errorCode === errorCode;
 const home = "home-team";
 const away = "away-team";
 const normalGoal = (scoringSeasonTeamRef: string, scorer = "player", playerSeasonTeamRef = scoringSeasonTeamRef) => ({
@@ -36,8 +39,7 @@ test("mock lifecycle transition matrix matches production transitions", () => {
       if (next === current || allowed.includes(next)) {
         assert.doesNotThrow(() => assertMockStatusTransition(current as keyof typeof MATCH_STATUS_TRANSITIONS, next, failure));
       } else {
-        assert.throws(() => assertMockStatusTransition(current as keyof typeof MATCH_STATUS_TRANSITIONS, next, failure), (error: any) =>
-          error.status === 409 && error.errorCode === "INVALID_MATCH_STATUS_TRANSITION");
+        assert.throws(() => assertMockStatusTransition(current as keyof typeof MATCH_STATUS_TRANSITIONS, next, failure), (error: unknown) => isMockError(error, 409, "INVALID_MATCH_STATUS_TRANSITION"));
       }
     }
   }
@@ -46,8 +48,7 @@ test("mock lifecycle transition matrix matches production transitions", () => {
 test("goal management is permitted only while Live for all six statuses", () => {
   for (const status of Object.keys(MATCH_STATUS_TRANSITIONS) as Array<keyof typeof MATCH_STATUS_TRANSITIONS>) {
     if (status === "live") assert.doesNotThrow(() => assertMockGoalManagementAllowed(status, failure));
-    else assert.throws(() => assertMockGoalManagementAllowed(status, failure), (error: any) =>
-      error.status === 409 && error.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
+    else assert.throws(() => assertMockGoalManagementAllowed(status, failure), (error: unknown) => isMockError(error, 409, "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED"));
   }
 });
 
@@ -55,11 +56,11 @@ test("group completion validates points, disallowed draws and shootout prohibiti
   const base = { status: "completed" as const, stage: "group", homeSeasonTeamRef: home, awaySeasonTeamRef: away, goals: [], penaltyShootout: null };
   assert.equal(calculateMockCompletedWinner(base, season(), failure), null);
   assert.throws(() => calculateMockCompletedWinner(base, season({ matchRules: { groupStageDrawAllowed: false, knockoutDrawRequiresShootout: true } }), failure),
-    (error: any) => error.errorCode === "GROUP_DRAW_NOT_ALLOWED");
+    (error: unknown) => isMockError(error, 422, "GROUP_DRAW_NOT_ALLOWED"));
   assert.throws(() => calculateMockCompletedWinner(base, season({ pointsRules: null }), failure),
-    (error: any) => error.errorCode === "SEASON_POINTS_RULES_UNAVAILABLE");
+    (error: unknown) => isMockError(error, 409, "SEASON_POINTS_RULES_UNAVAILABLE"));
   assert.throws(() => calculateMockCompletedWinner({ ...base, penaltyShootout: { status: "completed", homeTeamScore: 2, awayTeamScore: 1, kicks: [] } }, season(), failure),
-    (error: any) => error.errorCode === "GROUP_SHOOTOUT");
+    (error: unknown) => isMockError(error, 422, "GROUP_SHOOTOUT"));
 });
 
 test("completed group result calculates winner from goal events only", () => {
@@ -71,21 +72,21 @@ test("knockout tied result requires a valid completed shootout and derives its w
   const match = { status: "completed" as const, stage: "final", homeSeasonTeamRef: home, awaySeasonTeamRef: away, goals: [], penaltyShootout: { status: "completed" as const, homeTeamScore: 4, awayTeamScore: 3, kicks: [] } };
   assert.equal(calculateMockCompletedWinner(match, season(), failure), home);
   assert.throws(() => calculateMockCompletedWinner({ ...match, penaltyShootout: null }, season(), failure),
-    (error: any) => error.errorCode === "SHOOTOUT_REQUIRED");
+    (error: unknown) => isMockError(error, 422, "SHOOTOUT_REQUIRED"));
   assert.throws(() => calculateMockCompletedWinner({ ...match, penaltyShootout: { ...match.penaltyShootout, homeTeamScore: 3, awayTeamScore: 3 } }, season(), failure),
-    (error: any) => error.errorCode === "SHOOTOUT_TIED");
+    (error: unknown) => isMockError(error, 422, "SHOOTOUT_TIED"));
 });
 
 test("knockout result rejects an unnecessary shootout when normal-time score has a winner", () => {
   const match = { status: "completed" as const, stage: "final", homeSeasonTeamRef: home, awaySeasonTeamRef: away, goals: [normalGoal(home)], penaltyShootout: { status: "completed" as const, homeTeamScore: 4, awayTeamScore: 3, kicks: [] } };
   assert.throws(() => calculateMockCompletedWinner(match, season(), failure),
-    (error: any) => error.errorCode === "UNNECESSARY_SHOOTOUT");
+    (error: unknown) => isMockError(error, 422, "UNNECESSARY_SHOOTOUT"));
 });
 
 test("invalid normal and own goal event records fail with backend-compatible errors", () => {
   const base = { status: "completed" as const, stage: "group", homeSeasonTeamRef: home, awaySeasonTeamRef: away, penaltyShootout: null };
   assert.throws(() => calculateMockCompletedWinner({ ...base, goals: [normalGoal(home, null as unknown as string)] }, season(), failure),
-    (error: any) => error.errorCode === "MATCH_SCORE_INVALID");
+    (error: unknown) => isMockError(error, 422, "MATCH_SCORE_INVALID"));
   assert.throws(() => calculateMockCompletedWinner({ ...base, goals: [{ scoringSeasonTeamRef: home, scorerPlayerRef: "player", playerSeasonTeamRef: home, goalType: "own_goal" as const }] }, season(), failure),
-    (error: any) => error.errorCode === "MATCH_SCORE_INVALID");
+    (error: unknown) => isMockError(error, 422, "MATCH_SCORE_INVALID"));
 });
