@@ -489,7 +489,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only");
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
 
@@ -502,7 +502,7 @@ export const seasonPreviewRepository = {
       assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
     }
     if (match.status === "postponed" && nextStatus === "scheduled") {
-      fail(409, "Postponed matches must be returned to Scheduled through the reschedule operation with a new kickoff date and time");
+      fail(409, "Postponed matches can only be returned to Scheduled through the reschedule operation with a new kickoff date and time", "MATCH_RESCHEDULE_REQUIRED");
     }
 
     const statusReason = input.statusReason?.trim();
@@ -519,14 +519,14 @@ export const seasonPreviewRepository = {
     const requiresReason = ["postponed", "cancelled", "abandoned"].includes(nextStatus)
       || (match.status === "live" && nextStatus === "scheduled");
     if (changed && requiresReason && !reason) {
-      fail(422, "A reason is required when postponing, cancelling, abandoning or reverting a match");
+      fail(422, "A reason is required when postponing, cancelling, abandoning or reverting a match", "MATCH_STATUS_REASON_REQUIRED", { statusReason: "Enter a reason of at least 3 characters" });
     }
     if (reason !== undefined && (reason.length < 3 || reason.length > 500)) {
-      fail(422, "Enter a status-change reason between 3 and 500 characters");
+      fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
     }
 
     const session = readSession();
-    if (changed && !session?._id) fail(401, "An authenticated user is required to change match status");
+    if (changed && !session?._id) fail(401, "An authenticated user is required to change match status", "UNAUTHENTICATED");
     if (changed) {
       const changedAt = now();
       match.statusHistory ??= [];
@@ -562,27 +562,27 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled");
+    if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled");
+    if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled", "MATCH_NOT_POSTPONED");
 
     const kickoff = new Date(input.kickoffAt);
-    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required");
-    if (kickoff.getTime() <= Date.now()) fail(422, "Choose a future date and kick-off time when rescheduling");
-    if (kickoff.getTime() === new Date(match.kickoffAt).getTime()) fail(422, "Choose a new date or kick-off time different from the postponed fixture");
+    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required", "INVALID_RESCHEDULE_KICKOFF");
+    if (kickoff.getTime() <= Date.now()) fail(422, "Choose a future date and kick-off time when rescheduling", "RESCHEDULE_KICKOFF_NOT_FUTURE", { kickoffAt: "The new kickoff must be in the future" });
+    if (kickoff.getTime() === new Date(match.kickoffAt).getTime()) fail(422, "Choose a new date or kick-off time different from the postponed fixture", "RESCHEDULE_KICKOFF_UNCHANGED", { kickoffAt: "Choose a different date or time" });
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(kickoff);
     const start = season.startDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.startDate)) : null;
     const end = season.endDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.endDate)) : null;
-    if (start && day < start) fail(422, "Fixture date is before the season start date");
-    if (end && day > end) fail(422, "Fixture date is after the season end date");
+    if (start && day < start) fail(422, "Fixture date is before the season start date", "FIXTURE_OUTSIDE_SEASON");
+    if (end && day > end) fail(422, "Fixture date is after the season end date", "FIXTURE_OUTSIDE_SEASON");
 
     const reason = input.reason?.trim() || null;
     if (reason !== null && (reason.length < 3 || reason.length > 500)) {
-      fail(422, "Enter a rescheduling reason between 3 and 500 characters");
+      fail(422, "Enter a rescheduling reason between 3 and 500 characters", "INVALID_RESCHEDULE_REASON", { reason: "Reason must contain 3 to 500 characters" });
     }
     const session = readSession();
-    if (!session?._id) fail(401, "An authenticated user is required to reschedule a match");
+    if (!session?._id) fail(401, "An authenticated user is required to reschedule a match", "UNAUTHENTICATED");
 
     const changedAt = now();
     const previousKickoff = match.kickoffAt;
