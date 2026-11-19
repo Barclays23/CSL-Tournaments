@@ -9,11 +9,17 @@ import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, Mock
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 import { createMockObjectId } from "@/mocks/objectId";
+import {
+  assertMockGoalManagementAllowed,
+  assertMockShootoutScore,
+  assertMockStatusTransition,
+  calculateMockCompletedWinner,
+} from "@/mocks/matchLifecycleRules";
 
 const newId = () => createMockObjectId();
 const now = () => new Date().toISOString();
 const ok = <T>(message: string, data: T): ApiResponse<T> => ({ success: true, message, data });
-const fail = (status: number, message: string, errorCode?: string): never => { throw new ApiError(status, message, { errorCode: errorCode ?? (status === 409 ? "CONFLICT" : "RULE") }); };
+const fail = (status: number, message: string, errorCode?: string, fieldErrors?: Record<string, string>): never => { throw new ApiError(status, message, { errorCode: errorCode ?? (status === 409 ? "CONFLICT" : "RULE"), fieldErrors }); };
 
 function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   const season = db.seasons.find((item) => item._id === id);
@@ -138,9 +144,7 @@ function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: 
 }
 
 function assertLiveMatch(match: MockSeasonMatch): void {
-  if (match.status !== "live") {
-    fail(409, "Goals can only be added, edited or removed while the match is Live.");
-  }
+  assertMockGoalManagementAllowed(match.status, fail);
 }
 
 function assertNoOtherLiveMatch(
@@ -486,55 +490,44 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only");
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
 
-    const transitions: Record<MockSeasonMatch["status"], MockSeasonMatch["status"][]> = {
-      scheduled: ["live", "postponed", "cancelled"],
-      live: ["completed", "scheduled", "postponed", "abandoned"],
-      postponed: ["scheduled", "cancelled"],
-      completed: [],
-      cancelled: [],
-      abandoned: [],
-    };
     const nextStatus = input.status;
+    assertMockStatusTransition(match.status, nextStatus, fail);
     if (match.status === "live" && nextStatus === "scheduled" && match.goals.length > 0) {
       fail(409, "Remove all recorded goal events before reverting this Live match to Scheduled.", "MATCH_HAS_GOALS");
-    }
-    if (match.status !== nextStatus && !transitions[match.status].includes(nextStatus)) {
-      const allowed = transitions[match.status].join(", ") || "none";
-      fail(409, `Cannot change match status from ${match.status} to ${nextStatus}. Allowed next statuses: ${allowed}.`);
     }
     if (nextStatus === "live") {
       assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
     }
     if (match.status === "postponed" && nextStatus === "scheduled") {
-      fail(409, "Postponed matches must be returned to Scheduled through the reschedule operation with a new kickoff date and time");
+      fail(409, "Postponed matches can only be returned to Scheduled through the reschedule operation with a new kickoff date and time", "MATCH_RESCHEDULE_REQUIRED");
     }
 
     const statusReason = input.statusReason?.trim();
     const resolutionReason = input.resolutionReason?.trim();
     if (statusReason !== undefined && resolutionReason !== undefined && statusReason !== resolutionReason) {
-      fail(422, "Use one consistent reason for the status change");
+      fail(422, "Use one consistent reason for the status change", "CONFLICTING_STATUS_REASONS", { statusReason: "Use one consistent reason" });
     }
     if (resolutionReason !== undefined && nextStatus !== "cancelled" && nextStatus !== "abandoned") {
-      fail(422, "A resolution reason is only valid when cancelling or abandoning a fixture");
+      fail(422, "A resolution reason is only valid when cancelling or abandoning a fixture", "INVALID_FIXTURE_RESOLUTION");
     }
     const reason = statusReason ?? resolutionReason;
     const changed = nextStatus !== match.status;
-    if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes");
+    if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes", "STATUS_REASON_WITHOUT_TRANSITION");
     const requiresReason = ["postponed", "cancelled", "abandoned"].includes(nextStatus)
       || (match.status === "live" && nextStatus === "scheduled");
     if (changed && requiresReason && !reason) {
-      fail(422, "A reason is required when postponing, cancelling, abandoning or reverting a match");
+      fail(422, "A reason is required when postponing, cancelling, abandoning or reverting a match", "MATCH_STATUS_REASON_REQUIRED", { statusReason: "Enter a reason of at least 3 characters" });
     }
     if (reason !== undefined && (reason.length < 3 || reason.length > 500)) {
-      fail(422, "Enter a status-change reason between 3 and 500 characters");
+      fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
     }
 
     const session = readSession();
-    if (changed && !session?._id) fail(401, "An authenticated user is required to change match status");
+    if (changed && !session?._id) fail(401, "An authenticated user is required to change match status", "UNAUTHENTICATED");
     if (changed) {
       const changedAt = now();
       match.statusHistory ??= [];
@@ -570,27 +563,28 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled");
+    if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled");
+    if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled", "MATCH_NOT_POSTPONED");
+    assertMockStatusTransition(match.status, "scheduled", fail);
 
     const kickoff = new Date(input.kickoffAt);
-    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required");
-    if (kickoff.getTime() <= Date.now()) fail(422, "Choose a future date and kick-off time when rescheduling");
-    if (kickoff.getTime() === new Date(match.kickoffAt).getTime()) fail(422, "Choose a new date or kick-off time different from the postponed fixture");
+    if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required", "RESCHEDULE_KICKOFF_REQUIRED", { kickoffAt: "Enter a valid date and kick-off time" });
+    if (kickoff.getTime() <= Date.now()) fail(422, "Choose a future date and kick-off time when rescheduling", "RESCHEDULE_KICKOFF_NOT_FUTURE", { kickoffAt: "The new kickoff must be in the future" });
+    if (kickoff.getTime() === new Date(match.kickoffAt).getTime()) fail(422, "Choose a new date or kick-off time different from the postponed fixture", "RESCHEDULE_KICKOFF_UNCHANGED", { kickoffAt: "Choose a different date or time" });
     const day = new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(kickoff);
     const start = season.startDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.startDate)) : null;
     const end = season.endDate ? new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(new Date(season.endDate)) : null;
-    if (start && day < start) fail(422, "Fixture date is before the season start date");
-    if (end && day > end) fail(422, "Fixture date is after the season end date");
+    if (start && day < start) fail(422, "Fixture date is before the season start date", "FIXTURE_BEFORE_SEASON");
+    if (end && day > end) fail(422, "Fixture date is after the season end date", "FIXTURE_AFTER_SEASON");
 
     const reason = input.reason?.trim() || null;
     if (reason !== null && (reason.length < 3 || reason.length > 500)) {
-      fail(422, "Enter a rescheduling reason between 3 and 500 characters");
+      fail(422, "Enter a rescheduling reason between 3 and 500 characters", "INVALID_RESCHEDULE_REASON", { reason: "Reason must contain 3 to 500 characters" });
     }
-    const session = readSession();
-    if (!session?._id) fail(401, "An authenticated user is required to reschedule a match");
+    const sessionId = readSession()?._id;
+    if (!sessionId) fail(401, "An authenticated user is required to reschedule a match", "UNAUTHENTICATED");
 
     const changedAt = now();
     const previousKickoff = match.kickoffAt;
@@ -599,7 +593,7 @@ export const seasonPreviewRepository = {
       fromStatus: "postponed",
       toStatus: "scheduled",
       reason,
-      changedBy: session._id,
+      changedBy: sessionId!,
       changedAt,
       fromKickoffAt: previousKickoff,
       toKickoffAt: kickoff.toISOString(),
@@ -610,21 +604,100 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Match rescheduled", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
+  async correctCompletedSeasonMatch(
+    seasonId: string,
+    matchId: string,
+    input: {
+      reason: string;
+      goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+      penaltyShootout: MockSeasonMatch["penaltyShootout"];
+    },
+  ) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only");
+    if (season.status === "archived") fail(409, "Archived seasons cannot be corrected", "SEASON_CLOSED");
+    if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season", "SEASON_RULES_UNAVAILABLE");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    const reason = input.resolutionReason.trim();
-    if (reason.length < 3 || reason.length > 500) fail(422, "Enter a resolution reason between 3 and 500 characters");
-    match.status = input.status;
-    match.resolutionHistory ??= [];
-    match.resolutionHistory.push({ status: input.status, reason, decidedAt: now() });
-    match.updatedAt = now();
+    if (match.status !== "completed") fail(409, "Only Completed matches can use the correction workflow", "MATCH_NOT_COMPLETED");
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 1000) fail(422, "Enter a correction reason between 3 and 1000 characters", "MATCH_CORRECTION_REASON_REQUIRED", { reason: "A correction reason is required" });
+    const correctedBy = readSession()?._id;
+    if (!correctedBy) fail(403, "An authenticated administrator is required to correct a completed match", "FORBIDDEN");
+
+    const originalGoals = match.goals.map((goal) => ({ ...goal }));
+    const originalShootout = match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
+    const originalWinner = match.winnerSeasonTeamRef;
+    const originalScore = {
+      homeScore: originalGoals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
+      awayScore: originalGoals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
+    };
+    const usedIds = new Set<string>();
+    const correctedGoals: MockSeasonMatch["goals"] = [];
+    for (const goal of input.goals) {
+      const scoring = goal.scoringSeasonTeamRef;
+      if (scoring !== match.homeSeasonTeamRef && scoring !== match.awaySeasonTeamRef) fail(422, "Credited team must be one of the match participants", "INVALID_SCORING_TEAM");
+      const scorerId = goal.scorerPlayerRef ?? null;
+      const existingGoal = originalGoals.find((item) => !usedIds.has(item._id)
+        && item.scoringSeasonTeamRef === scoring && item.scorerPlayerRef === scorerId && item.goalType === goal.goalType);
+      if (existingGoal) {
+        usedIds.add(existingGoal._id);
+        correctedGoals.push({ ...existingGoal });
+        continue;
+      }
+      let playerSeasonTeamRef: string | null = null;
+      if (goal.goalType === "normal") {
+        if (!scorerId) fail(422, "Select the goal scorer", "SCORER_REQUIRED");
+        const player = db.players.find((item) => item._id === scorerId && item.status === "active");
+        const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
+        if (!player || !lot || lot.seasonTeamRef !== scoring) fail(422, "Normal goal scorer must be an active player sold to the credited season team", "INVALID_SCORER");
+        playerSeasonTeamRef = scoring;
+      } else if (goal.goalType === "own_goal" && scorerId) {
+        const responsibleTeam = scoring === match.homeSeasonTeamRef ? match.awaySeasonTeamRef : match.homeSeasonTeamRef;
+        const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
+        if (!lot || lot.seasonTeamRef !== responsibleTeam) fail(422, "Own-goal player must belong to the opposing season team", "INVALID_OWN_GOAL_PLAYER");
+        playerSeasonTeamRef = responsibleTeam;
+      } else if (goal.goalType !== "own_goal") fail(422, "Unsupported goal type", "INVALID_GOAL_TYPE");
+      correctedGoals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: goal.goalType, createdAt: now() });
+    }
+
+    const shootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
+    if (shootout) {
+      assertMockShootoutScore(match, shootout, fail);
+      for (const kick of shootout.kicks) {
+        if (kick.playerRef) {
+          const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === kick.playerRef && item.auctionStatus === "sold");
+          if (!lot || lot.seasonTeamRef !== kick.seasonTeamRef) fail(422, "Shootout player must belong to the kicking team", "INVALID_SHOOTOUT_PLAYER");
+        }
+      }
+    }
+    const correctedMatch = { ...match, status: "completed" as const, goals: correctedGoals, penaltyShootout: shootout };
+    const correctedWinner = calculateMockCompletedWinner(correctedMatch, season, fail);
+    const correctedScore = {
+      homeScore: correctedGoals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
+      awayScore: correctedGoals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
+    };
+    const correctedAt = now();
+    match.correctionHistory ??= [];
+    match.correctionHistory.push({
+      reason,
+      correctedBy: correctedBy!,
+      correctedAt,
+      originalResult: { ...originalScore, goals: originalGoals, penaltyShootout: originalShootout, winnerSeasonTeamRef: originalWinner },
+      correctedResult: { ...correctedScore, goals: correctedGoals.map((goal) => ({ ...goal })), penaltyShootout: shootout ? { ...shootout, kicks: shootout.kicks.map((kick) => ({ ...kick })) } : null, winnerSeasonTeamRef: correctedWinner },
+    });
+    match.goals = correctedGoals;
+    match.penaltyShootout = shootout;
+    match.winnerSeasonTeamRef = correctedWinner;
+    match.updatedAt = correctedAt;
     commitSeasonDb(db);
-    return ok("Fixture resolution recorded", populatedSeasonMatch(db, match));
+    return ok("Completed match corrected", populatedSeasonMatch(db, match));
+  },
+  async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
+    const reason = input.resolutionReason.trim();
+    if (reason.length < 3 || reason.length > 500) fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
+    return this.updateSeasonMatchStatus(seasonId, matchId, { status: input.status, resolutionReason: reason });
   },
   async createSeasonMatch(seasonId: string, input: SeasonMatchWrite) {
     requireAdmin();
@@ -696,7 +769,15 @@ export const seasonPreviewRepository = {
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (match.status === "completed") fail(409, "Completed fixtures are historical records and cannot be rewritten");
+    if (match.status === "completed") fail(409, "Completed fixtures can only be changed through the audited correction workflow.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+    if (match.status === "postponed" && input.kickoffAt !== undefined) fail(409, "Postponed matches can only be rescheduled through the dedicated reschedule operation.", "MATCH_RESCHEDULE_REQUIRED");
+    const fixtureDetailFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "notes"];
+    const isFixtureDetailsEdit = fixtureDetailFields.some((field) => input[field] !== undefined);
+    const matchCards = (match as MockSeasonMatch & { cards?: unknown[] }).cards ?? [];
+    if (isFixtureDetailsEdit) {
+      if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be edited.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+      if (match.goals.length > 0 || matchCards.length > 0) fail(409, "Match details cannot be edited after goals or cards have been recorded.", "MATCH_HAS_EVENTS");
+    }
     const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
     const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
     if (match.status === "live") assertNoOtherLiveMatch(db, seasonId, homeId, awayId, matchId);
@@ -820,24 +901,7 @@ export const seasonPreviewRepository = {
     return ok("Goal deleted", populatedSeasonMatch(db, match));
   },
   recalculateMockWinner(season: MockSeason, match: MockSeasonMatch) {
-    if (match.status !== "completed") { match.winnerSeasonTeamRef = null; return; }
-    const homeScore = matchScore(match, match.homeSeasonTeamRef);
-    const awayScore = matchScore(match, match.awaySeasonTeamRef);
-    if (match.stage === "group") {
-      if (homeScore === awayScore && season.matchRules?.groupStageDrawAllowed === false) fail(422, "Draws are not allowed by this season's group-stage rules");
-      match.winnerSeasonTeamRef = homeScore === awayScore ? null : homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
-      return;
-    }
-    if (homeScore === awayScore) {
-      if (season.matchRules?.knockoutDrawRequiresShootout && (!match.penaltyShootout || match.penaltyShootout.status !== "completed" || match.penaltyShootout.homeTeamScore === match.penaltyShootout.awayTeamScore)) {
-        fail(422, "A tied completed knockout match requires a completed penalty shootout");
-      }
-      match.winnerSeasonTeamRef = match.penaltyShootout && match.penaltyShootout.homeTeamScore !== match.penaltyShootout.awayTeamScore
-        ? (match.penaltyShootout.homeTeamScore > match.penaltyShootout.awayTeamScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef) : null;
-      return;
-    }
-    if (match.penaltyShootout) fail(422, "A shootout is only allowed when normal-time scores are tied");
-    match.winnerSeasonTeamRef = homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
+    match.winnerSeasonTeamRef = calculateMockCompletedWinner(match, season, fail);
   },
   async getVenue(id: string) {
     const db = readSeasonDb();
