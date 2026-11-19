@@ -8,12 +8,14 @@ export interface PublicSponsor {
   logo: Asset | null;
   tier: string | null;
   website: string | null;
+  displayOrder: number;
   status: SponsorStatus;
 }
 
 export interface AdminSponsor extends PublicSponsor {
   contactPerson: string | null;
   contactMobile: string | null;
+  email: string | null;
   notes: string | null;
 }
 
@@ -31,6 +33,8 @@ export interface SponsorWrite {
   website?: string | null;
   contactPerson?: string | null;
   contactMobile?: string | null;
+  email?: string | null;
+  displayOrder?: number;
   notes?: string | null;
   status: SponsorStatus;
 }
