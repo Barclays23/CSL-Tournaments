@@ -492,6 +492,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -565,6 +566,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -705,6 +707,8 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Fixtures can only be created for Upcoming or Active seasons");
     if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season");
     if (db.matches.some((match) => match.seasonRef === seasonId && match.matchNumber === input.matchNumber)) {
@@ -768,6 +772,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -838,6 +843,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -863,6 +869,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -890,6 +897,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -1343,6 +1351,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, input.seasonId);
+    if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "in_progress") fail(409, "Auction changes are available only while an Upcoming season auction is in progress.", "SEASON_NOT_AUCTION_READY");
     if (season.status === "completed" || season.status === "archived") fail(409, "Auction is closed for this season");
     const player = playerById(db, input.playerId);
     if (player.status !== "active") fail(422, "Only active players can be nominated");
@@ -1367,6 +1376,7 @@ export const seasonPreviewRepository = {
     const lot = db.auctionLots.find((item) => item._id === id);
     if (!lot) return fail(404, "Auction lot not found");
     const season = seasonById(db, lot.seasonRef);
+    if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "in_progress") fail(409, "Auction changes are available only while an Upcoming season auction is in progress.", "SEASON_NOT_AUCTION_READY");
     if (season.status === "completed" || season.status === "archived") fail(409, "Auction is closed for this season");
     if (lot.auctionStatus !== "pending") fail(409, "Only pending lots can be sold");
     const st = db.seasonTeams.find((item) => item._id === input.seasonTeamId && item.seasonRef === lot.seasonRef);
@@ -1394,6 +1404,7 @@ export const seasonPreviewRepository = {
     const lot = db.auctionLots.find((item) => item._id === id);
     if (!lot) return fail(404, "Auction lot not found");
     const season = seasonById(db, lot.seasonRef);
+    if (season.status !== "upcoming" || season.auctionLifecycleStatus !== "in_progress") fail(409, "Auction changes are available only while an Upcoming season auction is in progress.", "SEASON_NOT_AUCTION_READY");
     if (season.status === "completed" || season.status === "archived") fail(409, "Auction is closed for this season");
 
     const nextPosition = input.playerPosition ?? lot.playerPosition;
