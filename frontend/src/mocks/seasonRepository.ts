@@ -799,7 +799,7 @@ export const seasonPreviewRepository = {
     const home = db.seasonTeams.find((team) => team._id === homeId && team.seasonRef === seasonId);
     const away = db.seasonTeams.find((team) => team._id === awayId && team.seasonRef === seasonId);
     if (!home || !away || ["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
-      fail(422, "Both teams must be eligible participants in this season");
+      return fail(422, "Both teams must be eligible participants in this season");
     }
     if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
     if (stage !== "group") {
