@@ -3,6 +3,7 @@ import type { SeasonAuctionSettings } from "./season.types.js";
 export interface AuctionCompletionTeam {
   _id: unknown;
   status: string;
+  displayName?: string;
 }
 
 export interface AuctionCompletionLot {
@@ -29,6 +30,12 @@ export function getAuctionCompletionBlockers(
   lots: AuctionCompletionLot[],
 ): string[] {
   const blockers: string[] = [];
+  if (!Number.isFinite(settings.budgetPerTeam) || settings.budgetPerTeam < 0) blockers.push("Team budget setting must be zero or greater");
+  if (!Number.isInteger(settings.playersCount) || settings.playersCount < 1) blockers.push("Season player limit must be a positive whole number");
+  if (!Number.isInteger(settings.seasonTeamCount) || settings.seasonTeamCount < 2) blockers.push("Season team limit must be at least two teams");
+  if (!Number.isInteger(settings.teamSquadSize) || settings.teamSquadSize < 1) blockers.push("Team squad size must be a positive whole number");
+  if (!Number.isInteger(settings.iconPlayerLimit) || settings.iconPlayerLimit < 0 || settings.iconPlayerLimit > settings.teamSquadSize) blockers.push("Icon Player limit must be between zero and the team squad size");
+  if (!Number.isInteger(settings.goalkeeperLimit) || settings.goalkeeperLimit < 0 || settings.goalkeeperLimit > settings.teamSquadSize) blockers.push("Goalkeeper limit must be between zero and the team squad size");
   const eligibleTeams = teams.filter((team) => ELIGIBLE_TEAM_STATUSES.has(team.status));
   const eligibleIds = new Set(eligibleTeams.map((team) => id(team._id)));
 
@@ -63,7 +70,7 @@ export function getAuctionCompletionBlockers(
   for (const team of eligibleTeams) {
     const teamId = id(team._id);
     const roster = soldByTeam.get(teamId) ?? [];
-    const label = "Team " + teamId;
+    const label = team.displayName?.trim() || ("Team " + teamId);
     if (!roster.length) blockers.push(label + " has no players purchased");
     if (roster.length > settings.teamSquadSize) blockers.push(label + " exceeds the configured squad size of " + settings.teamSquadSize);
     const iconCount = roster.filter((lot) => lot.isIconPlayer).length;
