@@ -57,9 +57,9 @@ export interface SeasonFixture {
 export interface SeasonTeamDashboard {
   participates: boolean;
   season: SeasonBriefDto;
-  team: { _id: string; name: string; shortName: string | null; logo: unknown };
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null };
   seasonTeam: SeasonTeamBriefDto | null;
-  managers: Array<{ _id: string; name: string; role: string | null; profilePic: unknown }>;
+  managers: Array<{ _id: string; name: string; role: string | null; profilePic: Asset | null }>;
   squad: Array<{
     player: { _id: string; name: string; profilePic: unknown };
     position: SeasonPlayerPosition;
@@ -87,9 +87,6 @@ export interface PlayerHistory {
   player: {
     _id: string;
     name: string;
-    mobile: string | null;
-    email: string | null;
-    dateOfBirth: string | null;
     profilePic: unknown;
     status: string;
   };
