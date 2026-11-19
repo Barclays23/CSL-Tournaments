@@ -21,7 +21,7 @@ export interface ISeasonRepository {
   updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null>;
   completeIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;
   completeAuctionIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;
-  reopenAuction(id: string): Promise<SeasonEntity | null>;
+  reopenAuction(id: string): Promise<{ season: SeasonEntity | null; fixtureCount: number }>;
   countLots(seasonId: string): Promise<number>;
   countMatches(seasonId: string): Promise<number>;
   countGroups(seasonId: string): Promise<number>;
