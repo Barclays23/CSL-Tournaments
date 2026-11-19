@@ -566,6 +566,7 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled", "MATCH_NOT_POSTPONED");
+    assertMockStatusTransition(match.status, "scheduled", fail);
 
     const kickoff = new Date(input.kickoffAt);
     if (Number.isNaN(kickoff.getTime())) fail(422, "A valid new match date and kick-off time are required", "INVALID_RESCHEDULE_KICKOFF");
