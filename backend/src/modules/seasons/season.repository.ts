@@ -70,7 +70,7 @@ export class SeasonRepository implements ISeasonRepository {
   async updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null> {
     return SeasonModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), status: current },
-      { $set: { status: next } },
+      { $set: { status: next, ...(next === "draft" ? { auctionClosedAt: null } : {}) } },
       { returnDocument: "after", runValidators: true },
     ).lean<SeasonEntity>().exec();
   }
@@ -96,6 +96,44 @@ export class SeasonRepository implements ISeasonRepository {
       });
       return result;
     } finally { await session.endSession(); }
+  }
+
+  async closeAuctionIfNoPendingLots(seasonId: string): Promise<{ season: SeasonEntity | null; pendingLots: number }> {
+    const session = await mongoose.startSession();
+    try {
+      let result: { season: SeasonEntity | null; pendingLots: number } = { season: null, pendingLots: 0 };
+      await session.withTransaction(async () => {
+        const season = await SeasonModel.findOne({
+          _id: new Types.ObjectId(seasonId), status: "upcoming", auctionClosedAt: null,
+        }).session(session).lean<SeasonEntity>().exec();
+        if (!season) return;
+
+        const lock = await SeasonModel.updateOne(
+          { _id: season._id, status: "upcoming", auctionClosedAt: null },
+          { $inc: { auctionRevision: 1 } },
+          { session },
+        ).exec();
+        if (lock.matchedCount !== 1) return;
+
+        const pendingLots = await AuctionLotModel.countDocuments({
+          seasonRef: season._id, auctionStatus: "pending",
+        }).session(session).exec();
+        if (pendingLots > 0) {
+          result = { season: null, pendingLots };
+          return;
+        }
+
+        const closed = await SeasonModel.findOneAndUpdate(
+          { _id: season._id, status: "upcoming", auctionClosedAt: null },
+          { $set: { auctionClosedAt: new Date() }, $inc: { auctionRevision: 1 } },
+          { session, returnDocument: "after" },
+        ).lean<SeasonEntity>().exec();
+        result = { season: closed, pendingLots: 0 };
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async countLots(seasonId: string): Promise<number> {
