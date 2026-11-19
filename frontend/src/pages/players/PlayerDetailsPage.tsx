@@ -64,7 +64,7 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-4xl text-fg">{record.name}</h1>
-            <Badge tone={record.status === "active" ? "success" : "neutral"}>{record.status}</Badge>
+            <Badge tone={record.status === "active" ? "primary" : "neutral"}>{record.status}</Badge>
           </div>
           <p className="mt-1 text-sm text-muted">Permanent player profile</p>
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
