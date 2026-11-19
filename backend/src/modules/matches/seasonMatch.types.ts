@@ -1,4 +1,5 @@
 import type {Types} from "mongoose";
+import type {Asset} from "../../shared/types/common.types.js";
 export type SeasonMatchStage="group"|"round_of_16"|"quarter_final"|"semi_final"|"third_place"|"final";
 export type SeasonMatchStatus="scheduled"|"live"|"completed"|"postponed"|"cancelled"|"abandoned";
 export type SeasonGoalType="normal"|"own_goal";
@@ -14,7 +15,7 @@ export interface SeasonPenaltyShootout{status:ShootoutStatus;homeTeamScore:numbe
 export interface SeasonMatchFields{seasonRef:Types.ObjectId;matchNumber:number;roundNumber:number;stage:SeasonMatchStage;groupRef:Types.ObjectId|null;kickoffAt:Date;venueRef:Types.ObjectId;homeSeasonTeamRef:Types.ObjectId;awaySeasonTeamRef:Types.ObjectId;status:SeasonMatchStatus;goals:SeasonGoalFields[];penaltyShootout:SeasonPenaltyShootout|null;winnerSeasonTeamRef:Types.ObjectId|null;notes:string|null;resolutionHistory:SeasonMatchResolutionEntry[];statusHistory?:SeasonMatchStatusHistoryEntry[];correctionHistory?:SeasonMatchCorrectionHistoryEntry[];}
 export interface SeasonMatchEntity extends SeasonMatchFields{_id:Types.ObjectId;createdAt:Date;updatedAt:Date;}
 export interface SeasonMatchListFilter{seasonRef:Types.ObjectId;stage?:SeasonMatchStage;groupRef?:Types.ObjectId|null;status?:SeasonMatchStatus;matchNumber?:number;homeSeasonTeamRef?:Types.ObjectId|{$in:Types.ObjectId[]};awaySeasonTeamRef?:Types.ObjectId|{$in:Types.ObjectId[]};kickoffAt?:{$gte?:Date;$lte?:Date};$or?:Array<Partial<SeasonMatchListFilter>>;$and?:Array<{ $or:Array<Partial<SeasonMatchListFilter>> }>; }
-export interface MatchTeamSnapshot{_id:Types.ObjectId;displayName:string;logoSnapshot:unknown;teamRef:{_id:Types.ObjectId;name:string;shortName:string|null;logo:unknown}|Types.ObjectId;}
-export interface MatchPlayerSnapshot{_id:Types.ObjectId;name:string;profilePic:unknown;}
+export interface MatchTeamSnapshot{_id:Types.ObjectId;displayName:string;logoSnapshot:Asset|null;teamRef:{_id:Types.ObjectId;name:string;shortName:string|null;logo:Asset|null}|Types.ObjectId;}
+export interface MatchPlayerSnapshot{_id:Types.ObjectId;name:string;profilePic:Asset|null;}
 export interface PopulatedSeasonGoal extends Omit<SeasonGoalFields,"scoringSeasonTeamRef"|"scorerPlayerRef"|"playerSeasonTeamRef">{_id:Types.ObjectId;scoringSeasonTeamRef:Types.ObjectId|MatchTeamSnapshot;scorerPlayerRef:Types.ObjectId|MatchPlayerSnapshot|null;playerSeasonTeamRef:Types.ObjectId|MatchTeamSnapshot|null;createdAt:Date;}
 export interface PopulatedSeasonMatch extends Omit<SeasonMatchEntity,"homeSeasonTeamRef"|"awaySeasonTeamRef"|"winnerSeasonTeamRef"|"goals"|"venueRef">{venueRef:Types.ObjectId|{_id:Types.ObjectId;name:string;location:string|null}|null;homeSeasonTeamRef:Types.ObjectId|MatchTeamSnapshot;awaySeasonTeamRef:Types.ObjectId|MatchTeamSnapshot;winnerSeasonTeamRef:Types.ObjectId|MatchTeamSnapshot|null;goals:PopulatedSeasonGoal[];}

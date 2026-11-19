@@ -1,10 +1,10 @@
 import { Types, type QueryFilter } from "mongoose";
 import { TeamModel } from "./team.model.js";
 import type { TeamRecord } from "./team.model.js";
-import { ManagerModel } from "../managers/manager.model.js";
 import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
+import type { SeasonMatchFields } from "../matches/seasonMatch.types.js";
 import { PlayerModel } from "../players/player.model.js";
 import type { ITeamRepository } from "./team.interfaces.js";
 import type { TeamCreateDTO, TeamEntity, TeamFields, TeamListFilter, TeamReferenceCounts, TeamUpdateDTO } from "./team.types.js";
@@ -46,7 +46,7 @@ export class TeamRepository implements ITeamRepository {
     const objectId = new Types.ObjectId(teamId);
     const [players, managers, matches, seasonTeams] = await Promise.all([
       PlayerModel.collection.countDocuments({ teamRef: objectId }),
-      ManagerModel.countDocuments({ teamRef: objectId }).exec(),
+      (async () => (await SeasonTeamModel.distinct("managerRefs", { teamRef: objectId }).exec()).length)(),
       (async () => {
         const seasonTeamIds = await SeasonTeamModel.distinct("_id", { teamRef: objectId }).exec();
         if (!seasonTeamIds.length) return 0;
@@ -55,7 +55,7 @@ export class TeamRepository implements ITeamRepository {
             { homeSeasonTeamRef: { $in: seasonTeamIds } },
             { awaySeasonTeamRef: { $in: seasonTeamIds } },
           ],
-        }).exec();
+        } as QueryFilter<SeasonMatchFields>).exec();
       })(),
       SeasonTeamModel.countDocuments({ teamRef: objectId }).exec(),
     ]);

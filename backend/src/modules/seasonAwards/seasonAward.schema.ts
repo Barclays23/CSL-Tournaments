@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SeasonAwardRecipientInput } from "./seasonAward.types.js";
 
 const objectId = z.string().regex(/^[a-f\\d]{24}$/i, "Invalid ObjectId");
 const awardType = z.enum(["champions", "runner_up", "golden_boot", "golden_glove", "player_of_the_season", "best_young_player", "best_defender", "best_midfielder", "special"]);
@@ -7,7 +8,7 @@ const recipient = z.object({
   playerId: objectId.nullable().optional(),
 }).strict();
 
-function validateRecipients(type: string | undefined, recipients: Array<{ playerId?: string | null }> | undefined, context: z.RefinementCtx): void {
+function validateRecipients(type: string | undefined, recipients: SeasonAwardRecipientInput[] | undefined, context: z.RefinementCtx): void {
   if (!type || !recipients) return;
   if ((type === "champions" || type === "runner_up") && (recipients.length !== 1 || recipients[0]?.playerId)) {
     context.addIssue({ code: "custom", path: ["recipients"], message: "Champions and Runner-up require exactly one SeasonTeam recipient" });
