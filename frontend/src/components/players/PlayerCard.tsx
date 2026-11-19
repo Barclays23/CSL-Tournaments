@@ -14,7 +14,7 @@ export function PlayerCard({ player }: { player: PublicPlayer }) {
             <p className="truncate font-semibold text-fg">{player.name}</p>
             <p className="text-xs text-muted">Player profile</p>
           </div>
-          <Badge tone={player.status === "active" ? "success" : "neutral"}>{player.status}</Badge>
+          <Badge tone={player.status === "active" ? "primary" : "neutral"}>{player.status}</Badge>
         </div>
       </GlassCard>
     </Link>
