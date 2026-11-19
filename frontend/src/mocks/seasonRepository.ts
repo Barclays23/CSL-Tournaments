@@ -38,21 +38,25 @@ function seasonBrief(season: MockSeason) {
   return { _id: season._id, name: season.name, seasonNumber: season.seasonNumber, year: season.year, status: season.status };
 }
 function teamById(db: SeasonMockDatabase, id: string) {
-  const team = db.teams.find((item) => item._id === id);
-  if (!team) return fail(404, "Team not found");
-  // The compatibility mock and season mock keep separate copies of Team records.
-  // Prefer the editable master record so existing season views reflect its current name and logo.
-  const current = readPrimaryDb().teams.find((item) => item._id === id);
-  return current ? {
+  const seasonCopy = db.teams.find((item) => item._id === id);
+  // The compatibility mock and season mock can contain separate Team copies.
+  // Older preview versions created permanent Teams only in the compatibility store,
+  // so fall back to that master record instead of reporting a false "Team not found".
+  const master = readPrimaryDb().teams.find((item) => item._id === id);
+  if (!seasonCopy && !master) return fail(404, "Team not found");
+
+  const team = seasonCopy ?? { ...master!, __v: 0 };
+  if (!master) return team;
+  return {
     ...team,
-    name: current.name,
-    shortName: current.shortName,
-    description: current.description,
-    logo: current.logo,
-    poster: current.poster,
-    status: current.status,
-    updatedAt: current.updatedAt,
-  } : team;
+    name: master.name,
+    shortName: master.shortName,
+    description: master.description,
+    logo: master.logo,
+    poster: master.poster,
+    status: master.status,
+    updatedAt: master.updatedAt,
+  };
 }
 function playerById(db: SeasonMockDatabase, id: string) {
   const player = db.players.find((item) => item._id === id);
@@ -1036,6 +1040,13 @@ export const seasonPreviewRepository = {
     const additions = teamIds.map((teamId) => {
       const team = teamById(db, teamId);
       if (team.status !== "active") fail(422, "Selected team is not active");
+
+      // Backfill the season mock's Team copy for permanent Teams created by older
+      // preview versions. SeasonTeam keeps the permanent Team ID as its reference.
+      if (!db.teams.some((item) => item._id === teamId)) {
+        db.teams.push({ ...team });
+      }
+
       return { _id: newId(), seasonRef: id, teamRef: teamId, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered" as const, createdAt: now(), updatedAt: now() };
     });
     db.seasonTeams.push(...additions);
