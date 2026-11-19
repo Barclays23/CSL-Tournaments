@@ -17,7 +17,6 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import type { ManagerFormValues } from "@/schemas/manager.schema";
 import { createManager, deleteManager, getManagers, updateManager } from "@/services/managerService";
-import { getTeams } from "@/services/teamService";
 import type { Asset } from "@/types/api.types";
 import type { PublicManager } from "@/types/manager.types";
 import { errorMessage } from "@/utils/errorHandler";
@@ -30,7 +29,6 @@ export function ManagersPage() {
   const [editing, setEditing] = useState<PublicManager | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const debounced = useDebounce(search);
-  const teams = useServiceQuery(() => getTeams(), []);
   const managers = useServiceQuery(() => getManagers({ page, limit: 12, search: debounced }), [page, debounced]);
 
   const save = async (values: ManagerFormValues, photo: Asset | null) => {
@@ -77,7 +75,7 @@ export function ManagersPage() {
                   onClick={async () => {
                     const yes = await confirm({
                       title: `Delete ${manager.name}?`,
-                      description: "This removes the manager from the current tournament.",
+                      description: "A manager with season assignments cannot be deleted. Deactivate the profile to preserve tournament history.",
                       confirmLabel: "Delete manager",
                       danger: true,
                     });
@@ -100,7 +98,7 @@ export function ManagersPage() {
       </div>
       <Pagination pagination={managers.data?.pagination} onPage={setPage} />
       <Drawer open={editing !== undefined} title={editing ? "Edit manager" : "Add manager"} onClose={() => setEditing(undefined)}>
-        <ManagerForm manager={editing} teams={teams.data?.data ?? []} submitting={saving} onSubmit={save} />
+        <ManagerForm manager={editing} submitting={saving} onSubmit={save} />
       </Drawer>
     </PageContainer>
   );

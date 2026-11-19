@@ -1,23 +1,23 @@
 import type { QueryFilter } from "mongoose";
 import { ManagerModel } from "./manager.model.js";
+import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import type { ManagerRecord } from "./manager.model.js";
 import type { IManagerRepository } from "./manager.interfaces.js";
-import type { ManagerEntity, ManagerFields, ManagerListFilter, PopulatedManagerEntity } from "./manager.types.js";
+import type { ManagerEntity, ManagerFields, ManagerListFilter } from "./manager.types.js";
 
 export class ManagerRepository implements IManagerRepository {
   async findManagers(
     filter: ManagerListFilter,
     page: number,
     limit: number,
-  ): Promise<{ items: PopulatedManagerEntity[]; total: number }> {
+  ): Promise<{ items: ManagerEntity[]; total: number }> {
     const mongoFilter: QueryFilter<ManagerRecord> = filter;
     const [items, total] = await Promise.all([
       ManagerModel.find(mongoFilter)
         .sort({ name: 1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate({ path: "teamRef", select: "name shortName logo groupName" })
-        .lean<PopulatedManagerEntity[]>()
+        .lean<ManagerEntity[]>()
         .exec(),
       ManagerModel.countDocuments(mongoFilter).exec(),
     ]);
@@ -26,13 +26,6 @@ export class ManagerRepository implements IManagerRepository {
 
   async findManagerById(managerId: string): Promise<ManagerEntity | null> {
     return ManagerModel.findById(managerId).lean<ManagerEntity>().exec();
-  }
-
-  async findManagerWithTeamById(managerId: string): Promise<PopulatedManagerEntity | null> {
-    return ManagerModel.findById(managerId)
-      .populate({ path: "teamRef", select: "name shortName logo groupName" })
-      .lean<PopulatedManagerEntity>()
-      .exec();
   }
 
   async findManagerByMobile(mobile: string): Promise<ManagerEntity | null> {
@@ -55,6 +48,10 @@ export class ManagerRepository implements IManagerRepository {
       returnDocument: "after",
       runValidators: true,
     }).lean<ManagerEntity>().exec();
+  }
+
+  async countSeasonTeamAssignments(managerId: string): Promise<number> {
+    return SeasonTeamModel.countDocuments({ managerRefs: managerId }).exec();
   }
 
   async deleteManager(managerId: string): Promise<boolean> {

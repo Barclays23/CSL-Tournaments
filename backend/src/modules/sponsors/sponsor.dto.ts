@@ -8,6 +8,8 @@ export interface CreateSponsorDto {
   website?: string | null;
   contactPerson?: string | null;
   contactMobile?: string | null;
+  email?: string | null;
+  displayOrder?: number;
   notes?: string | null;
   status?: SponsorStatus;
 }
@@ -24,10 +26,8 @@ export type GetSponsorsQueryDTO = SponsorQueryDto;
 
 import type { SponsorFields } from "./sponsor.types.js";
 
-export type PublicSponsorDTO = Pick<SponsorFields, "name" | "logo" | "tier" | "website" | "status"> & { _id: string };
-
-export type AdminSponsorDTO = PublicSponsorDTO & Pick<SponsorFields, "contactPerson" | "contactMobile" | "notes">;
-
+export type PublicSponsorDTO = Pick<SponsorFields, "name" | "logo" | "tier" | "website" | "status" | "displayOrder"> & { _id: string };
+export type AdminSponsorDTO = PublicSponsorDTO & Pick<SponsorFields, "contactPerson" | "contactMobile" | "email" | "notes">;
 export type SponsorResponseDTO = PublicSponsorDTO | AdminSponsorDTO;
 
 export type SponsorCreateData = SponsorCreateDTO;

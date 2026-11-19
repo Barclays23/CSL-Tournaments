@@ -3,6 +3,7 @@ import type { Asset } from "@/types/api.types";
 export type SeasonStatus = "draft" | "upcoming" | "active" | "completed" | "archived";
 export type SeasonPlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
 export type AuctionLotStatus = "pending" | "sold" | "unsold" | "withdrawn";
+export type SeasonTeamStatus = "registered" | "active" | "withdrawn" | "eliminated" | "completed";
 
 export interface SeasonAuctionSettings {
   currency: "INR";
@@ -67,7 +68,7 @@ export type SeasonPatch = Partial<SeasonWrite> & {
 export interface AuctionTeamRef {
   _id: string;
   displayName: string;
-  team: { _id: string; name: string; shortName: string | null; logo: unknown } | null;
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null } | null;
 }
 
 export interface AuctionPlayerRef {
@@ -124,8 +125,8 @@ export interface AuctionTeamSummary {
   seasonTeamId: string;
   teamId: string;
   displayName: string;
-  logoSnapshot: unknown;
-  status: string;
+  logoSnapshot: Asset | null;
+  status: SeasonTeamStatus;
   budget: number;
   playersSigned: number;
   remainingSlots: number;
@@ -142,7 +143,7 @@ export interface AuctionSummary {
     _id: string;
     name: string;
     year: number;
-    status: string;
+    status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
   };
   totals: {
@@ -163,14 +164,14 @@ export interface SeasonTeam {
   seasonRef: string;
   teamRef: string;
   displayName: string;
-  logoSnapshot: unknown;
+  logoSnapshot: Asset | null;
   groupRef: string | null;
   managerRefs: string[];
-  status: "registered" | "active" | "withdrawn" | "eliminated" | "completed";
+  status: SeasonTeamStatus;
   participationHistory?: Array<{fromStatus:string;toStatus:string;reason:string;changedAt:string}>;
-  team: { _id: string; name: string; shortName: string | null; logo: unknown } | null;
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null } | null;
   group: { _id: string; groupName: string; displayOrder: number } | null;
-  managers: Array<{ _id: string; name: string; role: string | null; profilePic: unknown }>;
+  managers: Array<{ _id: string; name: string; role: string | null; profilePic: Asset | null }>;
 }
 
 export interface SeasonBriefDto {

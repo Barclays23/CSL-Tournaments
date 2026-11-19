@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/forms/FormField";
@@ -9,17 +9,14 @@ import { Select } from "@/components/ui/Select";
 import { managerFormSchema, type ManagerFormValues } from "@/schemas/manager.schema";
 import type { Asset } from "@/types/api.types";
 import type { AdminManager, PublicManager } from "@/types/manager.types";
-import type { Team } from "@/types/team.types";
 import { applyFieldErrors, isAdminRecord } from "@/utils/forms";
 
 export function ManagerForm({
   manager,
-  teams,
   submitting,
   onSubmit,
 }: {
   manager?: PublicManager | AdminManager | null;
-  teams: Team[];
   submitting: boolean;
   onSubmit: (values: ManagerFormValues, photo: Asset | null) => Promise<void>;
 }) {
@@ -34,21 +31,12 @@ export function ManagerForm({
       mobile: admin?.mobile ?? "",
       email: admin?.email ?? "",
       dateOfBirth: admin?.dateOfBirth ? admin.dateOfBirth.slice(0, 10) : "",
-      teamRef: manager?.teamRef ?? "",
       role: manager?.role ?? "Manager",
       status: manager?.status ?? "active",
     },
   });
 
-  const { register, handleSubmit, setError, setValue, watch, formState } = form;
-  const status = watch("status");
-  const isActive = status === "active";
-
-  useEffect(() => {
-    if (status === "inactive") {
-      setValue("teamRef", "", { shouldValidate: true });
-    }
-  }, [status, setValue]);
+  const { register, handleSubmit, setError, formState } = form;
 
   return (
     <form
@@ -91,29 +79,16 @@ export function ManagerForm({
         </FormField>
       </div>
 
-      <FormField
-        label="Status"
-        hint="Inactive managers cannot remain assigned to a team."
-        error={formState.errors.status?.message}
-      >
+      <FormField label="Status" error={formState.errors.status?.message}>
         <Select {...register("status")}>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </Select>
       </FormField>
 
-      {isActive ? (
-        <FormField label="Team" error={formState.errors.teamRef?.message}>
-          <Select {...register("teamRef")}>
-            <option value="">Unassigned</option>
-            {teams.map((team) => (
-              <option key={team._id} value={team._id}>
-                {team.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-      ) : null}
+      <p className="text-xs text-muted">
+        Assign this manager to a participating team from the relevant Season settings.
+      </p>
 
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : "Save manager"}

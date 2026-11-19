@@ -1,16 +1,130 @@
+import type { Asset } from "../../shared/types/common.types.js";
 import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, ShootoutStatus, ShootoutKickResult } from "./seasonMatch.types.js";
-export interface SeasonMatchResolutionDto { status: "cancelled" | "abandoned"; reason: string; decidedAt: string; }
-export interface SeasonMatchStatusHistoryDto { fromStatus: SeasonMatchStatus; toStatus: SeasonMatchStatus; reason: string | null; changedBy: string; changedAt: string; fromKickoffAt: string | null; toKickoffAt: string | null; }
+
+export interface SeasonMatchResolutionDto {
+  status: "cancelled" | "abandoned";
+  reason: string;
+  decidedAt: string;
+}
+export interface SeasonMatchStatusHistoryDto {
+  fromStatus: SeasonMatchStatus;
+  toStatus: SeasonMatchStatus;
+  reason: string | null;
+  changedBy: string;
+  changedAt: string;
+  fromKickoffAt: string | null;
+  toKickoffAt: string | null;
+}
 export interface RescheduleSeasonMatchDto { kickoffAt: Date; reason?: string; }
-export interface CorrectCompletedMatchDto { reason: string; goals: SeasonGoalDto[]; penaltyShootout: CreateSeasonMatchDto["penaltyShootout"]; }
-export interface SeasonMatchCorrectionResultDto { homeScore: number; awayScore: number; goals: SeasonGoalResponseDto[]; penaltyShootout: CreateSeasonMatchDto["penaltyShootout"]; winnerSeasonTeamRef: string | null; }
-export interface SeasonMatchCorrectionHistoryDto { reason: string; correctedBy: string; correctedAt: string; originalResult: SeasonMatchCorrectionResultDto; correctedResult: SeasonMatchCorrectionResultDto; }
-export interface CreateSeasonMatchDto { matchNumber: number; roundNumber: number; stage: SeasonMatchStage; groupRef?: string | null; kickoffAt: Date; venueRef: string; homeSeasonTeamRef: string; awaySeasonTeamRef: string; status?: SeasonMatchStatus; notes?: string | null; penaltyShootout?: { status: ShootoutStatus; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }> } | null; }
+export interface CorrectCompletedMatchDto {
+  reason: string;
+  goals: SeasonGoalDto[];
+  penaltyShootout: CreateSeasonMatchDto["penaltyShootout"];
+}
+export interface SeasonMatchCorrectionGoalDto {
+  _id: string;
+  scoringSeasonTeamRef: string;
+  scorerPlayerRef: string | null;
+  playerSeasonTeamRef: string | null;
+  goalType: SeasonGoalType;
+  createdAt: string;
+}
+export interface SeasonMatchCorrectionShootoutDto {
+  status: ShootoutStatus;
+  homeTeamScore: number;
+  awayTeamScore: number;
+  kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: ShootoutKickResult }>;
+}
+export interface SeasonMatchCorrectionResultDto {
+  homeScore: number;
+  awayScore: number;
+  goals: SeasonMatchCorrectionGoalDto[];
+  penaltyShootout: SeasonMatchCorrectionShootoutDto | null;
+  winnerSeasonTeamRef: string | null;
+}
+export interface SeasonMatchCorrectionHistoryDto {
+  reason: string;
+  correctedBy: string;
+  correctedAt: string;
+  originalResult: SeasonMatchCorrectionResultDto;
+  correctedResult: SeasonMatchCorrectionResultDto;
+}
+export interface CreateSeasonMatchDto {
+  matchNumber: number;
+  roundNumber: number;
+  stage: SeasonMatchStage;
+  groupRef?: string | null;
+  kickoffAt: Date;
+  venueRef: string;
+  homeSeasonTeamRef: string;
+  awaySeasonTeamRef: string;
+  status?: SeasonMatchStatus;
+  notes?: string | null;
+  penaltyShootout?: {
+    status: ShootoutStatus;
+    homeTeamScore: number;
+    awayTeamScore: number;
+    kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }>;
+  } | null;
+}
 export type UpdateSeasonMatchDto = Partial<CreateSeasonMatchDto> & { resolutionReason?: string; statusReason?: string };
-export interface SeasonMatchQueryDto { page: number; limit: number; stage?: SeasonMatchStage; groupRef?: string | null; status?: SeasonMatchStatus; dateFrom?: Date; dateTo?: Date; seasonTeamRef?: string; search?: string; }
-export interface SeasonGoalDto { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: SeasonGoalType; }
-export interface SeasonMatchTeamDto { _id: string; displayName: string; logoSnapshot: unknown; team: { _id: string; name: string; shortName: string | null; logo: unknown } | null; }
-export interface SeasonMatchPlayerDto { _id: string; name: string; profilePic: unknown; }
+export interface SeasonMatchQueryDto {
+  page: number;
+  limit: number;
+  stage?: SeasonMatchStage;
+  groupRef?: string | null;
+  status?: SeasonMatchStatus;
+  dateFrom?: Date;
+  dateTo?: Date;
+  seasonTeamRef?: string;
+  search?: string;
+}
+export interface SeasonGoalDto {
+  scoringSeasonTeamRef: string;
+  scorerPlayerRef?: string | null;
+  goalType: SeasonGoalType;
+}
+export interface SeasonMatchTeamDto {
+  _id: string;
+  displayName: string;
+  logoSnapshot: Asset | null;
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null } | null;
+}
+export interface SeasonMatchPlayerDto { _id: string; name: string; profilePic: Asset | null; }
 export interface VenueBriefDto { _id: string; name: string; location: string | null; }
-export interface SeasonGoalResponseDto { _id: string; scoringSeasonTeamRef: SeasonMatchTeamDto | string; scorerPlayerRef: SeasonMatchPlayerDto | string | null; playerSeasonTeamRef: SeasonMatchTeamDto | string | null; goalType: SeasonGoalType; createdAt: string; }
-export interface SeasonMatchResponseDto { _id: string; seasonRef: string; matchNumber: number; roundNumber: number; stage: SeasonMatchStage; groupRef: string | null; kickoffAt: string; venueRef: VenueBriefDto | string; venue: string | null; homeSeasonTeamRef: SeasonMatchTeamDto | string; awaySeasonTeamRef: SeasonMatchTeamDto | string; status: SeasonMatchStatus; goals: SeasonGoalResponseDto[]; penaltyShootout: { status: ShootoutStatus; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: ShootoutKickResult }> } | null; winnerSeasonTeamRef: SeasonMatchTeamDto | string | null; notes: string | null; resolutionHistory: SeasonMatchResolutionDto[]; statusHistory: SeasonMatchStatusHistoryDto[]; correctionHistory: SeasonMatchCorrectionHistoryDto[]; createdAt: string; updatedAt: string; }
+export interface SeasonGoalResponseDto {
+  _id: string;
+  scoringSeasonTeamRef: SeasonMatchTeamDto | string;
+  scorerPlayerRef: SeasonMatchPlayerDto | string | null;
+  playerSeasonTeamRef: SeasonMatchTeamDto | string | null;
+  goalType: SeasonGoalType;
+  createdAt: string;
+}
+export interface SeasonMatchResponseDto {
+  _id: string;
+  seasonRef: string;
+  matchNumber: number;
+  roundNumber: number;
+  stage: SeasonMatchStage;
+  groupRef: string | null;
+  kickoffAt: string;
+  venueRef: VenueBriefDto | string;
+  venue: string | null;
+  homeSeasonTeamRef: SeasonMatchTeamDto | string;
+  awaySeasonTeamRef: SeasonMatchTeamDto | string;
+  status: SeasonMatchStatus;
+  goals: SeasonGoalResponseDto[];
+  penaltyShootout: {
+    status: ShootoutStatus;
+    homeTeamScore: number;
+    awayTeamScore: number;
+    kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: ShootoutKickResult }>;
+  } | null;
+  winnerSeasonTeamRef: SeasonMatchTeamDto | string | null;
+  notes: string | null;
+  resolutionHistory: SeasonMatchResolutionDto[];
+  statusHistory: SeasonMatchStatusHistoryDto[];
+  correctionHistory: SeasonMatchCorrectionHistoryDto[];
+  createdAt: string;
+  updatedAt: string;
+}

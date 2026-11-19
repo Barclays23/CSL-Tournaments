@@ -14,6 +14,8 @@ const sponsorSchema = new Schema<SponsorFields>({
   website: { type: String, default: null, trim: true },
   contactPerson: { type: String, default: null, select: false },
   contactMobile: { type: String, default: null, select: false },
+  email: { type: String, default: null, lowercase: true, trim: true, select: false },
+  displayOrder: { type: Number, default: 0 },
   status: { type: String, enum: ["active", "inactive"], default: "active" },
   notes: { type: String, default: null, select: false },
 }, { timestamps: true });

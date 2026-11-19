@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { nameBase, optionalMobile, optionalUrl } from "@/schemas/common.schema";
+import { nameBase, optionalEmail, optionalMobile, optionalUrl } from "@/schemas/common.schema";
 
 export const sponsorFormSchema = z.object({
   name: nameBase,
@@ -15,6 +15,8 @@ export const sponsorFormSchema = z.object({
     .max(80)
     .transform((value) => value || null),
   contactMobile: optionalMobile,
+  email: optionalEmail,
+  displayOrder: z.coerce.number().int().min(0).max(10000),
   notes: z
     .string()
     .trim()

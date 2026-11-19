@@ -1,5 +1,6 @@
 import type { Asset } from "@/types/api.types";
-import type { SeasonBriefDto, SeasonTeamBriefDto, SeasonPlayerPosition } from "@/types/season.types";
+import type { SeasonBriefDto, SeasonTeamBriefDto, SeasonPlayerPosition, AuctionLotStatus } from "@/types/season.types";
+import type { SeasonMatchStage, SeasonMatchStatus } from "@/types/seasonMatch.types";
 
 export interface SeasonStandingRow {
   position: number;
@@ -43,25 +44,25 @@ export interface SeasonTopScorers {
 export interface SeasonFixture {
   _id: string;
   matchNumber: number;
-  stage: string;
+  stage: SeasonMatchStage;
   kickoffAt: string;
-  status: string;
+  status: SeasonMatchStatus;
   home: SeasonTeamBriefDto;
   away: SeasonTeamBriefDto;
   homeScore: number;
   awayScore: number;
   winnerSeasonTeamRef: string | null;
-  penaltyShootout: { homeTeamScore: number; awayTeamScore: number; status: string } | null;
+  penaltyShootout: { homeTeamScore: number; awayTeamScore: number; status: "pending" | "completed" } | null;
 }
 
 export interface SeasonTeamDashboard {
   participates: boolean;
   season: SeasonBriefDto;
-  team: { _id: string; name: string; shortName: string | null; logo: unknown };
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null };
   seasonTeam: SeasonTeamBriefDto | null;
-  managers: Array<{ _id: string; name: string; role: string | null; profilePic: unknown }>;
+  managers: Array<{ _id: string; name: string; role: string | null; profilePic: Asset | null }>;
   squad: Array<{
-    player: { _id: string; name: string; profilePic: unknown };
+    player: { _id: string; name: string; profilePic: Asset | null };
     position: SeasonPlayerPosition;
     jerseyNo: number | null;
     purchasePrice: number | null;
@@ -77,7 +78,7 @@ export interface SeasonTeamDashboard {
     goalsConceded: number;
     goalDifference: number;
     cleanSheets: number;
-    topScorer: { player: { _id: string; name: string; profilePic: unknown }; goals: number } | null;
+    topScorer: { player: { _id: string; name: string; profilePic: Asset | null }; goals: number } | null;
   };
   recentFixtures: SeasonFixture[];
   upcomingFixtures: SeasonFixture[];
@@ -87,11 +88,8 @@ export interface PlayerHistory {
   player: {
     _id: string;
     name: string;
-    mobile: string | null;
-    email: string | null;
-    dateOfBirth: string | null;
-    profilePic: unknown;
-    status: string;
+    profilePic: Asset | null;
+    status: "active" | "inactive";
   };
   currentSeason: SeasonBriefDto | null;
   currentSeasonTeam: {
@@ -105,7 +103,7 @@ export interface PlayerHistory {
   } | null;
   auctionHistory: Array<{
     season: SeasonBriefDto;
-    status: string;
+    status: AuctionLotStatus;
     team: SeasonTeamBriefDto | null;
     position: SeasonPlayerPosition;
     jerseyNo: number | null;
@@ -116,7 +114,7 @@ export interface PlayerHistory {
   }>;
   teamMovementHistory: Array<{
     season: SeasonBriefDto;
-    status: string;
+    status: AuctionLotStatus;
     team: SeasonTeamBriefDto | null;
     position: SeasonPlayerPosition;
     jerseyNo: number | null;

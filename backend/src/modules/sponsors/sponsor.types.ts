@@ -13,6 +13,8 @@ export interface SponsorFields {
   website: string | null;
   contactPerson: string | null;
   contactMobile: string | null;
+  email: string | null;
+  displayOrder: number;
   status: SponsorStatus;
   notes: string | null;
 }
@@ -22,13 +24,6 @@ export interface SponsorEntity extends SponsorFields {
   createdAt: Date;
   updatedAt: Date;
 }
-
-
-
-
-
-
-
 
 export interface SponsorListFilter {
   status?: SponsorStatus;
@@ -41,7 +36,5 @@ export interface SponsorListResult {
 }
 
 export type { ISponsorRepository, ISponsorService, ISponsorController } from "./sponsor.interfaces.js";
-
 export type { PublicSponsorDTO, AdminSponsorDTO, SponsorResponseDTO } from "./sponsor.dto.js";
-
 export type { SponsorCreateData, SponsorUpdateData, SponsorQuery } from "./sponsor.dto.js";

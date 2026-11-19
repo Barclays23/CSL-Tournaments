@@ -13,12 +13,12 @@ export class SponsorRepository implements ISponsorRepository {
   ): Promise<SponsorListResult> {
     const mongoFilter: QueryFilter<SponsorRecord> = filter;
     let sponsorQuery = SponsorModel.find(mongoFilter)
-      .sort({ name: 1 })
+      .sort({ displayOrder: 1, name: 1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
     if (includePrivateFields) {
-      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +notes");
+      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +email +notes");
     }
 
     const [items, total] = await Promise.all([
@@ -32,7 +32,7 @@ export class SponsorRepository implements ISponsorRepository {
   async findSponsorById(sponsorId: string, includePrivateFields: boolean): Promise<SponsorEntity | null> {
     let sponsorQuery = SponsorModel.findById(sponsorId);
     if (includePrivateFields) {
-      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +notes");
+      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +email +notes");
     }
     return sponsorQuery.lean<SponsorEntity>().exec();
   }
@@ -55,7 +55,7 @@ export class SponsorRepository implements ISponsorRepository {
       { returnDocument: "after", runValidators: true },
     );
     if (includePrivateFields) {
-      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +notes");
+      sponsorQuery = sponsorQuery.select("+contactPerson +contactMobile +email +notes");
     }
     return sponsorQuery.lean<SponsorEntity>().exec();
   }

@@ -89,16 +89,16 @@ export interface SeasonMatch {
   homeSeasonTeamRef: SeasonMatchTeamRef;
   awaySeasonTeamRef: SeasonMatchTeamRef;
   status: SeasonMatchStatus;
-  resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
-  correctionHistory?: SeasonMatchCorrectionHistory[];
-  statusHistory?: Array<{
+  resolutionHistory: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
+  correctionHistory: SeasonMatchCorrectionHistory[];
+  statusHistory: Array<{
     fromStatus: SeasonMatchStatus;
     toStatus: SeasonMatchStatus;
     reason: string | null;
     changedBy: string;
     changedAt: string;
-    fromKickoffAt?: string | null;
-    toKickoffAt?: string | null;
+    fromKickoffAt: string | null;
+    toKickoffAt: string | null;
   }>;
   goals: SeasonMatchGoal[];
   penaltyShootout: {
@@ -121,9 +121,12 @@ export interface SeasonMatchQuery {
   page?: number;
   limit?: number;
   stage?: SeasonMatchStage;
-  groupRef?: string;
+  groupRef?: string | null;
   status?: SeasonMatchStatus;
   search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  seasonTeamRef?: string;
 }
 
 export interface SeasonMatchWrite {

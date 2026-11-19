@@ -62,6 +62,7 @@ export class SponsorService implements ISponsorService {
       tier: sponsor.tier,
       website: sponsor.website,
       status: sponsor.status,
+      displayOrder: sponsor.displayOrder,
     };
   }
 
@@ -70,6 +71,7 @@ export class SponsorService implements ISponsorService {
       ...this.mapSponsorToPublicDTO(sponsor),
       contactPerson: sponsor.contactPerson,
       contactMobile: sponsor.contactMobile,
+      email: sponsor.email,
       notes: sponsor.notes,
     };
   }
