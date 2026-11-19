@@ -53,7 +53,7 @@ export interface AuctionTeamSummaryDto {
   teamId: string;
   displayName: string;
   logoSnapshot: Asset | null;
-  status: string;
+  status: SeasonTeamStatus;
   budget: number;
   playersSigned: number;
   remainingSlots: number;
@@ -69,7 +69,7 @@ export interface AuctionSummaryDto {
     _id: string;
     name: string;
     year: number;
-    status: string;
+    status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
   };
   totals: {
