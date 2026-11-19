@@ -8,6 +8,7 @@ seasonMatchRouter.get("/:matchId", seasonMatchController.get);
 seasonMatchRouter.post("/", authenticate, requireAdmin, seasonMatchController.create);
 seasonMatchRouter.patch("/:matchId", authenticate, requireAdmin, seasonMatchController.update);
 seasonMatchRouter.patch("/:matchId/reschedule", authenticate, requireAdmin, seasonMatchController.reschedule);
+seasonMatchRouter.post("/:matchId/corrections", authenticate, requireAdmin, seasonMatchController.correctCompleted);
 seasonMatchRouter.delete("/:matchId", authenticate, requireAdmin, seasonMatchController.delete);
 seasonMatchRouter.post("/:matchId/goals", authenticate, requireAdmin, seasonMatchController.addGoal);
 seasonMatchRouter.patch("/:matchId/goals/:goalId", authenticate, requireAdmin, seasonMatchController.updateGoal);
