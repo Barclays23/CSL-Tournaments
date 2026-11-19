@@ -7,7 +7,7 @@ import {
   calculateMockCompletedWinner,
 } from "./matchLifecycleRules.ts";
 
-const failure = (status: number, message: string, errorCode?: string, details?: Record<string, unknown>): never => {
+const failure = (status: number, message: string, errorCode?: string, details?: Record<string, string>): never => {
   throw Object.assign(new Error(message), { status, errorCode, details });
 };
 const isMockError = (error: unknown, status: number, errorCode: string): boolean =>
