@@ -76,6 +76,14 @@ export class SeasonMatchService implements ISeasonMatchService{
   this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
   const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(["completed","archived"].includes(season.status))throw new AppError("Completed or archived season matches are read-only",409,"SEASON_CLOSED");
+  const nextStatus=input.status??existing.status;
+  if(existing.status==="postponed"&&(nextStatus==="scheduled"||input.kickoffAt!==undefined)){
+   throw new AppError("Postponed matches can only be returned to Scheduled through the reschedule operation with a new kickoff date and time",409,"MATCH_RESCHEDULE_REQUIRED");
+  }
+  if(statusPostponementDateChanged(existing.status,nextStatus,input.kickoffAt,existing.kickoffAt)){
+   throw new AppError("The original kickoff date must be preserved when postponing. Use the dedicated reschedule operation to set a new date and time.",422,"POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED");
+  }
+  assertMatchStatusTransition(existing.status,nextStatus);
   const fixtureDetailFields=["matchNumber","roundNumber","stage","groupRef","kickoffAt","venueRef","homeSeasonTeamRef","awaySeasonTeamRef","notes","penaltyShootout"] as const;
   const isFixtureDetailsEdit=fixtureDetailFields.some((field)=>input[field]!==undefined);
   const existingCards=(existing as SeasonMatchEntity&{cards?:unknown[]}).cards??[];
@@ -87,14 +95,6 @@ export class SeasonMatchService implements ISeasonMatchService{
     throw new AppError("Match details cannot be edited after goals or cards have been recorded.",409,"MATCH_HAS_EVENTS");
    }
   }
-  const nextStatus=input.status??existing.status;
-  if(existing.status==="postponed"&&(nextStatus==="scheduled"||input.kickoffAt!==undefined)){
-   throw new AppError("Postponed matches can only be returned to Scheduled through the reschedule operation with a new kickoff date and time",409,"MATCH_RESCHEDULE_REQUIRED");
-  }
-  if(statusPostponementDateChanged(existing.status,nextStatus,input.kickoffAt,existing.kickoffAt)){
-   throw new AppError("The original kickoff date must be preserved when postponing. Use the dedicated reschedule operation to set a new date and time.",422,"POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED");
-  }
-  assertMatchStatusTransition(existing.status,nextStatus);
   if(existing.status==="live"&&nextStatus==="scheduled"&&(existing.goals??[]).length>0){
    throw new AppError("Remove all recorded goal events before reverting this Live match to Scheduled.",409,"MATCH_HAS_GOALS",{goals:"Delete every recorded goal event first"});
   }
