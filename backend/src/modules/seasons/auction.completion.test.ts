@@ -32,3 +32,8 @@ test("auction completion accepts a resolved and valid roster", () => {
   const blockers = getAuctionCompletionBlockers(settings, teams, [lot("team-a"), lot("team-b"), { ...lot("", { auctionStatus: "unsold", seasonTeamRef: null }), purchasePrice: null }]);
   assert.deepEqual(blockers, []);
 });
+
+test("auction completion rejects inconsistent configuration settings", () => {
+  const blockers = getAuctionCompletionBlockers({ ...settings, iconPlayerLimit: 4 }, teams, [lot("team-a"), lot("team-b")]);
+  assert.ok(blockers.some((message) => message.includes("Icon Player limit")));
+});
