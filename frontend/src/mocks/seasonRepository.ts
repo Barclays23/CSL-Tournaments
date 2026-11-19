@@ -9,6 +9,11 @@ import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, Mock
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 import { createMockObjectId } from "@/mocks/objectId";
+import {
+  assertMockGoalManagementAllowed,
+  assertMockStatusTransition,
+  calculateMockCompletedWinner,
+} from "@/mocks/matchLifecycleRules";
 
 const newId = () => createMockObjectId();
 const now = () => new Date().toISOString();
@@ -138,9 +143,7 @@ function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: 
 }
 
 function assertLiveMatch(match: MockSeasonMatch): void {
-  if (match.status !== "live") {
-    fail(409, "Goals can only be added, edited or removed while the match is Live.");
-  }
+  assertMockGoalManagementAllowed(match.status, fail);
 }
 
 function assertNoOtherLiveMatch(
@@ -490,21 +493,10 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
 
-    const transitions: Record<MockSeasonMatch["status"], MockSeasonMatch["status"][]> = {
-      scheduled: ["live", "postponed", "cancelled"],
-      live: ["completed", "scheduled", "postponed", "abandoned"],
-      postponed: ["scheduled", "cancelled"],
-      completed: [],
-      cancelled: [],
-      abandoned: [],
-    };
     const nextStatus = input.status;
+    assertMockStatusTransition(match.status, nextStatus, fail);
     if (match.status === "live" && nextStatus === "scheduled" && match.goals.length > 0) {
       fail(409, "Remove all recorded goal events before reverting this Live match to Scheduled.", "MATCH_HAS_GOALS");
-    }
-    if (match.status !== nextStatus && !transitions[match.status].includes(nextStatus)) {
-      const allowed = transitions[match.status].join(", ") || "none";
-      fail(409, `Cannot change match status from ${match.status} to ${nextStatus}. Allowed next statuses: ${allowed}.`);
     }
     if (nextStatus === "live") {
       assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
@@ -820,24 +812,7 @@ export const seasonPreviewRepository = {
     return ok("Goal deleted", populatedSeasonMatch(db, match));
   },
   recalculateMockWinner(season: MockSeason, match: MockSeasonMatch) {
-    if (match.status !== "completed") { match.winnerSeasonTeamRef = null; return; }
-    const homeScore = matchScore(match, match.homeSeasonTeamRef);
-    const awayScore = matchScore(match, match.awaySeasonTeamRef);
-    if (match.stage === "group") {
-      if (homeScore === awayScore && season.matchRules?.groupStageDrawAllowed === false) fail(422, "Draws are not allowed by this season's group-stage rules");
-      match.winnerSeasonTeamRef = homeScore === awayScore ? null : homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
-      return;
-    }
-    if (homeScore === awayScore) {
-      if (season.matchRules?.knockoutDrawRequiresShootout && (!match.penaltyShootout || match.penaltyShootout.status !== "completed" || match.penaltyShootout.homeTeamScore === match.penaltyShootout.awayTeamScore)) {
-        fail(422, "A tied completed knockout match requires a completed penalty shootout");
-      }
-      match.winnerSeasonTeamRef = match.penaltyShootout && match.penaltyShootout.homeTeamScore !== match.penaltyShootout.awayTeamScore
-        ? (match.penaltyShootout.homeTeamScore > match.penaltyShootout.awayTeamScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef) : null;
-      return;
-    }
-    if (match.penaltyShootout) fail(422, "A shootout is only allowed when normal-time scores are tied");
-    match.winnerSeasonTeamRef = homeScore > awayScore ? match.homeSeasonTeamRef : match.awaySeasonTeamRef;
+    match.winnerSeasonTeamRef = calculateMockCompletedWinner(match, season, fail);
   },
   async getVenue(id: string) {
     const db = readSeasonDb();
