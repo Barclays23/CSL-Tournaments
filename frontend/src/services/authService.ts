@@ -29,6 +29,6 @@ export function getCurrentUser() {
   return run(() =>
     USE_MOCK_API
       ? previewRepository.me()
-      : api.get<ApiResponse<AdminUser>>("/auth/me").then((response) => response.data),
+      : api.get<ApiResponse<AdminUser | null>>("/auth/me").then((response) => response.data),
   );
 }
