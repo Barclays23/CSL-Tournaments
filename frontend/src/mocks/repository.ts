@@ -141,11 +141,15 @@ function presentSponsor(sponsor: StoredSponsor, admin: boolean): PublicSponsor |
     tier: sponsor.tier,
     website: sponsor.website,
     status: sponsor.status,
-    displayOrder: sponsor.displayOrder ?? 0,\n  };\n  if (!admin) return base;
+    displayOrder: sponsor.displayOrder ?? 0,
+  };
+  if (!admin) return base;
   return {
     ...base,
     contactPerson: sponsor.contactPerson,
-    contactMobile: sponsor.contactMobile,\n    email: sponsor.email ?? null,\n    notes: sponsor.notes,
+    contactMobile: sponsor.contactMobile,
+    email: sponsor.email ?? null,
+    notes: sponsor.notes,
   };
 }
 
@@ -694,7 +698,10 @@ export const previewRepository = {
   async deleteManager(id: string) {
     requireAdmin();
     const seasonDb = readSeasonDb();
-    if (seasonDb.seasonTeams.some((team) => team.managerRefs.includes(id))) {\n      fail(409, "This manager has season-team assignments. Remove those assignments first or deactivate the manager to preserve season history.");\n    }\n    const db = readDb();
+    if (seasonDb.seasonTeams.some((team) => team.managerRefs.includes(id))) {
+      fail(409, "This manager has season-team assignments. Remove those assignments first or deactivate the manager to preserve season history.");
+    }
+    const db = readDb();
     const before = db.managers.length;
     db.managers = db.managers.filter((manager) => manager._id !== id);
     if (db.managers.length === before) fail(404, "Manager not found");
@@ -710,7 +717,7 @@ export const previewRepository = {
       items = items.filter((sponsor) => sponsor.name.toLowerCase().includes(needle));
     }
     if (admin && query.status) items = items.filter((sponsor) => sponsor.status === query.status);
-    items.sort((a, b) => a.name.localeCompare(b.name));
+    items.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
     const page = paginate(items, query.page ?? 1, query.limit ?? 12);
     return ok(
       "Sponsors loaded",
@@ -728,7 +735,10 @@ export const previewRepository = {
       tier: input.tier?.trim() || null,
       website: input.website?.trim() || null,
       contactPerson: input.contactPerson?.trim() || null,
-      contactMobile: input.contactMobile || null,\n      email: input.email?.trim().toLowerCase() || null,\n      displayOrder: input.displayOrder ?? 0,\n      notes: input.notes?.trim() || null,
+      contactMobile: input.contactMobile || null,
+      email: input.email?.trim().toLowerCase() || null,
+      displayOrder: input.displayOrder ?? 0,
+      notes: input.notes?.trim() || null,
       status: input.status,
     };
     db.sponsors.push(sponsor);
@@ -748,7 +758,10 @@ export const previewRepository = {
       tier: input.tier?.trim() || null,
       website: input.website?.trim() || null,
       contactPerson: input.contactPerson?.trim() || null,
-      contactMobile: input.contactMobile || null,\n      email: input.email?.trim().toLowerCase() || null,\n      displayOrder: input.displayOrder ?? current.displayOrder ?? 0,\n      notes: input.notes?.trim() || null,
+      contactMobile: input.contactMobile || null,
+      email: input.email?.trim().toLowerCase() || null,
+      displayOrder: input.displayOrder ?? current.displayOrder ?? 0,
+      notes: input.notes?.trim() || null,
       status: input.status,
     };
     db.sponsors[index] = sponsor;
