@@ -110,7 +110,7 @@ export function SeasonConfigurationFields({
   auctionLocked = false,
   matchRulesLocked = false,
 }: Props) {
-  const identityDisabled = disabled || (mode === "edit" && identityLocked);
+  const editionDisabled = disabled || (mode === "edit" && identityLocked);
   const auctionDisabled = disabled || (mode === "edit" && auctionLocked);
   const matchDisabled = disabled || (mode === "edit" && matchRulesLocked);
 
@@ -118,13 +118,13 @@ export function SeasonConfigurationFields({
     <div className="grid gap-4">
       <Section icon={CalendarDays} title="Season details" description="The identity and schedule of this season edition.">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <NumberField label="Edition number" value={value.seasonNumber} min={1} required disabled={identityDisabled}
+          <NumberField label="Edition number" value={value.seasonNumber} min={1} required disabled={editionDisabled}
             onChange={(next) => onChange("seasonNumber", next)} />
-          <NumberField label="Season year" value={value.year} min={2000} max={2200} required disabled={identityDisabled}
+          <NumberField label="Season year" value={value.year} min={2000} max={2200} required disabled={editionDisabled}
             onChange={(next) => onChange("year", next)} />
           <label className="block min-w-0 text-sm text-fg sm:col-span-2 lg:col-span-1">
             Season name
-            <Input className="mt-1.5" required minLength={2} maxLength={100} disabled={identityDisabled}
+            <Input className="mt-1.5" required minLength={2} maxLength={100} disabled={disabled}
               value={value.name} onChange={(event) => onChange("name", event.target.value)} />
           </label>
           <label className="block min-w-0 text-sm text-fg">
@@ -138,7 +138,7 @@ export function SeasonConfigurationFields({
               onChange={(event) => onChange("endDate", event.target.value)} />
           </label>
         </div>
-        {mode === "edit" && identityLocked ? <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-xs text-muted">Edition number and year are locked because this season has left Draft or has dependent setup records.</p> : null}
+        {mode === "edit" && identityLocked ? <p className="mt-3 rounded-lg bg-surface px-3 py-2 text-xs text-muted">Edition number and year are locked because this season has left Draft or has registered teams, groups, auction lots or fixtures. The season name remains editable until activation.</p> : null}
       </Section>
 
       <Section icon={Flag} title="Competition format" description="Choose how the competition is structured and how often teams can meet.">
