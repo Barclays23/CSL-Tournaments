@@ -232,11 +232,11 @@ export class SeasonMatchRepository {
         || next.roundNumber !== current.roundNumber;
       if (pairChanged) await this.assertPairRules(next, homeAndAway, id, session);
 
-      const filter = {
+      const filter: mongoose.FilterQuery<SeasonMatchFields> = {
         _id: new Types.ObjectId(id),
         seasonRef: existing.seasonRef,
         ...(options?.requireEditableWithoutEvents
-          ? { status: statusAudit ? statusAudit.expectedStatus : { $in: ["scheduled", "live"] } }
+          ? { status: statusAudit ? statusAudit.expectedStatus : { $in: ["scheduled", "live"] as SeasonMatchFields["status"][] } }
           : statusAudit ? { status: statusAudit.expectedStatus } : {}),
         ...(statusAudit?.requireNoGoals || options?.requireEditableWithoutEvents ? { goals: { $size: 0 } } : {}),
         ...(options?.requireEditableWithoutEvents
