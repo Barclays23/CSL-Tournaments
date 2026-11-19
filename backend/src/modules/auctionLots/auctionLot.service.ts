@@ -7,14 +7,14 @@ import type {IAuctionLotService} from "./auctionLot.interfaces.js";
 import {AuctionLotModel} from "./auctionLot.model.js";
 import {AuctionLotRepository} from "./auctionLot.repository.js";
 import type {NominatePlayerDto,SellAuctionLotDto,UpdateAuctionLotStatusDto,UpdateAuctionLotDto,AuctionLotResponseDto,AuctionSummaryDto,AuctionTeamSummaryDto,AuctionLotsQueryDto} from "./auctionLot.dto.js";
-import type {AuctionLotEntity,AuctionLotFields} from "./auctionLot.types.js";
+import type {AuctionLotEntity,AuctionLotFields,PopulatedAuctionLotEntity,PopulatedAuctionLotTeam} from "./auctionLot.types.js";
 export class AuctionLotService implements IAuctionLotService{
  constructor(private readonly lots:AuctionLotRepository){}
  async summary(seasonId:string):Promise<AuctionSummaryDto>{
   this.id(seasonId);const season=await SeasonModel.findById(seasonId).lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const auctionSettings=season.auctionSettings;
-  const [teams,lots]=await Promise.all([SeasonTeamModel.find({seasonRef:season._id}).populate({path:"teamRef",select:"name"}).lean().exec(),this.lots.find({seasonRef:new Types.ObjectId(seasonId)})]);
+  const [teams,lots]=await Promise.all([SeasonTeamModel.find({seasonRef:season._id}).populate({path:"teamRef",select:"name logo"}).lean<Array<Omit<import("../seasonTeams/seasonTeam.types.js").SeasonTeamEntity,"teamRef"> & {teamRef:Types.ObjectId|PopulatedAuctionLotTeam}>>().exec(),this.lots.find({seasonRef:new Types.ObjectId(seasonId)})]);
   const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&l.auctionStatus==="sold");const spent=teamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.name:st.displayName,logoSnapshot:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.logo:st.logoSnapshot,status:st.status,budget:auctionSettings.budgetPerTeam,playersSigned:teamLots.length,remainingSlots:auctionSettings.teamSquadSize-teamLots.length,totalSpent:spent,balance:auctionSettings.budgetPerTeam-spent,averagePrice:teamLots.length?spent/teamLots.length:0,iconCount:teamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:teamLots.filter(l=>l.isGoalkeeper).length,lots:teamLots.map(l=>this.map(l))};});
   return {season:{_id:String(season._id),name:season.name,year:season.year,status:season.status,auctionSettings:season.auctionSettings},totals:{participatingTeams:teams.length,lots:lots.length,sold:lots.filter(l=>l.auctionStatus==="sold").length,pending:lots.filter(l=>l.auctionStatus==="pending").length,unsold:lots.filter(l=>l.auctionStatus==="unsold").length,withdrawn:lots.filter(l=>l.auctionStatus==="withdrawn").length,totalSoldValue:lots.filter(l=>l.auctionStatus==="sold").reduce((s,l)=>s+(l.purchasePrice??0),0)},teams:summaries,lots:lots.map(l=>this.map(l))};
  }
@@ -167,11 +167,18 @@ export class AuctionLotService implements IAuctionLotService{
   const populated=await this.lots.findPopulatedById(String(savedLot._id));
   return this.map(populated??savedLot);
  }
- private map(l:AuctionLotEntity):AuctionLotResponseDto{
-  const player=l.playerRef as unknown as {_id?:Types.ObjectId;name?:string;profilePic?:unknown}|Types.ObjectId;
-  const seasonTeam=l.seasonTeamRef as unknown as {_id?:Types.ObjectId;displayName?:string;teamRef?:{_id:Types.ObjectId;name:string;shortName:string|null;logo:unknown}|Types.ObjectId}|Types.ObjectId|null;
-  const teamData=seasonTeam&&!(seasonTeam instanceof Types.ObjectId)&&seasonTeam.displayName?{_id:String(seasonTeam._id),displayName:seasonTeam.teamRef&&!(seasonTeam.teamRef instanceof Types.ObjectId)?seasonTeam.teamRef.name:seasonTeam.displayName,team:seasonTeam.teamRef&&!(seasonTeam.teamRef instanceof Types.ObjectId)?{_id:String(seasonTeam.teamRef._id),name:seasonTeam.teamRef.name,shortName:seasonTeam.teamRef.shortName,logo:seasonTeam.teamRef.logo}:null}:null;
-  const playerData=player instanceof Types.ObjectId?String(player):player.name?{_id:String(player._id),name:player.name,profilePic:player.profilePic}:String(player._id);
+ private map(l:AuctionLotEntity|PopulatedAuctionLotEntity):AuctionLotResponseDto{
+  const player=l.playerRef;
+  const populatedPlayer=player instanceof Types.ObjectId?null:player;
+  const seasonTeam=l.seasonTeamRef;
+  const populatedSeasonTeam=seasonTeam&&!(seasonTeam instanceof Types.ObjectId)?seasonTeam:null;
+  const populatedTeam=populatedSeasonTeam?.teamRef&&!(populatedSeasonTeam.teamRef instanceof Types.ObjectId)?populatedSeasonTeam.teamRef:null;
+  const teamData=populatedSeasonTeam?{
+   _id:String(populatedSeasonTeam._id),
+   displayName:populatedTeam?.name??populatedSeasonTeam.displayName,
+   team:populatedTeam?{_id:String(populatedTeam._id),name:populatedTeam.name,shortName:populatedTeam.shortName,logo:populatedTeam.logo}:null,
+  }:null;
+  const playerData=populatedPlayer?{_id:String(populatedPlayer._id),name:populatedPlayer.name,profilePic:populatedPlayer.profilePic}:String(player);
   return {_id:String(l._id),seasonRef:String(l.seasonRef),seasonTeamRef:teamData??(seasonTeam?this.refId(seasonTeam):null),playerRef:playerData,lotNumber:l.lotNumber,auctionStatus:l.auctionStatus,purchasePrice:l.purchasePrice,playerPosition:l.playerPosition,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper,jerseyNo:l.jerseyNo,nominatedAt:l.nominatedAt?.toISOString()??null,soldAt:l.soldAt?.toISOString()??null};
  }
  private refId(value:unknown):string{const v=value as {_id?:unknown};return String(v&&typeof v==="object"&&v._id?v._id:value);}
