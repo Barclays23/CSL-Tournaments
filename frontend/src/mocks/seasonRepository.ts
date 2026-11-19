@@ -1132,6 +1132,7 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, id);
     if (season.status !== "active") fail(409, "Only an Active season can be completed");
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "The auction must be completed before completing the season.", "AUCTION_NOT_COMPLETED");
     const matches = db.matches.filter((match) => match.seasonRef === id);
     const blockers = matches.filter((match) => match.status !== "completed");
     if (blockers.length) fail(422, blockers.map((match) => "Match " + match.matchNumber + " is " + match.status).join("; "));
