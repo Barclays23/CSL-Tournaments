@@ -41,7 +41,7 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
     const team=teamRef&&!(teamRef instanceof Types.ObjectId)?teamRef:null;
     if(team)goalTeamByPlayer.set(id,{
      _id:String(goalTeam._id),teamId:String(team._id),displayName:goalTeam.displayName,
-     shortName:team.shortName,logo:goalTeam.logoSnapshot,groupRef:null,groupName:null
+     shortName:team.shortName,logo:(goalTeam.logoSnapshot as Asset | null) ?? null,groupRef:null,groupName:null
     });
    }
   }
