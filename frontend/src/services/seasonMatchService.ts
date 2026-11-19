@@ -2,7 +2,7 @@ import { USE_MOCK_API } from "@/config/env";
 import { seasonPreviewRepository } from "@/mocks/seasonRepository";
 import { api, run } from "@/services/api";
 import type { ApiResponse, Pagination } from "@/types/api.types";
-import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
+import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchWrite, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
 
 export function getSeasonGroups(seasonId: string) {
   return run(() =>
@@ -106,6 +106,13 @@ export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId:
       ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId)
       : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`).then((response) => response.data),
   );
+}
+
+export function correctCompletedSeasonMatch(seasonId: string, matchId: string, data: SeasonMatchCorrectionWrite) {
+  return run(() => api.post<ApiResponse<SeasonMatch>>(
+    `/seasons/${seasonId}/matches/${matchId}/corrections`,
+    data,
+  ).then((response) => response.data));
 }
 
 export interface SeasonMatchStatusWrite {
