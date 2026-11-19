@@ -114,6 +114,9 @@ export class SeasonAwardService implements ISeasonAwardService {
       const team = await this.repository.findSeasonTeam(seasonId, recipient.seasonTeamId);
       if (!team) throw new AppError("Every award recipient must reference a SeasonTeam from this season", 422, "INVALID_AWARD_SEASON_TEAM");
       if (!ELIGIBLE_TEAM_STATUSES.has(team.status)) throw new AppError("Award recipients must belong to an eligible participating team", 422, "INELIGIBLE_AWARD_TEAM");
+      const populatedTeam = team.teamRef instanceof Types.ObjectId ? null : team.teamRef;
+      const teamName = populatedTeam?.name ?? team.displayName;
+      const teamLogo = populatedTeam?.logo ?? team.logoSnapshot ?? null;
       const playerId = recipient.playerId ?? null;
       if (playerId) {
         const player = await this.repository.findPlayerForSeasonTeam(seasonId, recipient.seasonTeamId, playerId);
@@ -124,18 +127,18 @@ export class SeasonAwardService implements ISeasonAwardService {
           playerRef: new Types.ObjectId(playerId),
           displayNameSnapshot: player.name,
           profileImageSnapshot: player.profilePic ?? null,
-          teamNameSnapshot: team.teamRef?.name ?? team.displayName,
-          teamLogoSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
+          teamNameSnapshot: teamName,
+          teamLogoSnapshot: teamLogo,
         });
       } else {
         results.push({
           recipientType: "season_team" as const,
           seasonTeamRef: new Types.ObjectId(recipient.seasonTeamId),
           playerRef: null,
-          displayNameSnapshot: team.teamRef?.name ?? team.displayName,
-          profileImageSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
-          teamNameSnapshot: team.teamRef?.name ?? team.displayName,
-          teamLogoSnapshot: team.teamRef?.logo ?? team.logoSnapshot ?? null,
+          displayNameSnapshot: teamName,
+          profileImageSnapshot: teamLogo,
+          teamNameSnapshot: teamName,
+          teamLogoSnapshot: teamLogo,
         });
       }
     }
