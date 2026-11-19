@@ -11,6 +11,7 @@ import { ApiError } from "@/utils/errorHandler";
 import { createMockObjectId } from "@/mocks/objectId";
 import {
   assertMockGoalManagementAllowed,
+  assertMockShootoutScore,
   assertMockStatusTransition,
   calculateMockCompletedWinner,
 } from "@/mocks/matchLifecycleRules";
