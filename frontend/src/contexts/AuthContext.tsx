@@ -50,8 +50,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onUnauthorized = () => {
-      setUser(null);
       if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
+        setUser(null);
+        toast.error("Your admin session has expired. Please log in again.");
         void navigate({ to: "/admin/login", replace: true });
       }
     };
