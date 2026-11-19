@@ -21,11 +21,25 @@ export interface CorrectCompletedMatchDto {
   goals: SeasonGoalDto[];
   penaltyShootout: CreateSeasonMatchDto["penaltyShootout"];
 }
+export interface SeasonMatchCorrectionGoalDto {
+  _id: string;
+  scoringSeasonTeamRef: string;
+  scorerPlayerRef: string | null;
+  playerSeasonTeamRef: string | null;
+  goalType: SeasonGoalType;
+  createdAt: string;
+}
+export interface SeasonMatchCorrectionShootoutDto {
+  status: ShootoutStatus;
+  homeTeamScore: number;
+  awayTeamScore: number;
+  kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: ShootoutKickResult }>;
+}
 export interface SeasonMatchCorrectionResultDto {
   homeScore: number;
   awayScore: number;
-  goals: SeasonGoalResponseDto[];
-  penaltyShootout: CreateSeasonMatchDto["penaltyShootout"];
+  goals: SeasonMatchCorrectionGoalDto[];
+  penaltyShootout: SeasonMatchCorrectionShootoutDto | null;
   winnerSeasonTeamRef: string | null;
 }
 export interface SeasonMatchCorrectionHistoryDto {
