@@ -314,8 +314,8 @@ export class SeasonService implements ISeasonService {
     }
   }
 
-  private async validateReadiness(season: SeasonEntity, requireAuctionClosed = false): Promise<void> {
-    if (requireAuctionClosed && season.auctionLifecycleStatus !== "completed") {
+  private async validateReadiness(season: SeasonEntity, requireAuctionCompleted = false): Promise<void> {
+    if (requireAuctionCompleted && season.auctionLifecycleStatus !== "completed") {
       throw new AppError("Complete the auction before activating this season", 409, "AUCTION_NOT_COMPLETED", {
         auction: "Open the Auctions page, resolve every Pending lot, check all team roster limits, and complete the auction",
       });
