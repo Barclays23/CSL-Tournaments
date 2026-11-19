@@ -553,7 +553,9 @@ export const previewRepository = {
       createdAt: timestamp,
       updatedAt: timestamp,
     };
-    const seasonTeam: MockTeam = { ...team, __v: 0 };
+    // The primary Team store owns uploaded image data. Keep the season copy lean;
+    // season views resolve logo/poster from that permanent Team record.
+    const seasonTeam: MockTeam = { ...team, logo: null, poster: null, __v: 0 };
 
     db.teams.push(team);
     seasonDb.teams.push(seasonTeam);
@@ -587,13 +589,13 @@ export const previewRepository = {
       seasonTeamMaster.name = team.name;
       seasonTeamMaster.shortName = team.shortName;
       seasonTeamMaster.description = team.description;
-      seasonTeamMaster.logo = team.logo;
-      seasonTeamMaster.poster = team.poster;
+      seasonTeamMaster.logo = null;
+      seasonTeamMaster.poster = null;
       seasonTeamMaster.status = team.status;
       seasonTeamMaster.updatedAt = team.updatedAt;
     } else {
       // Backfill the season mock copy when editing a Team created by an older preview version.
-      seasonDb.teams.push({ ...team, __v: 0 });
+      seasonDb.teams.push({ ...team, logo: null, poster: null, __v: 0 });
     }
     const affectedSeasonTeamIds = new Set<string>();
     for (const seasonTeam of seasonDb.seasonTeams) {
@@ -606,7 +608,8 @@ export const previewRepository = {
       for (const recipient of award.recipients) {
         if (!affectedSeasonTeamIds.has(recipient.seasonTeamRef)) continue;
         recipient.teamNameSnapshot = team.name;
-        recipient.teamLogoSnapshot = team.logo;
+        // Logo data is resolved from the permanent Team when the award is read.
+        recipient.teamLogoSnapshot = null;
       }
     }
     commit(db);

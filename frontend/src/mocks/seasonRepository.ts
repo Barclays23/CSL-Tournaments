@@ -29,6 +29,9 @@ function presentAward(db: SeasonMockDatabase, award: MockSeasonAward): SeasonAwa
       return {
         ...recipient,
         teamNameSnapshot: team?.name ?? recipient.teamNameSnapshot,
+        profileImageSnapshot: recipient.playerRef
+          ? db.players.find((player) => player._id === recipient.playerRef)?.profilePic ?? recipient.profileImageSnapshot
+          : recipient.profileImageSnapshot,
         teamLogoSnapshot: team?.logo ?? recipient.teamLogoSnapshot,
       };
     }),
@@ -386,7 +389,7 @@ export const seasonPreviewRepository = {
       if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold"))) fail(422,"Player is not rostered for this SeasonTeam");
       if(["champions","runner_up"].includes(input.awardType)&&(input.recipients.length!==1||player)) fail(422,"Team awards require exactly one SeasonTeam");
       if(!["champions","runner_up","special"].includes(input.awardType)&&!player) fail(422,"This award requires a player recipient");
-      return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??currentTeam.name,profileImageSnapshot:player?.profilePic??currentTeam.logo,teamNameSnapshot:currentTeam.name,teamLogoSnapshot:currentTeam.logo};
+      return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??currentTeam.name,profileImageSnapshot:null,teamNameSnapshot:currentTeam.name,teamLogoSnapshot:null};
     });
     if(!recipients.length||recipients.length>20) fail(422,"An award must have one to twenty recipients");
     if(new Set(recipients.map((r)=>r.playerRef?r.seasonTeamRef+":"+r.playerRef:r.seasonTeamRef+":team")).size!==recipients.length) fail(422,"Duplicate award recipients are not allowed");
@@ -414,7 +417,7 @@ export const seasonPreviewRepository = {
         if(item.playerId&&(!player||!db.auctionLots.some((lot)=>lot.seasonRef===seasonId&&lot.seasonTeamRef===st._id&&lot.playerRef===player._id&&lot.auctionStatus==="sold")))fail(422,"Player is not rostered for this SeasonTeam");
         if(["champions","runner_up"].includes(nextType)&&(input.recipients!.length!==1||player))fail(422,"Team awards require exactly one SeasonTeam");
         if(!["champions","runner_up","special"].includes(nextType)&&!player)fail(422,"This award requires a player recipient");
-        return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??currentTeam.name,profileImageSnapshot:player?.profilePic??currentTeam.logo,teamNameSnapshot:currentTeam.name,teamLogoSnapshot:currentTeam.logo};
+        return {_id:newId(),recipientType:player?"player" as const:"season_team" as const,seasonTeamRef:st._id,playerRef:player?._id??null,displayNameSnapshot:player?.name??currentTeam.name,profileImageSnapshot:null,teamNameSnapshot:currentTeam.name,teamLogoSnapshot:null};
       });
       if(new Set(replacement.map((r)=>r.playerRef?r.seasonTeamRef+":"+r.playerRef:r.seasonTeamRef+":team")).size!==replacement.length)fail(422,"Duplicate award recipients are not allowed");
       if(["champions","runner_up"].includes(nextType)){const other=db.awards.find((a)=>a.seasonRef===seasonId&&a._id!==awardId&&["champions","runner_up"].includes(a.awardType));if(other?.recipients[0]?.seasonTeamRef===replacement[0].seasonTeamRef)fail(422,"Champion and Runner-up must be different teams");}
@@ -1044,10 +1047,12 @@ export const seasonPreviewRepository = {
       // Backfill the season mock's Team copy for permanent Teams created by older
       // preview versions. SeasonTeam keeps the permanent Team ID as its reference.
       if (!db.teams.some((item) => item._id === teamId)) {
-        db.teams.push({ ...team });
+        db.teams.push({ ...team, logo: null, poster: null });
       }
 
-      return { _id: newId(), seasonRef: id, teamRef: teamId, displayName: team.name, logoSnapshot: team.logo, groupRef: null, managerRefs: [], status: "registered" as const, createdAt: now(), updatedAt: now() };
+      // The primary Team owns the uploaded image. The SeasonTeam stores its Team
+      // reference and display snapshot metadata without another Base64 image copy.
+      return { _id: newId(), seasonRef: id, teamRef: teamId, displayName: team.name, logoSnapshot: null, groupRef: null, managerRefs: [], status: "registered" as const, createdAt: now(), updatedAt: now() };
     });
     db.seasonTeams.push(...additions);
     commitSeasonDb(db);
