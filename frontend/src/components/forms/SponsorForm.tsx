@@ -35,6 +35,8 @@ export function SponsorForm({
       website: sponsor?.website ?? "",
       contactPerson: admin?.contactPerson ?? "",
       contactMobile: admin?.contactMobile ?? "",
+      email: admin?.email ?? "",
+      displayOrder: sponsor?.displayOrder ?? 0,
       notes: admin?.notes ?? "",
       status: sponsor?.status ?? "active",
     },
@@ -55,9 +57,14 @@ export function SponsorForm({
       <FormField label="Name" required error={form.formState.errors.name?.message}>
         <Input {...form.register("name")} />
       </FormField>
-      <FormField label="Tier" error={form.formState.errors.tier?.message}>
-        <Input {...form.register("tier")} placeholder="Gold" />
-      </FormField>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField label="Tier" error={form.formState.errors.tier?.message}>
+          <Input {...form.register("tier")} placeholder="Gold" />
+        </FormField>
+        <FormField label="Display order" hint="Lower numbers appear first." error={form.formState.errors.displayOrder?.message}>
+          <Input type="number" min="0" {...form.register("displayOrder")} />
+        </FormField>
+      </div>
       <FormField label="Website" error={form.formState.errors.website?.message}>
         <Input {...form.register("website")} placeholder="https://" />
       </FormField>
@@ -66,7 +73,10 @@ export function SponsorForm({
           <Input {...form.register("contactPerson")} />
         </FormField>
         <FormField label="Contact mobile" error={form.formState.errors.contactMobile?.message}>
-          <Input {...form.register("contactMobile")} />
+          <Input {...form.register("contactMobile")} inputMode="tel" />
+        </FormField>
+        <FormField label="Contact email" error={form.formState.errors.email?.message}>
+          <Input type="email" {...form.register("email")} placeholder="contact@example.com" />
         </FormField>
       </div>
       <FormField label="Internal notes" hint="Visible only to the admin." error={form.formState.errors.notes?.message}>
