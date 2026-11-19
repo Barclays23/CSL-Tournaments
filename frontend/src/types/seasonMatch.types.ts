@@ -89,9 +89,9 @@ export interface SeasonMatch {
   homeSeasonTeamRef: SeasonMatchTeamRef;
   awaySeasonTeamRef: SeasonMatchTeamRef;
   status: SeasonMatchStatus;
-  resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
-  correctionHistory?: SeasonMatchCorrectionHistory[];
-  statusHistory?: Array<{
+  resolutionHistory: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
+  correctionHistory: SeasonMatchCorrectionHistory[];
+  statusHistory: Array<{
     fromStatus: SeasonMatchStatus;
     toStatus: SeasonMatchStatus;
     reason: string | null;
