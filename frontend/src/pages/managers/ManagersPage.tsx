@@ -75,7 +75,7 @@ export function ManagersPage() {
                   onClick={async () => {
                     const yes = await confirm({
                       title: `Delete ${manager.name}?`,
-                      description: "This removes the manager from the current tournament.",
+                      description: "A manager with season assignments cannot be deleted. Deactivate the profile to preserve tournament history.",
                       confirmLabel: "Delete manager",
                       danger: true,
                     });
