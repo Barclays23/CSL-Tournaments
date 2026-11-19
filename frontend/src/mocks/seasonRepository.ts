@@ -603,20 +603,9 @@ export const seasonPreviewRepository = {
     return ok("Match rescheduled", populatedSeasonMatch(db, match));
   },
   async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
-    requireAdmin();
-    const db = readSeasonDb();
-    const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only");
-    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
-    if (!match) return fail(404, "Season fixture not found");
     const reason = input.resolutionReason.trim();
-    if (reason.length < 3 || reason.length > 500) fail(422, "Enter a resolution reason between 3 and 500 characters");
-    match.status = input.status;
-    match.resolutionHistory ??= [];
-    match.resolutionHistory.push({ status: input.status, reason, decidedAt: now() });
-    match.updatedAt = now();
-    commitSeasonDb(db);
-    return ok("Fixture resolution recorded", populatedSeasonMatch(db, match));
+    if (reason.length < 3 || reason.length > 500) fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
+    return this.updateSeasonMatchStatus(seasonId, matchId, { status: input.status, resolutionReason: reason });
   },
   async createSeasonMatch(seasonId: string, input: SeasonMatchWrite) {
     requireAdmin();
@@ -688,7 +677,15 @@ export const seasonPreviewRepository = {
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (match.status === "completed") fail(409, "Completed fixtures are historical records and cannot be rewritten");
+    if (match.status === "completed") fail(409, "Completed fixtures can only be changed through the audited correction workflow.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+    const fixtureDetailFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "notes"];
+    const isFixtureDetailsEdit = fixtureDetailFields.some((field) => input[field] !== undefined);
+    const matchCards = (match as MockSeasonMatch & { cards?: unknown[] }).cards ?? [];
+    if (isFixtureDetailsEdit) {
+      if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be edited.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+      if (match.goals.length > 0 || matchCards.length > 0) fail(409, "Match details cannot be edited after goals or cards have been recorded.", "MATCH_HAS_EVENTS");
+    }
+    if (match.status === "postponed" && input.kickoffAt !== undefined) fail(409, "Postponed matches can only be rescheduled through the dedicated reschedule operation.", "MATCH_RESCHEDULE_REQUIRED");
     const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
     const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
     if (match.status === "live") assertNoOtherLiveMatch(db, seasonId, homeId, awayId, matchId);
