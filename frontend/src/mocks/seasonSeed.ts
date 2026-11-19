@@ -26,12 +26,12 @@ export interface MockPlayer {
 }
 export interface MockManager {
   _id: string; __v: number; name: string; mobile: string; email: string | null; dateOfBirth: string | null;
-  teamRef: string | null; role: string | null; profilePic: Asset | null;
+  role: string | null; profilePic: Asset | null;
   status: "active" | "inactive"; createdAt: string; updatedAt: string;
 }
 export interface MockSponsor {
   _id: string; __v: number; name: string; logo: Asset | null; tier: string | null; website: string | null;
-  contactPerson: string | null; contactMobile: string | null; status: "active" | "inactive";
+  contactPerson: string | null; contactMobile: string | null; email: string | null; displayOrder: number; status: "active" | "inactive";
   notes: string | null; createdAt: string; updatedAt: string;
 }
 export interface MockOrganizer {
@@ -115,7 +115,7 @@ const managerNames = ["Suresh Menon", "Anwar Rahman", "Biju Thomas", "Shahid Kha
 const managers: MockManager[] = managerNames.map((name, index) => ({
   _id: oid(300 + index), __v: 0, name, mobile: `9895${String(300000 + index).slice(-6)}`,
   email: index % 2 === 0 ? `manager${index + 1}@example.com` : null,
-  dateOfBirth: null, teamRef: null, role: null,
+  dateOfBirth: null, role: null,
   profilePic: asset(`https://i.pravatar.cc/240?img=${(index % 70) + 31}`, `mock/managers/manager-${index + 1}`),
   status: "active", createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
@@ -128,7 +128,7 @@ const sponsors: MockSponsor[] = [
 ].map((sponsor, index) => ({
   _id: oid(400 + index), __v: 0, ...sponsor,
   logo: asset(`https://placehold.co/360x180/173c32/ffffff?text=${encodeURIComponent(sponsor.name)}`, `mock/sponsors/sponsor-${index + 1}`),
-  status: index === 3 ? "inactive" : "active",
+  email: null, displayOrder: index + 1,\n  status: index === 3 ? "inactive" : "active",
   createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
 }));
 
