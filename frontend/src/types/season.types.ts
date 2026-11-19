@@ -67,7 +67,7 @@ export type SeasonPatch = Partial<SeasonWrite> & {
 export interface AuctionTeamRef {
   _id: string;
   displayName: string;
-  team: { _id: string; name: string; shortName: string | null; logo: unknown } | null;
+  team: { _id: string; name: string; shortName: string | null; logo: Asset | null } | null;
 }
 
 export interface AuctionPlayerRef {
@@ -124,7 +124,7 @@ export interface AuctionTeamSummary {
   seasonTeamId: string;
   teamId: string;
   displayName: string;
-  logoSnapshot: unknown;
+  logoSnapshot: Asset | null;
   status: string;
   budget: number;
   playersSigned: number;
@@ -170,7 +170,7 @@ export interface SeasonTeam {
   participationHistory?: Array<{fromStatus:string;toStatus:string;reason:string;changedAt:string}>;
   team: { _id: string; name: string; shortName: string | null; logo: unknown } | null;
   group: { _id: string; groupName: string; displayOrder: number } | null;
-  managers: Array<{ _id: string; name: string; role: string | null; profilePic: unknown }>;
+  managers: Array<{ _id: string; name: string; role: string | null; profilePic: Asset | null }>;
 }
 
 export interface SeasonBriefDto {
