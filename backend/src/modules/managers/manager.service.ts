@@ -83,7 +83,10 @@ export class ManagerService implements IManagerService {
 
   async deleteManager(managerId: string): Promise<void> {
     this.ensureValidManagerId(managerId);
-    if (await this._managerRepository.countSeasonTeamAssignments(managerId)) {\n      throw new AppError("This manager has season-team assignments. Remove those assignments first or deactivate the manager to preserve season history.", 409, "MANAGER_HAS_SEASON_HISTORY");\n    }\n    const deleted = await this._managerRepository.deleteManager(managerId);
+    if (await this._managerRepository.countSeasonTeamAssignments(managerId)) {
+      throw new AppError("This manager has season-team assignments. Remove those assignments first or deactivate the manager to preserve season history.", 409, "MANAGER_HAS_SEASON_HISTORY");
+    }
+    const deleted = await this._managerRepository.deleteManager(managerId);
     if (!deleted) throw new AppError("Manager not found", 404, "NOT_FOUND");
   }
 
