@@ -8,6 +8,7 @@ export interface MockSeason {
   _id: string; seasonNumber: number; name: string; year: number;
   startDate: string | null; endDate: string | null; timeZone: "Asia/Kolkata"; groupStageEnabled?: boolean; homeAndAwayFixtures?: boolean;
   status: "draft" | "upcoming" | "active" | "completed" | "archived";
+  auctionLifecycleStatus: "not_started" | "in_progress" | "completed";
   auctionSettings: { currency: "INR"; budgetPerTeam: number; playersCount: number; seasonTeamCount: number; teamSquadSize: number; iconPlayerLimit: number; goalkeeperLimit: number };
   pointsRules: { win: number; draw: number; loss: number };
   standingsTieBreakers: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;
@@ -140,13 +141,13 @@ const organizers: MockOrganizer[] = [
   { _id: oid(453), name: "Fathima A", title: "Media Coordinator", mobile: null, email: "media@csl.local", profilePic: asset("https://i.pravatar.cc/240?img=23", "mock/organizers/organizer-4"), displayOrder: 4, status: "inactive", notes: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now },
 ];
 
-const seasonDefinitions: Array<Omit<MockSeason, "_id" | "createdAt" | "updatedAt">> = [
+const seasonDefinitions: Array<Omit<MockSeason, "_id" | "createdAt" | "updatedAt" | "auctionLifecycleStatus">> = [
   { seasonNumber: 9, name: "CSL Football Tournament 2024", year: 2024, startDate: "2024-11-01T00:00:00.000Z", endDate: "2024-11-17T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: false, status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 8000, playersCount: 16, seasonTeamCount: 4, teamSquadSize: 8, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
   { seasonNumber: 10, name: "CSL Football Tournament 2025", year: 2025, startDate: "2025-11-01T00:00:00.000Z", endDate: "2025-11-18T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: true, status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 9000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
   { seasonNumber: 11, name: "CSL Football Tournament 2026", year: 2026, startDate: "2026-11-01T00:00:00.000Z", endDate: "2026-11-20T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: true, status: "active", auctionSettings: { currency: "INR", budgetPerTeam: 10000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
 ];
 const seasons: MockSeason[] = seasonDefinitions.map((season, index) => ({
-  _id: oid(10 + index), ...season, createdAt: timestamp(`${season.year}-01-01T08:00:00.000Z`), updatedAt: now,
+  _id: oid(10 + index), ...season, auctionLifecycleStatus: season.status === "completed" || season.status === "active" ? "completed" : season.status === "upcoming" ? "in_progress" : "not_started", createdAt: timestamp(`${season.year}-01-01T08:00:00.000Z`), updatedAt: now,
 }));
 
 const venues: MockVenue[] = [
