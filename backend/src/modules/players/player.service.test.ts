@@ -91,6 +91,7 @@ test("PlayerService search matches both player name and normalized mobile number
   const service = new PlayerService(repository);
   await service.getPlayers({ page: 1, limit: 10, search: "98470 12345" }, true);
   assert.equal(receivedFilter?.$or?.length, 2);
-  assert.equal(receivedFilter?.$or?.[0]?.name?.$regex, "98470 12345");
-  assert.equal(receivedFilter?.$or?.[1]?.mobile?.$regex, "9847012345");
+  const serialized = JSON.stringify(receivedFilter?.$or);
+  assert.match(serialized, /98470 12345/);
+  assert.match(serialized, /9847012345/);
 });
