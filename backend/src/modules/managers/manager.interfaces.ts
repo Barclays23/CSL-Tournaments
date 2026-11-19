@@ -8,7 +8,8 @@ export interface IManagerRepository {
   findManagerByEmail(email: string): Promise<ManagerEntity | null>;
   createManager(data: ManagerFields): Promise<ManagerEntity>;
   updateManager(managerId: string, data: Partial<ManagerFields>): Promise<ManagerEntity | null>;
-  countSeasonTeamAssignments(managerId: string): Promise<number>;\n  deleteManager(managerId: string): Promise<boolean>;
+  countSeasonTeamAssignments(managerId: string): Promise<number>;
+  deleteManager(managerId: string): Promise<boolean>;
 }
 
 export interface IManagerService {
