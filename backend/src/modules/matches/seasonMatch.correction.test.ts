@@ -4,7 +4,7 @@ import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import { SeasonMatchService } from "./seasonMatch.service.js";
 import type { SeasonMatchRepository } from "./seasonMatch.repository.js";
-import type { SeasonMatchEntity, SeasonMatchFields } from "./seasonMatch.types.js";
+import type { SeasonMatchEntity } from "./seasonMatch.types.js";
 
 const ids = {
   match: "507f1f77bcf86cd799439011",
@@ -146,5 +146,5 @@ test("ordinary goal CRUD and generic updates remain unavailable for completed ma
   await assert.rejects(() => service.addGoal(ids.match, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
   await assert.rejects(() => service.updateGoal(ids.match, goalId, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
   await assert.rejects(() => service.deleteGoal(ids.match, goalId), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
-  await assert.rejects(() => service.update(ids.match, { notes: "Bypass attempt" }), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_COMPLETED_READ_ONLY");
+  await assert.rejects(() => service.update(ids.match, { notes: "Bypass attempt" }), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_DETAILS_EDIT_NOT_ALLOWED");
 });
