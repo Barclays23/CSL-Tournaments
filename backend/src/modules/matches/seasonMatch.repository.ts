@@ -171,12 +171,23 @@ export class SeasonMatchRepository {
     data: Partial<SeasonMatchFields>,
     homeAndAway: boolean,
     statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry; requireNoGoals?: boolean },
+    options?: { requireEditableWithoutEvents?: boolean },
   ): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
       const current = await SeasonMatchModel.findOne({ _id: new Types.ObjectId(id), seasonRef: existing.seasonRef }).session(session).lean<SeasonMatchEntity>().exec();
       if (!current) return null;
+
+      if (options?.requireEditableWithoutEvents) {
+        const currentWithCards = current as SeasonMatchEntity & { cards?: unknown[] };
+        if (current.status !== "scheduled" && current.status !== "live") {
+          throw new AppError("Only Scheduled or Live matches can be edited.", 409, "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+        }
+        if ((current.goals ?? []).length > 0 || (currentWithCards.cards ?? []).length > 0) {
+          throw new AppError("Match details cannot be edited after goals or cards have been recorded.", 409, "MATCH_HAS_EVENTS");
+        }
+      }
 
       if (statusAudit?.requireNoGoals && current.goals.length > 0) {
         throw new AppError(
@@ -224,8 +235,13 @@ export class SeasonMatchRepository {
       const filter = {
         _id: new Types.ObjectId(id),
         seasonRef: existing.seasonRef,
-        ...(statusAudit ? { status: statusAudit.expectedStatus } : {}),
-        ...(statusAudit?.requireNoGoals ? { goals: { $size: 0 } } : {}),
+        ...(options?.requireEditableWithoutEvents
+          ? { status: statusAudit ? statusAudit.expectedStatus : { $in: ["scheduled", "live"] } }
+          : statusAudit ? { status: statusAudit.expectedStatus } : {}),
+        ...(statusAudit?.requireNoGoals || options?.requireEditableWithoutEvents ? { goals: { $size: 0 } } : {}),
+        ...(options?.requireEditableWithoutEvents
+          ? { $or: [{ cards: { $exists: false } }, { cards: { $size: 0 } }] }
+          : {}),
       };
       const update: {
         $set: Partial<SeasonMatchFields>;
