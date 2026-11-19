@@ -1,5 +1,6 @@
 import type { QueryFilter } from "mongoose";
 import { ManagerModel } from "./manager.model.js";
+import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import type { ManagerRecord } from "./manager.model.js";
 import type { IManagerRepository } from "./manager.interfaces.js";
 import type { ManagerEntity, ManagerFields, ManagerListFilter } from "./manager.types.js";
@@ -49,7 +50,7 @@ export class ManagerRepository implements IManagerRepository {
     }).lean<ManagerEntity>().exec();
   }
 
-  async deleteManager(managerId: string): Promise<boolean> {
+  async countSeasonTeamAssignments(managerId: string): Promise<number> {\n    return SeasonTeamModel.countDocuments({ managerRefs: managerId }).exec();\n  }\n\n  async deleteManager(managerId: string): Promise<boolean> {
     const deleted = await ManagerModel.findByIdAndDelete(managerId).select("_id").lean().exec();
     return deleted !== null;
   }
