@@ -78,7 +78,7 @@ const sponsorService: ISponsorService   = new SponsorService(sponsorRepo);
 // ============================================================================
 const playerService: IPlayerService         = new PlayerService(playerRepo);
 const teamService: ITeamService             = new TeamService(teamRepo);
-const managerService: IManagerService       = new ManagerService(managerRepo, teamRepo);
+const managerService: IManagerService       = new ManagerService(managerRepo);
 const statisticsService: IStatisticsService = new StatisticsService(statisticsRepo, settingsService, teamRepo);
 
 
