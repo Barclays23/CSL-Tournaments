@@ -444,7 +444,7 @@ export const previewRepository = {
       items = items.filter((player) => player.name.toLowerCase().includes(needle));
     }
     if (admin && query.status) items = items.filter((player) => player.status === query.status);
-    items.sort((a, b) => (a.displayOrder ?? 0) - (b.displayOrder ?? 0) || a.name.localeCompare(b.name));
+    items.sort((a, b) => a.name.localeCompare(b.name));
     const page = paginate(items, query.page ?? 1, query.limit ?? 12);
     return ok(
       "Players loaded",
