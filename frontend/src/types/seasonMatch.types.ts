@@ -97,8 +97,8 @@ export interface SeasonMatch {
     reason: string | null;
     changedBy: string;
     changedAt: string;
-    fromKickoffAt?: string | null;
-    toKickoffAt?: string | null;
+    fromKickoffAt: string | null;
+    toKickoffAt: string | null;
   }>;
   goals: SeasonMatchGoal[];
   penaltyShootout: {
