@@ -956,7 +956,7 @@ function SeasonsBody() {
                               <div className="border-t border-line bg-surface/30 px-3 py-3">
                                 <p className="mb-2 text-xs font-semibold text-fg">Assign managers <span className="font-normal text-muted">· tap to add or remove</span></p>
                                 <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
-                                  {availableManagers.map((manager) => (
+                                  {availableManagers.filter((manager) => team.managerRefs.includes(manager._id) || !registeredTeams.some((otherTeam) => otherTeam._id !== team._id && otherTeam.managerRefs.includes(manager._id))).map((manager) => (
                                     <Chip
                                       key={manager._id}
                                       selected={team.managerRefs.includes(manager._id)}
