@@ -122,7 +122,7 @@ export class SeasonMatchService implements ISeasonMatchService{
    if(!changedBy||!Types.ObjectId.isValid(changedBy))throw new AppError("An authenticated user is required to change match status",401,"UNAUTHENTICATED");
    statusHistoryEntry={fromStatus:existing.status,toStatus:nextStatus,reason:statusReason,changedBy:new Types.ObjectId(changedBy),changedAt:changedAt!,fromKickoffAt:existing.kickoffAt,toKickoffAt:input.kickoffAt??existing.kickoffAt};
   }
-  if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Correct goals through goal management; fixture details cannot be rewritten.",409,"MATCH_COMPLETED_READ_ONLY");
+  if(existing.status==="completed")throw new AppError("Completed fixtures are historical records. Use the audited completed-match correction workflow to amend their results.",409,"MATCH_COMPLETED_READ_ONLY");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const homeId=input.homeSeasonTeamRef??String(existing.homeSeasonTeamRef),awayId=input.awaySeasonTeamRef??String(existing.awaySeasonTeamRef);
   const stage=input.stage??existing.stage,groupId=input.groupRef===undefined?(existing.groupRef?String(existing.groupRef):null):input.groupRef;
@@ -200,7 +200,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(existing.status!=="completed")throw new AppError("Only Completed matches can use the correction workflow",409,"MATCH_NOT_COMPLETED");
   const season=await this.repo.findSeason(String(existing.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
-  if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived seasons cannot be corrected",409,"SEASON_CLOSED");
+  if(season.status==="archived")throw new AppError("Archived seasons cannot be corrected",409,"SEASON_CLOSED");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const correctedAt=new Date();
   const correctedGoals=await Promise.all(input.goals.map(async goal=>({...await this.buildGoal(existing,goal),_id:new Types.ObjectId(),createdAt:correctedAt})));
