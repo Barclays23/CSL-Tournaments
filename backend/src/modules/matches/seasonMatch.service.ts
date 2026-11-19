@@ -190,6 +190,43 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(!populated)throw new AppError("Rescheduled match could not be retrieved",500,"MATCH_UPDATE_FAILED");
   return this.map(populated);
  }
+ async correctCompletedMatch(id:string,input:import("./seasonMatch.dto.js").CorrectCompletedMatchDto,correctedBy?:string):Promise<SeasonMatchResponseDto>{
+  this.id(id,"match");
+  if(!correctedBy||!Types.ObjectId.isValid(correctedBy))throw new AppError("An authenticated administrator is required to correct a completed match",403,"FORBIDDEN");
+  const reason=input.reason.trim();
+  if(reason.length<3||reason.length>1000)throw new AppError("Enter a correction reason between 3 and 1000 characters",422,"MATCH_CORRECTION_REASON_REQUIRED",{reason:"A correction reason is required"});
+  const existing=await this.repo.findById(id);
+  if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
+  if(existing.status!=="completed")throw new AppError("Only Completed matches can use the correction workflow",409,"MATCH_NOT_COMPLETED");
+  const season=await this.repo.findSeason(String(existing.seasonRef));
+  if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+  if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived seasons cannot be corrected",409,"SEASON_CLOSED");
+  if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
+  const correctedAt=new Date();
+  const correctedGoals=await Promise.all(input.goals.map(async goal=>({...await this.buildGoal(existing,goal),_id:new Types.ObjectId(),createdAt:correctedAt})));
+  const shootout=input.penaltyShootout?this.buildShootout(input.penaltyShootout):null;
+  if(shootout)await this.validateShootout(String(existing.seasonRef),existing,shootout);
+  const correctedMatch:SeasonMatchFields={...existing,status:"completed",goals:correctedGoals,penaltyShootout:shootout,winnerSeasonTeamRef:null};
+  const winner=this.calculateWinner(correctedMatch,season.matchRules,season.pointsRules);
+  correctedMatch.winnerSeasonTeamRef=winner;
+  const rules=await import("./seasonMatch.completionRules.js");
+  const originalScore=rules.deriveMatchScore(existing),correctedScore=rules.deriveMatchScore(correctedMatch);
+  const snapshot=(match:SeasonMatchFields,score:{homeScore:number;awayScore:number})=>({
+   homeScore:score.homeScore,awayScore:score.awayScore,goals:match.goals.map(goal=>({...goal})),
+   penaltyShootout:match.penaltyShootout?{...match.penaltyShootout,kicks:match.penaltyShootout.kicks.map(kick=>({...kick}))}:null,
+   winnerSeasonTeamRef:match.winnerSeasonTeamRef,
+  });
+  const historyEntry:import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry={
+   reason,correctedBy:new Types.ObjectId(correctedBy),correctedAt,
+   originalResult:snapshot(existing,originalScore),correctedResult:snapshot(correctedMatch,correctedScore),
+  };
+  const saved=await this.repo.correctCompletedMatch(id,existing.updatedAt,correctedGoals,shootout,winner,historyEntry);
+  if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");
+  const populated=await this.repo.findPopulatedById(id);
+  if(!populated)throw new AppError("Corrected match could not be retrieved",500,"MATCH_CORRECTION_FAILED");
+  return this.map(populated);
+ }
+
  async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");throw new AppError("Fixtures are retained as tournament history and cannot be physically deleted. Change the fixture status to cancelled or abandoned instead.",409,"MATCH_DELETE_BLOCKED");}
  async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.assertGoalManagementAllowed(match);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules,season.pointsRules);const saved=await this.repo.appendGoalWithWinner(id,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved){const latest=await this.repo.findById(id);if(latest&&latest.status!=="live")throw new AppError("Goals can only be added, edited or removed while the match is Live.",409,"MATCH_NOT_LIVE");throw new AppError("Match not found",404,"MATCH_NOT_FOUND");}const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.assertGoalManagementAllowed(match);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules,season.pointsRules);const saved=await this.repo.updateGoalWithWinner(id,goalId,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved){const latest=await this.repo.findById(id);if(latest&&latest.status!=="live")throw new AppError("Goals can only be added, edited or removed while the match is Live.",409,"MATCH_NOT_LIVE");throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");}const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
