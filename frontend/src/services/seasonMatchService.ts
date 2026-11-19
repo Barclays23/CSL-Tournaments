@@ -109,10 +109,12 @@ export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId:
 }
 
 export function correctCompletedSeasonMatch(seasonId: string, matchId: string, data: SeasonMatchCorrectionWrite) {
-  return run(() => api.post<ApiResponse<SeasonMatch>>(
-    `/seasons/${seasonId}/matches/${matchId}/corrections`,
-    data,
-  ).then((response) => response.data));
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.correctCompletedSeasonMatch(seasonId, matchId, data)
+    : api.post<ApiResponse<SeasonMatch>>(
+        `/seasons/${seasonId}/matches/${matchId}/corrections`,
+        data,
+      ).then((response) => response.data));
 }
 
 export interface SeasonMatchStatusWrite {
