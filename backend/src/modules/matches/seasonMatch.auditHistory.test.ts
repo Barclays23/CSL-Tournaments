@@ -57,6 +57,7 @@ function makeHarness(initial: SeasonMatchEntity = createMatch()): RepositoryHarn
 
   const season = {
     status: "active",
+    auctionLifecycleStatus: "completed",
     startDate: null,
     endDate: null,
     timeZone: "Asia/Kolkata",
