@@ -204,7 +204,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(existing.status!=="completed")throw new AppError("Only Completed matches can use the correction workflow",409,"MATCH_NOT_COMPLETED");
   const season=await this.repo.findSeason(String(existing.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
-  if(season.status==="archived")throw new AppError("Archived seasons cannot be corrected",409,"SEASON_CLOSED");
+  if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived seasons cannot be corrected",409,"SEASON_CLOSED");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const correctedAt=new Date();
   const reusedGoalIds=new Set<string>();
