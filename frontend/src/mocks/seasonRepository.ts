@@ -1070,6 +1070,9 @@ export const seasonPreviewRepository = {
     const currentLots = db.auctionLots.filter((lot) => lot.seasonRef === id && lot.auctionStatus !== "withdrawn");
     const settings = season.auctionSettings;
     const blockers: string[] = [];
+    if (!Number.isInteger(settings.playersCount) || settings.playersCount < 1) blockers.push("Season player limit must be a positive whole number");
+    if (!Number.isInteger(settings.seasonTeamCount) || settings.seasonTeamCount < 2) blockers.push("Season team limit must be at least two teams");
+    if (!Number.isInteger(settings.teamSquadSize) || settings.teamSquadSize < 1) blockers.push("Team squad size must be a positive whole number");
     if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
     if (teams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
     if (currentLots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
@@ -1090,6 +1093,12 @@ export const seasonPreviewRepository = {
     const allLots = db.auctionLots.filter((lot) => lot.seasonRef === id);
     const lots = allLots.filter((lot) => lot.auctionStatus !== "withdrawn");
     const blockers: string[] = [];
+    if (!Number.isFinite(settings.budgetPerTeam) || settings.budgetPerTeam < 0) blockers.push("Team budget setting must be zero or greater");
+    if (!Number.isInteger(settings.playersCount) || settings.playersCount < 1) blockers.push("Season player limit must be a positive whole number");
+    if (!Number.isInteger(settings.seasonTeamCount) || settings.seasonTeamCount < 2) blockers.push("Season team limit must be at least two teams");
+    if (!Number.isInteger(settings.teamSquadSize) || settings.teamSquadSize < 1) blockers.push("Team squad size must be a positive whole number");
+    if (!Number.isInteger(settings.iconPlayerLimit) || settings.iconPlayerLimit < 0 || settings.iconPlayerLimit > settings.teamSquadSize) blockers.push("Icon Player limit must be between zero and the team squad size");
+    if (!Number.isInteger(settings.goalkeeperLimit) || settings.goalkeeperLimit < 0 || settings.goalkeeperLimit > settings.teamSquadSize) blockers.push("Goalkeeper limit must be between zero and the team squad size");
     if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
     if (teams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
     if (lots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
