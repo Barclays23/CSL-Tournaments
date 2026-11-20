@@ -3,7 +3,7 @@ const objectId=z.string().regex(/^[a-f\d]{24}$/i,"Invalid ID");
 const position=z.enum(["goalkeeper","defender","midfielder","forward"]);
 export const nominatePlayerSchema=z.object({seasonId:objectId,playerId:objectId,playerPosition:position,isIconPlayer:z.boolean().default(false),isGoalkeeper:z.boolean().default(false)}).strict();
 export const sellAuctionLotSchema=z.object({seasonTeamId:objectId,purchasePrice:z.coerce.number().finite().min(0),jerseyNo:z.coerce.number().int().min(1).max(99).nullable().optional()}).strict();
-export const auctionLotStatusSchema=z.object({auctionStatus:z.enum(["unsold","withdrawn"])}).strict();
+export const auctionLotStatusSchema=z.object({auctionStatus:z.enum(["pending","unsold","withdrawn"])}).strict();
 export const updateAuctionLotSchema=z.object({
  auctionStatus:z.enum(["pending","sold","unsold","withdrawn"]),
  seasonTeamId:objectId.nullable().optional(),
