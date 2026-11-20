@@ -789,8 +789,8 @@ function SeasonsBody() {
                     <Button size="sm" disabled={saving} onClick={() => void completeAuction()}>Complete Auction</Button>
                   ) : null}
                   {selected.auctionLifecycleStatus === "completed" ? <>
-                    <Badge tone="success">Auction completed</Badge>
-                    <Button size="sm" variant="surface" disabled={saving || hasFixtures} onClick={() => void reopenAuction()}>Resume Auction</Button>
+                    <Badge tone="gold">Auction completed</Badge>
+                    <Button size="sm" variant="surface" disabled={saving || hasFixtures} onClick={() => void reopenAuction()}>Reopen Auction</Button>
                   </> : null}
                   <Button size="sm" disabled={saving || selected.auctionLifecycleStatus !== "completed"} onClick={() => void runLifecycle("active")}>Activate Season</Button>
                 </> : null}
