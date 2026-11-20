@@ -16,6 +16,11 @@ export function updateSeason(id: string, data: SeasonPatch) {
 export function transitionSeason(id: string, status: Extract<SeasonStatus, "draft" | "upcoming" | "active">) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.transitionSeason(id, status) : api.patch<ApiResponse<Season>>("/seasons/" + id + "/lifecycle", { status }).then((r) => r.data));
 }
+export function startSeasonAuction(id: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.startSeasonAuction(id)
+    : api.post<ApiResponse<Season>>("/seasons/" + id + "/auction/start").then((r) => r.data));
+}
 export function completeSeasonAuction(id: string) {
   return run(() => USE_MOCK_API
     ? seasonPreviewRepository.completeSeasonAuction(id)
