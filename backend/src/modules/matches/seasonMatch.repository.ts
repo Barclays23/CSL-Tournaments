@@ -299,7 +299,7 @@ export class SeasonMatchRepository {
         { $push: { goals: goal }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    , false, false);
+      false, false);
   }
 
   async updateGoalWithWinner(id: string, goalId: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
@@ -311,7 +311,7 @@ export class SeasonMatchRepository {
         { $set: { "goals.$": goal, winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    , false, false);
+      false, false);
   }
 
   async removeGoalWithWinner(id: string, goalId: string, winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
@@ -323,7 +323,7 @@ export class SeasonMatchRepository {
         { $pull: { goals: { _id: new Types.ObjectId(goalId) } }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(),
-    , false, false);
+      false, false);
   }
   async appendGoal(id: string, goal: SeasonMatchFields["goals"][number]): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
@@ -334,7 +334,7 @@ export class SeasonMatchRepository {
         { $push: { goals: goal } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    , false, false);
+      false, false);
   }
 
   async updateGoal(id: string, goalId: string, goal: SeasonMatchFields["goals"][number]): Promise<SeasonMatchEntity | null> {
@@ -346,7 +346,7 @@ export class SeasonMatchRepository {
         { $set: { "goals.$": goal } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    , false, false);
+      false, false);
   }
 
   async removeGoal(id: string, goalId: string): Promise<SeasonMatchEntity | null> {
@@ -358,6 +358,6 @@ export class SeasonMatchRepository {
         { $pull: { goals: { _id: new Types.ObjectId(goalId) } } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(),
-    , false, false);
+      false, false);
   }
 }
