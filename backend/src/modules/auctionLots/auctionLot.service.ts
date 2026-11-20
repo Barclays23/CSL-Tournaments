@@ -39,7 +39,7 @@ export class AuctionLotService implements IAuctionLotService{
   try{
    await session.withTransaction(async()=>{
     const season=await SeasonModel.findById(input.seasonId).session(session).lean().exec();
-    if(!season||!["upcoming","active"].includes(season.status)||!["not_started","in_progress"].includes(season.auctionLifecycleStatus))throw new AppError("Auction nominations are available only while an Upcoming season's auction is open",409,"SEASON_NOT_AUCTION_READY");
+    if(!season||!["upcoming","active"].includes(season.status)||!["not_started","in_progress"].includes(season.auctionLifecycleStatus))throw new AppError("Auction nominations are available only before or during an Upcoming or Active season auction",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
     const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:{$in:["not_started","in_progress"]}},{$inc:{auctionRevision:1}},{session}).exec();
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
@@ -70,7 +70,7 @@ export class AuctionLotService implements IAuctionLotService{
   try{await session.withTransaction(async()=>{
    const lot=await AuctionLotModel.findById(id).session(session).exec();if(!lot||lot.auctionStatus!=="pending")throw new AppError("Only pending lots can be sold",409,"LOT_NOT_PENDING");
    const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();const team=await SeasonTeamModel.findById(input.seasonTeamId).session(session).exec();
-   if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus !== "in_progress")throw new AppError("Auction sales are available only while an Upcoming season's auction is open",409,"SEASON_NOT_AUCTION_READY");
+   if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus !== "in_progress")throw new AppError("Auction sales are available only while an Upcoming or Active season auction is open",409,"SEASON_NOT_AUCTION_READY");
    if(!season||!team||String(team.seasonRef)!==String(lot.seasonRef)||["withdrawn","eliminated","completed"].includes(team.status))throw new AppError("Winning team must participate in the same season",422,"INVALID_SEASON_TEAM");
    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
    const [soldCount,spent,icons,gks,player,jerseyCount]=await Promise.all([
@@ -104,7 +104,7 @@ export class AuctionLotService implements IAuctionLotService{
     const lot=await AuctionLotModel.findById(id).session(session).exec();
     if(!lot)throw new AppError("Auction lot not found",404,"LOT_NOT_FOUND");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
-    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus !== "in_progress")throw new AppError("Auction lots can only be changed while an Upcoming season's auction is open",409,"SEASON_NOT_AUCTION_READY");
+    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus !== "in_progress")throw new AppError("Auction lots can only be changed while an Upcoming or Active season auction is open",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
 
     const previousStatus = lot.auctionStatus;
@@ -192,7 +192,7 @@ export class AuctionLotService implements IAuctionLotService{
     if(lot.auctionStatus!=="pending")throw new AppError("Only pending auction lots can be removed. Sold, Unsold and Withdrawn lots are retained as auction history.",409,"LOT_DELETE_NOT_ALLOWED");
     if(lot.seasonTeamRef)throw new AppError("This auction lot is assigned to a season team and cannot be removed.",409,"LOT_ALREADY_ASSIGNED");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
-    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus!=="in_progress")throw new AppError("Pending lots can only be removed while the Upcoming season auction is in progress.",409,"SEASON_NOT_AUCTION_READY");
+    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus!=="in_progress")throw new AppError("Pending lots can only be removed while the auction is in progress.",409,"SEASON_NOT_AUCTION_READY");
     const lock=await SeasonModel.updateOne(
      {_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:"in_progress"},
      {$inc:{auctionRevision:1}},
