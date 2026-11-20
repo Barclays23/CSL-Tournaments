@@ -9,7 +9,7 @@ import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { TeamModel } from "../teams/team.model.js";
 import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
 import { getSeasonCompletionBlockers } from "./season.completion.js";
-import { getAuctionCompletionBlockers } from "./auction.completion.js";
+import { getAuctionCompletionBlockers, getAuctionStartBlockers } from "./auction.completion.js";
 import type { CreateSeasonDto } from "./season.dto.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 import type { SeasonMatchEntity } from "../matches/seasonMatch.types.js";
@@ -112,14 +112,9 @@ export class SeasonRepository implements ISeasonRepository {
           SeasonTeamModel.find({ seasonRef: season._id, status: { $in: ["registered", "active"] } }).select("_id status").session(session).lean().exec(),
           AuctionLotModel.countDocuments({ seasonRef: season._id, auctionStatus: { $ne: "withdrawn" } }).session(session).exec(),
         ]);
-        const blockers: string[] = [];
-        if (!season.auctionSettings) blockers.push("Auction settings are missing from this season");
-        else {
-          const settings = season.auctionSettings;
-          if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
-          if (teams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
-          if (currentLotCount !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
-        }
+        const blockers = season.auctionSettings
+          ? getAuctionStartBlockers(season.auctionSettings, teams, currentLotCount)
+          : ["Auction settings are missing from this season"];
         if (blockers.length) { result = { season: null, blockers }; return; }
         const started = await SeasonModel.findOneAndUpdate({ _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "not_started" }, { $set: { auctionLifecycleStatus: "in_progress" }, $inc: { auctionRevision: 1 } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
         result = { season: started, blockers: [] };
