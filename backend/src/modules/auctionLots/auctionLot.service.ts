@@ -51,7 +51,7 @@ export class AuctionLotService implements IAuctionLotService{
      {session},
     );
     if(playerLock.modifiedCount!==1)throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
-    const count=await this.lots.count({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"}},session);
+    const count=await AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"}}).session(session).exec();
     if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
     created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
    });
