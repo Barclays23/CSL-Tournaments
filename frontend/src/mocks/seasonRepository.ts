@@ -1073,7 +1073,7 @@ export const seasonPreviewRepository = {
           }
           counts.set(groupRef, (counts.get(groupRef) ?? 0) + 1);
         }
-        if (!groups.length || [...counts.values()].some((count) => count < 2)) fail(422, "Every group must contain at least two participating teams");
+        if (!groups.length || [...counts.values()].some((count) => count > 0 && count < 2)) fail(422, "Every participating group must contain at least two teams");
       }
     }
     if (next === "active" && db.seasons.some((s) => s._id !== id && s.status === "active")) fail(409, "Another season is already Active");
