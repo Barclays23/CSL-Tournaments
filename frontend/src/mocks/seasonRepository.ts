@@ -1555,7 +1555,7 @@ export const seasonPreviewRepository = {
       player: { _id: player._id, name: player.name, mobile: player.mobile, email: player.email, dateOfBirth: player.dateOfBirth, profilePic: player.profilePic, status: player.status },
       currentSeason: currentSeason ? seasonBrief(currentSeason) : null,
       currentSeasonTeam: currentLot && currentSt ? { seasonTeamId: currentSt._id, team: teamBrief(db, currentSt), position: currentLot.playerPosition, jerseyNo: currentLot.jerseyNo, purchasePrice: currentLot.purchasePrice, isIconPlayer: currentLot.isIconPlayer, isGoalkeeper: currentLot.isGoalkeeper } : null,
-      auctionHistory: orderedLots.map(mapHistory), teamMovementHistory: orderedLots.filter((lot) => lot.auctionStatus === "sold").map(mapHistory),
+      auctionHistory: orderedLots.map(mapHistory), teamMovementHistory: orderedLots.filter((lot) => lot.auctionStatus === "sold" || lot.auctionStatus === "withdrawn").map(mapHistory),
       goalHistory, totalNormalGoals: [...goalCounts.values()].reduce((sum, count) => sum + count, 0),
     } as PlayerHistory);
   },
