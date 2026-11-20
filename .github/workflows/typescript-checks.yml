@@ -18,6 +18,7 @@ on:
       - feature/completed-match-correction
       - feature/match-status-mock-sync-tests
       - fix/auction-lifecycle-and-fixture-validation
+      - fix/auction-lot-management-actions
   pull_request:
     branches:
       - main
@@ -71,6 +72,6 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
       - name: Lint frontend
-        run: npx eslint src/pages/admin/SeasonsPage.tsx src/pages/matches/SeasonMatchDetailsPage.tsx src/components/matches/MatchStatusManager.tsx src/components/matches/CompletedMatchCorrectionDrawer.tsx src/components/forms/SeasonMatchForm.tsx src/components/forms/TeamForm.tsx src/types/team.types.ts src/types/season.types.ts src/types/seasonMatch.types.ts src/services/seasonService.ts src/services/seasonMatchService.ts src/mocks/seasonRepository.ts src/mocks/seasonSeed.ts src/mocks/matchLifecycleRules.ts src/mocks/matchLifecycleRules.test.ts
+        run: npx eslint src/pages/admin/SeasonsPage.tsx src/pages/matches/SeasonMatchDetailsPage.tsx src/components/matches/MatchStatusManager.tsx src/components/matches/CompletedMatchCorrectionDrawer.tsx src/components/forms/SeasonMatchForm.tsx src/components/forms/TeamForm.tsx src/types/team.types.ts src/types/season.types.ts src/types/seasonMatch.types.ts src/services/seasonService.ts src/services/seasonMatchService.ts src/mocks/seasonRepository.ts src/pages/AuctionsPage.tsx src/mocks/seasonSeed.ts src/mocks/matchLifecycleRules.ts src/mocks/matchLifecycleRules.test.ts
       - name: Typecheck and build frontend
         run: npm run build
