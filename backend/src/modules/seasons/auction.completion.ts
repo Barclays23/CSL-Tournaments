@@ -14,6 +14,7 @@ export interface AuctionCompletionLot {
   isIconPlayer: boolean;
   isGoalkeeper: boolean;
   jerseyNo: number | null;
+  soldAt?: Date | null;
 }
 
 const id = (value: unknown): string => {
@@ -85,8 +86,8 @@ export function getAuctionCompletionBlockers(
     soldByTeam.set(teamId, roster);
     if (lot.purchasePrice === null || !Number.isFinite(lot.purchasePrice) || lot.purchasePrice < 0) blockers.push("A sold auction lot has an invalid purchase price");
   }
-  if (lots.some((lot) => lot.auctionStatus === "withdrawn" && !id(lot.seasonTeamRef))) {
-    blockers.push("Withdrawn sold players must retain their original team assignment");
+  if (lots.some((lot) => lot.auctionStatus === "withdrawn" && (!id(lot.seasonTeamRef) || lot.purchasePrice === null || lot.purchasePrice === undefined || !lot.soldAt))) {
+    blockers.push("Withdrawn sold players must retain their original team, purchase price and soldAt history");
   }
   for (const team of eligibleTeams) {
     const roster = soldByTeam.get(id(team._id)) ?? [];
