@@ -143,7 +143,7 @@ export class SeasonRepository implements ISeasonRepository {
 
         const [teams, lots] = await Promise.all([
           SeasonTeamModel.find({ seasonRef: season._id }).select("_id status").session(session).lean().exec(),
-          AuctionLotModel.find({ seasonRef: season._id }).select("auctionStatus seasonTeamRef purchasePrice isIconPlayer isGoalkeeper jerseyNo").session(session).lean().exec(),
+          AuctionLotModel.find({ seasonRef: season._id }).select("auctionStatus seasonTeamRef purchasePrice isIconPlayer isGoalkeeper jerseyNo soldAt").session(session).lean().exec(),
         ]);
         if (!season.auctionSettings) {
           result = { season: null, blockers: ["Auction settings are missing from this season"] };
