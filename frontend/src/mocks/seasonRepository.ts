@@ -493,7 +493,6 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only", "SEASON_CLOSED");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -781,6 +780,7 @@ export const seasonPreviewRepository = {
     const fixtureDetailFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "notes"];
     const isFixtureDetailsEdit = fixtureDetailFields.some((field) => input[field] !== undefined);
     const matchCards = (match as MockSeasonMatch & { cards?: unknown[] }).cards ?? [];
+    if (isFixtureDetailsEdit && season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction before editing fixture details or schedules.", "AUCTION_NOT_COMPLETED");
     if (isFixtureDetailsEdit) {
       if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be edited.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
       if (match.goals.length > 0 || matchCards.length > 0) fail(409, "Match details cannot be edited after goals or cards have been recorded.", "MATCH_HAS_EVENTS");
@@ -843,7 +843,6 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -869,7 +868,6 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -897,7 +895,6 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -1039,6 +1036,7 @@ export const seasonPreviewRepository = {
     if (next === "upcoming" || next === "active") {
       const participants = db.seasonTeams.filter((st) => st.seasonRef === id && !["withdrawn", "eliminated", "completed"].includes(st.status));
       if (participants.length < 2) fail(422, "At least two participating teams are required");
+      if (next === "active" && participants.length !== season.auctionSettings.seasonTeamCount) fail(422, "Registered participating teams must exactly match the configured season team count", "SEASON_TEAM_COUNT_MISMATCH");
       if (participants.length > season.auctionSettings.seasonTeamCount) fail(422, "Registered teams exceed the configured limit");
       if (season.groupStageEnabled !== false) {
         const groups = db.groups.filter((g) => g.seasonRef === id);
