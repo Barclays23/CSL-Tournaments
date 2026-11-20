@@ -835,6 +835,16 @@ export const seasonPreviewRepository = {
     match.awaySeasonTeamRef = awayId;
     match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
     if (input.penaltyShootout !== undefined) {
+      if (input.penaltyShootout) {
+        if (match.stage === "group") fail(422, "Group-stage matches cannot have penalty shootouts.", "GROUP_SHOOTOUT");
+        assertMockShootoutScore(match, input.penaltyShootout, fail);
+        for (const kick of input.penaltyShootout.kicks) {
+          if (kick.playerRef) {
+            const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === kick.playerRef && item.auctionStatus === "sold");
+            if (!lot || lot.seasonTeamRef !== kick.seasonTeamRef) fail(422, "Shootout player must belong to the kicking team", "INVALID_SHOOTOUT_PLAYER");
+          }
+        }
+      }
       match.penaltyShootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
     }
     this.recalculateMockWinner(season, match);
