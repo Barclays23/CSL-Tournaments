@@ -189,7 +189,7 @@ export class SeasonRepository implements ISeasonRepository {
         ).exec();
         if (lock.matchedCount !== 1) return;
         const reopened = await SeasonModel.findOneAndUpdate(
-          { _id: season._id, status: "upcoming", auctionLifecycleStatus: "completed" },
+          { _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "completed" },
           { $set: { auctionLifecycleStatus: "in_progress" }, $inc: { auctionRevision: 1 } },
           { session, returnDocument: "after" },
         ).lean<SeasonEntity>().exec();
