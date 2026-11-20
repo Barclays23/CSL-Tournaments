@@ -838,6 +838,18 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Season fixture updated", populatedSeasonMatch(db, match));
   },
+  async deleteSeasonMatch(seasonId: string, matchId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction before deleting fixtures.", "AUCTION_NOT_COMPLETED");
+    if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    const index = db.matches.findIndex((match) => match._id === matchId && match.seasonRef === seasonId);
+    if (index < 0) return fail(404, "Season fixture not found");
+    db.matches.splice(index, 1);
+    commitSeasonDb(db);
+    return ok("Season fixture deleted", null);
+  },
   async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }) {
     requireAdmin();
     const db = readSeasonDb();
