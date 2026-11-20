@@ -69,7 +69,7 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
   const soldTeamLots=teamLots.filter(l=>l.auctionStatus==="sold");
   const squad=teamLots.map(l=>({player:{_id:String(l.playerRef._id),name:l.playerRef.name,profilePic:l.playerRef.profilePic},position:l.playerPosition,jerseyNo:l.jerseyNo,purchasePrice:l.purchasePrice,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper,auctionStatus:l.auctionStatus as "sold"|"withdrawn"}));
   const stats:TeamTotals={played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,cleanSheets:0};const playerGoals=new Map<string,number>();
-  const signedPlayers=new Map(soldTeamLots.map(l=>[String(l.playerRef._id),l.playerRef]));
+  const signedPlayers=new Map(teamLots.map(l=>[String(l.playerRef._id),l.playerRef]));
   for(const match of matches.filter(m=>m.status==="completed")){
    const id=String(participation._id),other=this.refId(match.homeSeasonTeamRef)===id?this.refId(match.awaySeasonTeamRef):this.refId(match.homeSeasonTeamRef);
    const scored=this.score(match,id),conceded=this.score(match,other);stats.played++;stats.goalsScored+=scored;stats.goalsConceded+=conceded;if(conceded===0)stats.cleanSheets++;
