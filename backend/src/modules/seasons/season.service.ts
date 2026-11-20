@@ -254,6 +254,7 @@ export class SeasonService implements ISeasonService {
     const current = await this.repo.findById(id);
     if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!["upcoming", "active"].includes(current.status)) throw new AppError("Auction cannot be reopened after the season is Completed or Archived", 409, "AUCTION_REOPEN_NOT_ALLOWED");
+    if (current.auctionLifecycleStatus !== "completed") throw new AppError("Only a completed auction can be reopened", 409, "AUCTION_NOT_COMPLETED");
     const result = await this.repo.reopenAuction(id);
     if (!result.season) throw new AppError("Season state changed while reopening the auction. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
     return this.map(result.season);
