@@ -246,7 +246,7 @@ export function AuctionsPage() {
               seasons.reload();
             } catch (error) { toast.error(errorMessage(error)); }
             finally { setSaving(false); }
-          }}>Resume auction</Button>
+          }}>Reopen auction</Button>
         ) : null}
         {data?.season.auctionLifecycleStatus === "completed" ? <span className="self-center text-xs font-medium text-success">Auction completed</span> : null}
         {data?.season.auctionLifecycleStatus === "in_progress" ? <span className="self-center text-xs text-muted">Auction in progress</span> : null}
@@ -262,7 +262,7 @@ export function AuctionsPage() {
           <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
             {([
               ["Teams", data.totals.participatingTeams],
-              ["Nominated", data.totals.lots],
+              ["Current lots", data.totals.lots - data.totals.withdrawn],
               ["Sold", data.totals.sold],
               ["Pending", data.totals.pending],
               ["Unsold", data.totals.unsold],
@@ -310,7 +310,8 @@ export function AuctionsPage() {
                             {lot.isGoalkeeper ? " · Goalkeeper" : ""}
                           </p>
                         </div>
-                        <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>\n                        {lot.auctionStatus === "withdrawn" ? <span className="rounded-full bg-warning/10 px-2 py-1 text-xs text-warning">Withdrawn</span> : <span className="rounded-full bg-success/10 px-2 py-1 text-xs text-success">Sold</span>}
+                        <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>
+                        {lot.auctionStatus === "withdrawn" ? <span className="rounded-full bg-warning/10 px-2 py-1 text-xs text-warning">Withdrawn</span> : <span className="rounded-full bg-success/10 px-2 py-1 text-xs text-success">Sold</span>}
                         {canEditAuction ? (
                           <Button size="sm" variant="ghost" onClick={() => openEdit(lot)}>Edit</Button>
                         ) : null}
