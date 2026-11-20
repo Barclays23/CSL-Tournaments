@@ -312,7 +312,7 @@ export function AuctionsPage() {
                         </div>
                         <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>
                         {lot.auctionStatus === "withdrawn" ? <span className="rounded-full bg-warning/10 px-2 py-1 text-xs text-warning">Withdrawn</span> : <span className="rounded-full bg-success/10 px-2 py-1 text-xs text-success">Sold</span>}
-                        {canEditAuction ? (
+                        {canEditAuction && lot.auctionStatus !== "withdrawn" ? (
                           <Button size="sm" variant="ghost" onClick={() => openEdit(lot)}>Edit</Button>
                         ) : null}
                       </div>
@@ -390,7 +390,7 @@ export function AuctionsPage() {
                       {lot.purchasePrice === null ? "—" : formatCurrency(lot.purchasePrice)}
                     </span>
                     {canEditAuction ? <>
-                      <Button size="sm" onClick={() => openEdit(lot)}>Edit lot</Button>
+                      {lot.auctionStatus !== "withdrawn" ? <Button size="sm" onClick={() => openEdit(lot)}>Edit lot</Button> : null}
                       {lot.auctionStatus === "pending" && !lot.seasonTeamRef ? (
                         <Button size="sm" variant="danger" disabled={saving} onClick={async () => {
                           if (!window.confirm("Remove this pending auction lot? The player will become available for nomination again.")) return;
