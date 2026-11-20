@@ -834,6 +834,10 @@ export const seasonPreviewRepository = {
     match.homeSeasonTeamRef = homeId;
     match.awaySeasonTeamRef = awayId;
     match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
+    if (input.penaltyShootout !== undefined) {
+      match.penaltyShootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
+    }
+    this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Season fixture updated", populatedSeasonMatch(db, match));
