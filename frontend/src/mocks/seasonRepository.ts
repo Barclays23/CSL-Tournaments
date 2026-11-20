@@ -771,7 +771,6 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
