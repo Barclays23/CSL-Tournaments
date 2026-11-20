@@ -22,6 +22,7 @@ seasonRouter.post("/", authenticate, requireAdmin, seasonController.create);
 seasonRouter.patch("/:id", authenticate, requireAdmin, seasonController.update);
 seasonRouter.patch("/:id/lifecycle", authenticate, requireAdmin, seasonController.transition);
 seasonRouter.post("/:id/complete", authenticate, requireAdmin, seasonController.complete);
+seasonRouter.post("/:id/auction/start", authenticate, requireAdmin, seasonController.startAuction);
 seasonRouter.post("/:id/auction/complete", authenticate, requireAdmin, seasonController.completeAuction);
 seasonRouter.post("/:id/auction/reopen", authenticate, requireAdmin, seasonController.reopenAuction);
 seasonRouter.post("/:id/archive", authenticate, requireAdmin, seasonController.archive);
