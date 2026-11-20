@@ -93,7 +93,7 @@ export class SeasonMatchRepository {
           }
         } else {
           const writableSeason = await SeasonModel.findById(seasonId).select("status")
-            .session(session).lean<{ status: string } | null>().exec();
+            .session(session).lean<{ status: SeasonStatus } | null>().exec();
           if (!writableSeason) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
           if (!allowedStatuses.includes(writableSeason.status)) {
             throw new AppError("Completed or archived seasons are read-only", 409, "SEASON_WRITE_LOCKED");
