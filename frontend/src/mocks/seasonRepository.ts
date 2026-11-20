@@ -620,7 +620,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (season.status === "archived") fail(409, "Archived seasons cannot be corrected", "SEASON_CLOSED");
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons cannot be corrected", "SEASON_CLOSED");
     if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season", "SEASON_RULES_UNAVAILABLE");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
