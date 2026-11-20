@@ -1424,7 +1424,14 @@ export const seasonPreviewRepository = {
     if (!lot) return fail(404, "Auction lot not found");
     const season = seasonById(db, lot.seasonRef);
     if (!["upcoming", "active"].includes(season.status) || season.auctionLifecycleStatus !== "in_progress") fail(409, "Auction changes are available only while an Upcoming or Active season auction is in progress.", "SEASON_NOT_AUCTION_READY");
-    if (lot.auctionStatus !== "pending" && input.auctionStatus === "pending") fail(409, "Resolved auction lots cannot be moved back to Pending. This preserves sale and auction history.", "LOT_STATUS_ROLLBACK_NOT_ALLOWED");
+    const previousStatus = lot.auctionStatus;
+    if (previousStatus === "withdrawn") fail(409, "Withdrawn auction lots are historical records and cannot be changed again.", "LOT_WITHDRAWN_READ_ONLY");
+    if (input.auctionStatus === "withdrawn" && previousStatus !== "sold") fail(409, "Only a Sold player can be marked Withdrawn.", "LOT_WITHDRAWAL_NOT_ALLOWED");
+    if (previousStatus === "sold" && (input.auctionStatus === "pending" || input.auctionStatus === "unsold")) {
+      const hasFixtures = db.matches.some((match) => match.seasonRef === lot.seasonRef
+        && (match.homeSeasonTeamRef === lot.seasonTeamRef || match.awaySeasonTeamRef === lot.seasonTeamRef));
+      if (hasFixtures) fail(409, "A Sold player cannot be reset to Pending or Unsold after the team has fixtures. Mark the player Withdrawn to preserve history.", "LOT_HAS_FIXTURES");
+    }
 
     const nextPosition = input.playerPosition ?? lot.playerPosition;
     const nextIconStatus = input.isIconPlayer ?? lot.isIconPlayer;
@@ -1477,10 +1484,14 @@ export const seasonPreviewRepository = {
       lot.soldAt = now();
     } else {
       lot.auctionStatus = input.auctionStatus;
-      lot.seasonTeamRef = null;
-      lot.purchasePrice = null;
-      lot.jerseyNo = null;
-      lot.soldAt = null;
+      if (input.auctionStatus !== "withdrawn") {
+        lot.seasonTeamRef = null;
+        lot.purchasePrice = null;
+        lot.jerseyNo = null;
+        lot.soldAt = null;
+      } else {
+        season.auctionLifecycleStatus = "in_progress";
+      }
     }
 
     lot.playerPosition = nextPosition;
