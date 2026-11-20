@@ -1517,7 +1517,7 @@ export const seasonPreviewRepository = {
     } as unknown as SeasonTeamDashboard);
     const { points: groupStagePoints, ...stats } = teamRecord(db, seasonId, st._id);
     void groupStagePoints;
-    const squad = soldLots(db, seasonId, st._id).map((lot) => {
+    const squad = db.auctionLots.filter((lot) => lot.seasonRef === seasonId && lot.seasonTeamRef === st._id && ["sold", "withdrawn"].includes(lot.auctionStatus)).map((lot) => {
       const player = playerById(db, lot.playerRef);
       return { player: { _id: player._id, name: player.name, profilePic: player.profilePic }, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper };
     });
