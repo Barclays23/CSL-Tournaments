@@ -239,6 +239,7 @@ export class SeasonService implements ISeasonService {
     if (!current) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!["upcoming", "active"].includes(current.status)) throw new AppError("Auction can only be completed in Upcoming or Active seasons", 409, "AUCTION_COMPLETE_NOT_ALLOWED");
     if (current.auctionLifecycleStatus === "completed") throw new AppError("The auction is already completed", 409, "AUCTION_ALREADY_COMPLETED");
+    if (current.auctionLifecycleStatus !== "in_progress") throw new AppError("Start the auction before completing it", 409, "AUCTION_NOT_STARTED");
     const result = await this.repo.completeAuctionIfReady(id);
     if (result.blockers.length) {
       throw new AppError("Auction completion is blocked: " + result.blockers.join("; "), 422, "AUCTION_COMPLETION_BLOCKED",
