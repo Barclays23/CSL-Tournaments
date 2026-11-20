@@ -66,28 +66,39 @@ export class SeasonMatchRepository {
   async findPlayer(id: string): Promise<PlayerEntity | null> { return PlayerModel.findById(id).lean<PlayerEntity>().exec(); }
   async findSoldLot(seasonId: string, playerId: string): Promise<AuctionLotEntity | null> { return AuctionLotModel.findOne({ seasonRef: new Types.ObjectId(seasonId), playerRef: new Types.ObjectId(playerId), auctionStatus: "sold" }).lean<AuctionLotEntity>().exec(); }
   /**
-   * Serialize every fixture write against SeasonRepository.completeIfReady().
-   * Both operations write the same Season document in the same transaction, so
-   * MongoDB's transaction conflict detection prevents completion from observing
-   * a fixture snapshot that is concurrently being changed.
+   * Fixture record/schedule mutations increment the season revision in the same
+   * transaction as auction completion, preventing stale fixture snapshots.
+   * Match progress operations use the same transaction boundary but deliberately
+   * do not take the auction revision lock or require a completed auction.
    */
   private async withSeasonWriteLock<T>(seasonId: string, work: (session: ClientSession) => Promise<T>, allowCompleted = false, requireAuctionCompleted = true): Promise<T> {
     const session = await mongoose.startSession();
     try {
       let result!: T;
       await session.withTransaction(async () => {
-        const lock = await SeasonModel.updateOne(
-          { _id: new Types.ObjectId(seasonId), status: { $in: allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"] }, ...(requireAuctionCompleted ? { auctionLifecycleStatus: "completed" } : {}) },
-          { $inc: { auctionRevision: 1 } },
-          { session },
-        ).exec();
-        if (lock.matchedCount !== 1) {
-          const existingSeason = await SeasonModel.findById(seasonId).select("status auctionLifecycleStatus").session(session).lean<{ status: string; auctionLifecycleStatus: string } | null>().exec();
-          if (!existingSeason) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-          if (requireAuctionCompleted && existingSeason.auctionLifecycleStatus !== "completed") {
-            throw new AppError("Complete the auction and validate every team's roster before creating or changing fixtures.", 409, "AUCTION_NOT_COMPLETED");
+        const allowedStatuses = allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"];
+        if (requireAuctionCompleted) {
+          const lock = await SeasonModel.updateOne(
+            { _id: new Types.ObjectId(seasonId), status: { $in: allowedStatuses }, auctionLifecycleStatus: "completed" },
+            { $inc: { auctionRevision: 1 } },
+            { session },
+          ).exec();
+          if (lock.matchedCount !== 1) {
+            const existingSeason = await SeasonModel.findById(seasonId).select("status auctionLifecycleStatus").session(session).lean<{ status: string; auctionLifecycleStatus: string } | null>().exec();
+            if (!existingSeason) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+            if (existingSeason.auctionLifecycleStatus !== "completed") {
+              throw new AppError("Complete the auction and validate every team's roster before creating or changing fixtures.", 409, "AUCTION_NOT_COMPLETED");
+            }
+            throw new AppError("Fixtures cannot be changed after the season is completed or archived", 409, "SEASON_WRITE_LOCKED");
           }
-          throw new AppError("Fixtures cannot be changed after the season is completed or archived", 409, "SEASON_WRITE_LOCKED");
+        } else {
+          const writableSeason = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: { $in: allowedStatuses } })
+            .select("_id").session(session).lean<{ _id: Types.ObjectId } | null>().exec();
+          if (!writableSeason) {
+            const exists = await SeasonModel.exists({ _id: new Types.ObjectId(seasonId) }).session(session).exec();
+            if (!exists) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+            throw new AppError("Completed or archived seasons are read-only", 409, "SEASON_WRITE_LOCKED");
+          }
         }
         result = await work(session);
       });
