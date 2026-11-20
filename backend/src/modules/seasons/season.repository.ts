@@ -142,7 +142,7 @@ export class SeasonRepository implements ISeasonRepository {
         if (lock.matchedCount !== 1) return;
 
         const [teams, lots] = await Promise.all([
-          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status").session(session).lean().exec(),
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName").session(session).lean().exec(),
           AuctionLotModel.find({ seasonRef: season._id }).select("auctionStatus seasonTeamRef purchasePrice isIconPlayer isGoalkeeper jerseyNo soldAt").session(session).lean().exec(),
         ]);
         if (!season.auctionSettings) {
