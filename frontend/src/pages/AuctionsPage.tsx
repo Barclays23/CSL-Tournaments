@@ -17,6 +17,7 @@ import {
   getSeasons,
   getAuctionSummary,
   getAuctionLots,
+  startSeasonAuction,
   completeSeasonAuction,
   reopenSeasonAuction,
   deletePendingAuctionLot,
@@ -109,7 +110,7 @@ export function AuctionsPage() {
     lots.reload();
   };
 
-  const canEditAuction = Boolean(isAdmin && data && data.season.status === "upcoming" && data.season.auctionLifecycleStatus === "in_progress");
+  const canEditAuction = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "in_progress");
   const playerNameFor = (lot: AuctionLot) =>
     typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef.name;
   const playerImageFor = (lot: AuctionLot) =>
@@ -207,7 +208,20 @@ export function AuctionsPage() {
           </Select>
         </div>
         {canEditAuction ? <Button onClick={() => setNominateOpen(true)}>Nominate player</Button> : null}
-        {isAdmin && data?.season.status === "upcoming" && data.season.auctionLifecycleStatus === "in_progress" ? (
+        {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "not_started" ? (
+          <Button variant="surface" disabled={saving} onClick={async () => {
+            if (!window.confirm("Start the auction? The server will verify the exact configured number of nominated players and registered teams.")) return;
+            setSaving(true);
+            try {
+              await startSeasonAuction(seasonId);
+              toast.success("Auction started");
+              refresh();
+              seasons.reload();
+            } catch (error) { toast.error(errorMessage(error)); }
+            finally { setSaving(false); }
+          }}>Start auction</Button>
+        ) : null}
+        {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "in_progress" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
             if (!window.confirm("Complete this season auction? The server will validate every lot, team roster, squad limit, Icon Player limit, Goalkeeper limit and team budget. The auction will remain open if any validation fails.")) return;
             setSaving(true);
@@ -220,9 +234,9 @@ export function AuctionsPage() {
             finally { setSaving(false); }
           }}>Complete auction</Button>
         ) : null}
-        {isAdmin && data?.season.status === "upcoming" && data.season.auctionLifecycleStatus === "completed" ? (
+        {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "completed" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
-            if (!window.confirm("Resume this auction? Existing lot assignments and sale data will be preserved. Fixtures must not exist.")) return;
+            if (!window.confirm("Reopen this auction? Existing lot assignments, sale history and fixtures will be preserved.")) return;
             setSaving(true);
             try {
               await reopenSeasonAuction(seasonId);
@@ -359,7 +373,7 @@ export function AuctionsPage() {
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-fg">{playerNameFor(lot)}</h3>
-                        <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">{lot.auctionStatus}</span>
+                        <span className={"rounded-full px-2 py-1 text-xs " + (lot.auctionStatus === "withdrawn" ? "bg-warning/10 text-warning" : "bg-surface text-muted")}>{lot.auctionStatus}</span>
                         {lot.isIconPlayer ? <span className="rounded-full bg-surface px-2 py-1 text-xs text-gold">Icon</span> : null}
                         {lot.isGoalkeeper ? <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">Goalkeeper</span> : null}
                       </div>
@@ -399,7 +413,7 @@ export function AuctionsPage() {
       <Modal
         open={nominateOpen}
         title="Nominate a player"
-        description="A player may be nominated only once in this season. Icon Player and Goalkeeper are independent designations."
+        description="Nominate the configured number of active players before starting the auction. Withdrawn lots remain in history and do not count toward the current nomination limit."
         onClose={() => setNominateOpen(false)}
       >
         <form
@@ -540,7 +554,7 @@ export function AuctionsPage() {
             </>
           ) : (
             <p className="rounded-lg bg-surface p-3 text-xs text-muted">
-              Changing the status away from Sold clears the assigned team, purchase price and jersey number.
+              Withdrawn players retain their original team and sale details as history. Sold players can return to Pending or Unsold only if their team has no fixtures.
             </p>
           )}
           <div className="flex justify-end gap-2">
