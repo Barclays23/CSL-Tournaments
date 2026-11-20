@@ -1481,7 +1481,7 @@ export const seasonPreviewRepository = {
       lot.seasonTeamRef = seasonTeam._id;
       lot.purchasePrice = purchasePrice;
       lot.jerseyNo = jerseyNo;
-      lot.soldAt = now();
+      lot.soldAt = previousStatus === "sold" && lot.soldAt ? lot.soldAt : now();
     } else {
       lot.auctionStatus = input.auctionStatus;
       if (input.auctionStatus !== "withdrawn") {
