@@ -16,7 +16,7 @@ export class AuctionLotService implements IAuctionLotService{
   if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const auctionSettings=season.auctionSettings;
   const [teams,lots]=await Promise.all([SeasonTeamModel.find({seasonRef:season._id}).populate({path:"teamRef",select:"name logo"}).lean<Array<Omit<import("../seasonTeams/seasonTeam.types.js").SeasonTeamEntity,"teamRef"> & {teamRef:Types.ObjectId|PopulatedAuctionLotTeam}>>().exec(),this.lots.find({seasonRef:new Types.ObjectId(seasonId)})]);
-  const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&(l.auctionStatus==="sold"||l.auctionStatus==="withdrawn"));const activeTeamLots=teamLots.filter(l=>l.auctionStatus==="sold");const spent=teamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.name:st.displayName,logoSnapshot:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.logo:st.logoSnapshot,status:st.status,budget:auctionSettings.budgetPerTeam,playersSigned:activeTeamLots.length,remainingSlots:auctionSettings.teamSquadSize-activeTeamLots.length,totalSpent:spent,balance:auctionSettings.budgetPerTeam-spent,averagePrice:activeTeamLots.length?spent/activeTeamLots.length:0,iconCount:activeTeamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:activeTeamLots.filter(l=>l.isGoalkeeper).length,lots:teamLots.map(l=>this.map(l))};});
+  const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&(l.auctionStatus==="sold"||l.auctionStatus==="withdrawn"));const activeTeamLots=teamLots.filter(l=>l.auctionStatus==="sold");const spent=activeTeamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.name:st.displayName,logoSnapshot:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.logo:st.logoSnapshot,status:st.status,budget:auctionSettings.budgetPerTeam,playersSigned:activeTeamLots.length,remainingSlots:auctionSettings.teamSquadSize-activeTeamLots.length,totalSpent:spent,balance:auctionSettings.budgetPerTeam-spent,averagePrice:activeTeamLots.length?spent/activeTeamLots.length:0,iconCount:activeTeamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:activeTeamLots.filter(l=>l.isGoalkeeper).length,lots:teamLots.map(l=>this.map(l))};});
   return {season:{_id:String(season._id),name:season.name,year:season.year,status:season.status,auctionSettings:season.auctionSettings,auctionLifecycleStatus:season.auctionLifecycleStatus},totals:{participatingTeams:teams.length,lots:lots.length,sold:lots.filter(l=>l.auctionStatus==="sold").length,pending:lots.filter(l=>l.auctionStatus==="pending").length,unsold:lots.filter(l=>l.auctionStatus==="unsold").length,withdrawn:lots.filter(l=>l.auctionStatus==="withdrawn").length,totalSoldValue:lots.filter(l=>l.auctionStatus==="sold").reduce((s,l)=>s+(l.purchasePrice??0),0)},teams:summaries,lots:lots.map(l=>this.map(l))};
  }
  async list(query:AuctionLotsQueryDto):Promise<AuctionLotResponseDto[]>{
@@ -41,7 +41,7 @@ export class AuctionLotService implements IAuctionLotService{
     const season=await SeasonModel.findById(input.seasonId).session(session).lean().exec();
     if(!season||!["upcoming","active"].includes(season.status)||!["not_started","in_progress"].includes(season.auctionLifecycleStatus))throw new AppError("Auction nominations are available only while an Upcoming season's auction is open",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
-    const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:"in_progress"},{$inc:{auctionRevision:1}},{session}).exec();
+    const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:{$in:["not_started","in_progress"]}}},{$inc:{auctionRevision:1}},{session}).exec();
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
     // Write the Player master document in the same transaction as the new reference.
     // This serializes nomination against safe hard deletion of an otherwise unreferenced player.
@@ -194,7 +194,7 @@ export class AuctionLotService implements IAuctionLotService{
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
     if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus!=="in_progress")throw new AppError("Pending lots can only be removed while the Upcoming season auction is in progress.",409,"SEASON_NOT_AUCTION_READY");
     const lock=await SeasonModel.updateOne(
-     {_id:season._id,status:"upcoming",auctionLifecycleStatus:"in_progress"},
+     {_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:"in_progress"},
      {$inc:{auctionRevision:1}},
      {session},
     ).exec();
