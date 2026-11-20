@@ -49,6 +49,15 @@ export class SeasonController {
     } catch (error) { next(error); }
   };
 
+  startAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      response.status(HTTP_STATUS.OK).json(ApiResponse.success(
+        "Season auction started",
+        await this.service.startAuction(getRequiredRouteParam(request.params.id, "id")),
+      ));
+    } catch (error) { next(error); }
+  };
+
   completeAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       response.status(HTTP_STATUS.OK).json(ApiResponse.success(
