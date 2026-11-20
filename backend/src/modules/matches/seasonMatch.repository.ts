@@ -7,7 +7,7 @@ import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
 import { GroupModel } from "../groups/group.model.js";
 import { PlayerModel } from "../players/player.model.js";
 import { AuctionLotModel } from "../auctionLots/auctionLot.model.js";
-import type { SeasonEntity } from "../seasons/season.types.js";
+import type { SeasonEntity, SeasonStatus } from "../seasons/season.types.js";
 import type { SeasonTeamEntity } from "../seasonTeams/seasonTeam.types.js";
 import type { PlayerEntity } from "../players/player.types.js";
 import type { AuctionLotEntity } from "../auctionLots/auctionLot.types.js";
@@ -76,7 +76,7 @@ export class SeasonMatchRepository {
     try {
       let result!: T;
       await session.withTransaction(async () => {
-        const allowedStatuses = allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"];
+        const allowedStatuses: SeasonStatus[] = allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"];
         if (requireAuctionCompleted) {
           const lock = await SeasonModel.updateOne(
             { _id: new Types.ObjectId(seasonId), status: { $in: allowedStatuses }, auctionLifecycleStatus: "completed" },
