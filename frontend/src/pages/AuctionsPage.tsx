@@ -111,6 +111,7 @@ export function AuctionsPage() {
   };
 
   const canEditAuction = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "in_progress");
+  const canNominate = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status) && ["not_started", "in_progress"].includes(data.season.auctionLifecycleStatus));
   const playerNameFor = (lot: AuctionLot) =>
     typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef.name;
   const playerImageFor = (lot: AuctionLot) =>
@@ -207,7 +208,7 @@ export function AuctionsPage() {
             ))}
           </Select>
         </div>
-        {canEditAuction ? <Button onClick={() => setNominateOpen(true)}>Nominate player</Button> : null}
+        {canNominate ? <Button onClick={() => setNominateOpen(true)}>Nominate player</Button> : null}
         {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "not_started" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
             if (!window.confirm("Start the auction? The server will verify the exact configured number of nominated players and registered teams.")) return;
@@ -309,7 +310,7 @@ export function AuctionsPage() {
                             {lot.isGoalkeeper ? " · Goalkeeper" : ""}
                           </p>
                         </div>
-                        <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>
+                        <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>\n                        {lot.auctionStatus === "withdrawn" ? <span className="rounded-full bg-warning/10 px-2 py-1 text-xs text-warning">Withdrawn</span> : <span className="rounded-full bg-success/10 px-2 py-1 text-xs text-success">Sold</span>}
                         {canEditAuction ? (
                           <Button size="sm" variant="ghost" onClick={() => openEdit(lot)}>Edit</Button>
                         ) : null}
