@@ -23,6 +23,26 @@ const id = (value: unknown): string => {
 
 const ELIGIBLE_TEAM_STATUSES = new Set(["registered", "active"]);
 
+/** Validate nomination count and team configuration before explicitly starting an auction. */
+export function getAuctionStartBlockers(
+  settings: SeasonAuctionSettings,
+  teams: AuctionCompletionTeam[],
+  nonWithdrawnLotCount: number,
+): string[] {
+  const blockers: string[] = [];
+  const eligibleTeams = teams.filter((team) => ELIGIBLE_TEAM_STATUSES.has(team.status));
+  if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) {
+    blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
+  }
+  if (eligibleTeams.length !== settings.seasonTeamCount) {
+    blockers.push("Registered eligible teams must exactly match the configured season team count");
+  }
+  if (nonWithdrawnLotCount !== settings.playersCount) {
+    blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
+  }
+  return blockers;
+}
+
 /** Validate the current auction snapshot. Withdrawn lots remain history, not active roster entries. */
 export function getAuctionCompletionBlockers(
   settings: SeasonAuctionSettings,
