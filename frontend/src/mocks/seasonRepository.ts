@@ -1120,6 +1120,7 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, id);
     if (!["upcoming", "active"].includes(season.status)) fail(409, "Auction cannot be reopened after the season is Completed or Archived", "AUCTION_REOPEN_NOT_ALLOWED");
+    if (season.auctionLifecycleStatus !== "completed") fail(409, "Only a completed auction can be reopened", "AUCTION_NOT_COMPLETED");
     season.auctionLifecycleStatus = "in_progress";
     season.auctionRevision += 1;
     season.updatedAt = now();
