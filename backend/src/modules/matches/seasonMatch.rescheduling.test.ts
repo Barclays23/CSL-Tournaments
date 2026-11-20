@@ -60,6 +60,7 @@ function makeHarness(
   const writes: Harness["writes"] = [];
   const season = {
     status: "active",
+    auctionLifecycleStatus: "completed",
     startDate: null,
     endDate: null,
     timeZone: "Asia/Kolkata",
