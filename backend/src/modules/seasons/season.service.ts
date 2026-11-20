@@ -337,20 +337,17 @@ export class SeasonService implements ISeasonService {
     if (!season.auctionSettings || !season.pointsRules || !season.standingsTieBreakers?.length || !season.matchRules) {
       throw new AppError("Complete the Season rules before moving it to Upcoming or Active", 422, "SEASON_CONFIG_INCOMPLETE");
     }
-    const [teamCount, eligibleTeamCount] = await Promise.all([
-      this.repo.countSeasonTeams(String(season._id)),
-      this.repo.countEligibleSeasonTeams(String(season._id)),
-    ]);
+    const eligibleTeamCount = await this.repo.countEligibleSeasonTeams(String(season._id));
     if (eligibleTeamCount < 2) {
       throw new AppError("At least two eligible participating teams are required", 422, "SEASON_TEAMS_REQUIRED", {
         teams: "Register at least two teams that are not withdrawn, eliminated or completed",
       });
     }
-    if (requireAuctionCompleted && teamCount !== season.auctionSettings.seasonTeamCount) {
-      throw new AppError("Registered teams must exactly match the configured season team count", 422, "SEASON_TEAM_COUNT_MISMATCH");
+    if (requireAuctionCompleted && eligibleTeamCount !== season.auctionSettings.seasonTeamCount) {
+      throw new AppError("Registered participating teams must exactly match the configured season team count", 422, "SEASON_TEAM_COUNT_MISMATCH");
     }
-    if (teamCount > season.auctionSettings.seasonTeamCount) {
-      throw new AppError("Registered teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
+    if (eligibleTeamCount > season.auctionSettings.seasonTeamCount) {
+      throw new AppError("Registered participating teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
     }
     if (season.groupStageEnabled) {
       const readiness = await this.repo.getGroupReadiness(String(season._id));
