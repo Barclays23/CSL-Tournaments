@@ -2,6 +2,7 @@ import type { Types } from "mongoose";
 
 export type SeasonStatus = "draft" | "upcoming" | "active" | "completed" | "archived";
 export type SeasonHistoryCompleteness = "not_applicable" | "metadata_only" | "partial" | "full";
+export type AuctionLifecycleStatus = "not_started" | "in_progress" | "completed";
 export type SeasonPlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
 export type SeasonTieBreaker = "points" | "goalDifference" | "goalsScored" | "teamNameAsc";
 
@@ -36,7 +37,7 @@ export interface SeasonFields {
   status: SeasonStatus;
   historyCompleteness: SeasonHistoryCompleteness;
   auctionSettings: SeasonAuctionSettings | null;
-  auctionClosedAt?: Date | null;
+  auctionLifecycleStatus: AuctionLifecycleStatus;
   pointsRules: SeasonPointsRules | null;
   standingsTieBreakers: SeasonTieBreaker[] | null;
   matchRules: SeasonMatchRules | null;

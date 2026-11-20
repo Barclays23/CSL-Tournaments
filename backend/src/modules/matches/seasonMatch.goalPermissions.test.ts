@@ -40,7 +40,7 @@ function makeMatch(status: SeasonMatchStatus, goals: unknown[] = [], cards: unkn
 function makeService(match: SeasonMatchEntity): SeasonMatchService {
   const repository = {
     findById: async () => match,
-    findSeason: async () => ({ status: "active" }),
+    findSeason: async () => ({ status: "active", auctionLifecycleStatus: "completed" }),
   };
   return new SeasonMatchService(repository as unknown as SeasonMatchRepository);
 }

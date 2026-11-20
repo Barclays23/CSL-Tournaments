@@ -1,6 +1,7 @@
 import type { Asset } from "@/types/api.types";
 
 export type SeasonStatus = "draft" | "upcoming" | "active" | "completed" | "archived";
+export type AuctionLifecycleStatus = "not_started" | "in_progress" | "completed";
 export type SeasonPlayerPosition = "goalkeeper" | "defender" | "midfielder" | "forward";
 export type AuctionLotStatus = "pending" | "sold" | "unsold" | "withdrawn";
 export type SeasonTeamStatus = "registered" | "active" | "withdrawn" | "eliminated" | "completed";
@@ -36,7 +37,7 @@ export interface Season {
     shootoutCountsForPlayerGoals: false;
   } | null;
   auctionSettings: SeasonAuctionSettings | null;
-  auctionClosedAt?: string | null;
+  auctionLifecycleStatus: AuctionLifecycleStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -146,7 +147,7 @@ export interface AuctionSummary {
     year: number;
     status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
-    auctionClosedAt?: string | null;
+    auctionLifecycleStatus: AuctionLifecycleStatus;
   };
   totals: {
     participatingTeams: number;

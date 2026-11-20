@@ -140,7 +140,8 @@ export interface SeasonMatchWrite {
   awaySeasonTeamRef: string;
   status?: SeasonMatchStatus;
   notes?: string | null;
+  penaltyShootout?: SeasonMatch["penaltyShootout"];
 }
 
 
-export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt"> & { kickoffAt: string };
+export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt" | "penaltyShootout"> & { kickoffAt: string };

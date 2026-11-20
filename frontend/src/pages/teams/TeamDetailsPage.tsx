@@ -258,13 +258,16 @@ export function TeamDetailsPage({ teamId }: { teamId: string }) {
           <section className="mt-7 grid gap-4 lg:grid-cols-2">
             <GlassCard className="p-5">
               <h3 className="font-display text-2xl text-fg">Season squad</h3>
-              <p className="mb-3 text-sm text-muted">{data.squad.length} player(s) acquired through the season auction</p>
+              <p className="mb-3 text-sm text-muted">{data.squad.filter((player) => player.auctionStatus === "sold").length} current player(s) · {data.squad.filter((player) => player.auctionStatus === "withdrawn").length} withdrawn player(s) in history</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {data.squad.map((player) => (
                   <div key={player.player._id} className="rounded-xl bg-surface p-3">
-                    <p className="font-semibold text-fg">
-                      {player.player.name}{player.jerseyNo ? " · #" + player.jerseyNo : ""}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-fg">
+                        {player.player.name}{player.jerseyNo ? " · #" + player.jerseyNo : ""}
+                      </p>
+                      <Badge>{player.auctionStatus === "withdrawn" ? "Withdrawn" : "Sold"}</Badge>
+                    </div>
                     <p className="mt-1 text-xs text-muted">
                       {POSITION_LABEL[player.position]}{player.isIconPlayer ? " · Icon" : ""}{player.isGoalkeeper ? " · Goalkeeper" : ""}
                     </p>

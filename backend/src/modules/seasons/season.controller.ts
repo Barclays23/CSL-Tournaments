@@ -49,11 +49,29 @@ export class SeasonController {
     } catch (error) { next(error); }
   };
 
-  closeAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+  startAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       response.status(HTTP_STATUS.OK).json(ApiResponse.success(
-        "Season auction closed",
-        await this.service.closeAuction(getRequiredRouteParam(request.params.id, "id")),
+        "Season auction started",
+        await this.service.startAuction(getRequiredRouteParam(request.params.id, "id")),
+      ));
+    } catch (error) { next(error); }
+  };
+
+  completeAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      response.status(HTTP_STATUS.OK).json(ApiResponse.success(
+        "Season auction completed",
+        await this.service.completeAuction(getRequiredRouteParam(request.params.id, "id")),
+      ));
+    } catch (error) { next(error); }
+  };
+
+  reopenAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      response.status(HTTP_STATUS.OK).json(ApiResponse.success(
+        "Season auction reopened",
+        await this.service.reopenAuction(getRequiredRouteParam(request.params.id, "id")),
       ));
     } catch (error) { next(error); }
   };

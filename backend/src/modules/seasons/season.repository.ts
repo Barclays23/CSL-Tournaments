@@ -9,6 +9,7 @@ import { SeasonMatchModel } from "../matches/seasonMatch.model.js";
 import { TeamModel } from "../teams/team.model.js";
 import { SeasonAwardModel } from "../seasonAwards/seasonAward.model.js";
 import { getSeasonCompletionBlockers } from "./season.completion.js";
+import { getAuctionCompletionBlockers, getAuctionStartBlockers } from "./auction.completion.js";
 import type { CreateSeasonDto } from "./season.dto.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 import type { SeasonMatchEntity } from "../matches/seasonMatch.types.js";
@@ -70,7 +71,7 @@ export class SeasonRepository implements ISeasonRepository {
   async updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null> {
     return SeasonModel.findOneAndUpdate(
       { _id: new Types.ObjectId(id), status: current },
-      { $set: { status: next, ...(next === "draft" ? { auctionClosedAt: null } : {}) } },
+      { $set: { status: next, ...(next === "draft" ? { auctionLifecycleStatus: "not_started" } : next === "upcoming" ? { auctionLifecycleStatus: "not_started" } : {}) } },
       { returnDocument: "after", runValidators: true },
     ).lean<SeasonEntity>().exec();
   }
@@ -80,55 +81,114 @@ export class SeasonRepository implements ISeasonRepository {
     try {
       let result: { season: SeasonEntity | null; blockers: string[] } = { season: null, blockers: [] };
       await session.withTransaction(async () => {
-        const season = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: "active" }).session(session).lean<SeasonEntity>().exec();
+        const season = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: "active", auctionLifecycleStatus: "completed" }).session(session).lean<SeasonEntity>().exec();
         if (!season) { result = { season: null, blockers: [] }; return; }
-        await SeasonModel.updateOne({ _id: season._id, status: "active" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
+        await SeasonModel.updateOne({ _id: season._id, status: "active", auctionLifecycleStatus: "completed" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
         const [matches, seasonTeams, awards, pendingAuctionLots] = await Promise.all([
           SeasonMatchModel.find({ seasonRef: season._id }).session(session).lean().exec(),
-          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status").session(session).lean().exec(),
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName").session(session).lean().exec(),
           SeasonAwardModel.find({ seasonRef: season._id }).session(session).lean().exec(),
           AuctionLotModel.countDocuments({ seasonRef: season._id, auctionStatus: "pending" }).session(session).exec(),
         ]);
         const blockers = getSeasonCompletionBlockers({ matches, seasonTeams, awards, pendingAuctionLots });
         if (blockers.length) { result = { season: null, blockers }; return; }
-        const completed = await SeasonModel.findOneAndUpdate({ _id: season._id, status: "active" }, { $set: { status: "completed" } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
+        const completed = await SeasonModel.findOneAndUpdate({ _id: season._id, status: "active", auctionLifecycleStatus: "completed" }, { $set: { status: "completed" } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
         result = { season: completed, blockers: [] };
       });
       return result;
     } finally { await session.endSession(); }
   }
 
-  async closeAuctionIfNoPendingLots(seasonId: string): Promise<{ season: SeasonEntity | null; pendingLots: number }> {
+  async startAuctionIfReady(seasonId: string): Promise<{ season: SeasonEntity | null; blockers: string[] }> {
     const session = await mongoose.startSession();
     try {
-      let result: { season: SeasonEntity | null; pendingLots: number } = { season: null, pendingLots: 0 };
+      let result: { season: SeasonEntity | null; blockers: string[] } = { season: null, blockers: [] };
+      await session.withTransaction(async () => {
+        const season = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "not_started" }).session(session).lean<SeasonEntity>().exec();
+        if (!season) return;
+        const lock = await SeasonModel.updateOne({ _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "not_started" }, { $inc: { auctionRevision: 1 } }, { session }).exec();
+        if (lock.matchedCount !== 1) return;
+        const [teams, currentLotCount] = await Promise.all([
+          SeasonTeamModel.find({ seasonRef: season._id, status: { $in: ["registered", "active"] } }).select("_id status").session(session).lean().exec(),
+          AuctionLotModel.countDocuments({ seasonRef: season._id, auctionStatus: { $ne: "withdrawn" } }).session(session).exec(),
+        ]);
+        const blockers = season.auctionSettings
+          ? getAuctionStartBlockers(season.auctionSettings, teams, currentLotCount)
+          : ["Auction settings are missing from this season"];
+        if (blockers.length) { result = { season: null, blockers }; return; }
+        const started = await SeasonModel.findOneAndUpdate({ _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "not_started" }, { $set: { auctionLifecycleStatus: "in_progress" }, $inc: { auctionRevision: 1 } }, { session, returnDocument: "after" }).lean<SeasonEntity>().exec();
+        result = { season: started, blockers: [] };
+      });
+      return result;
+    } finally { await session.endSession(); }
+  }
+
+  async completeAuctionIfReady(seasonId: string): Promise<{ season: SeasonEntity | null; blockers: string[] }> {
+    const session = await mongoose.startSession();
+    try {
+      let result: { season: SeasonEntity | null; blockers: string[] } = { season: null, blockers: [] };
       await session.withTransaction(async () => {
         const season = await SeasonModel.findOne({
-          _id: new Types.ObjectId(seasonId), status: "upcoming", auctionClosedAt: null,
+          _id: new Types.ObjectId(seasonId), status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "in_progress",
         }).session(session).lean<SeasonEntity>().exec();
         if (!season) return;
 
+        // Serialize completion against nominations, lot edits/deletions and fixture writes.
         const lock = await SeasonModel.updateOne(
-          { _id: season._id, status: "upcoming", auctionClosedAt: null },
+          { _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "in_progress" },
           { $inc: { auctionRevision: 1 } },
           { session },
         ).exec();
         if (lock.matchedCount !== 1) return;
 
-        const pendingLots = await AuctionLotModel.countDocuments({
-          seasonRef: season._id, auctionStatus: "pending",
-        }).session(session).exec();
-        if (pendingLots > 0) {
-          result = { season: null, pendingLots };
+        const [teams, lots] = await Promise.all([
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName").session(session).lean().exec(),
+          AuctionLotModel.find({ seasonRef: season._id }).select("auctionStatus seasonTeamRef purchasePrice isIconPlayer isGoalkeeper jerseyNo soldAt").session(session).lean().exec(),
+        ]);
+        if (!season.auctionSettings) {
+          result = { season: null, blockers: ["Auction settings are missing from this season"] };
+          return;
+        }
+        const blockers = getAuctionCompletionBlockers(season.auctionSettings, teams, lots);
+        if (blockers.length) {
+          result = { season: null, blockers };
           return;
         }
 
-        const closed = await SeasonModel.findOneAndUpdate(
-          { _id: season._id, status: "upcoming", auctionClosedAt: null },
-          { $set: { auctionClosedAt: new Date() }, $inc: { auctionRevision: 1 } },
+        const completed = await SeasonModel.findOneAndUpdate(
+          { _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "in_progress" },
+          { $set: { auctionLifecycleStatus: "completed" }, $inc: { auctionRevision: 1 } },
           { session, returnDocument: "after" },
         ).lean<SeasonEntity>().exec();
-        result = { season: closed, pendingLots: 0 };
+        result = { season: completed, blockers: [] };
+      });
+      return result;
+    } finally {
+      await session.endSession();
+    }
+  }
+
+  async reopenAuction(seasonId: string): Promise<{ season: SeasonEntity | null; fixtureCount: number }> {
+    const session = await mongoose.startSession();
+    try {
+      let result: { season: SeasonEntity | null; fixtureCount: number } = { season: null, fixtureCount: 0 };
+      await session.withTransaction(async () => {
+        const season = await SeasonModel.findOne({
+          _id: new Types.ObjectId(seasonId), status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "completed",
+        }).session(session).lean<SeasonEntity>().exec();
+        if (!season) return;
+        const lock = await SeasonModel.updateOne(
+          { _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "completed" },
+          { $inc: { auctionRevision: 1 } },
+          { session },
+        ).exec();
+        if (lock.matchedCount !== 1) return;
+        const reopened = await SeasonModel.findOneAndUpdate(
+          { _id: season._id, status: { $in: ["upcoming", "active"] }, auctionLifecycleStatus: "completed" },
+          { $set: { auctionLifecycleStatus: "in_progress" }, $inc: { auctionRevision: 1 } },
+          { session, returnDocument: "after" },
+        ).lean<SeasonEntity>().exec();
+        result = { season: reopened, fixtureCount: 0 };
       });
       return result;
     } finally {
@@ -181,9 +241,12 @@ export class SeasonRepository implements ISeasonRepository {
       }
     }
     const undersizedGroups = groups
-      .filter((group) => (counts.get(String(group._id)) ?? 0) < 2)
+      .filter((group) => { const count = counts.get(String(group._id)) ?? 0; return count > 0 && count < 2; })
       .map((group) => group.groupName);
-    return { groupCount: groups.length, unassignedTeamCount, undersizedGroups };
+    const emptyGroups = groups
+      .filter((group) => (counts.get(String(group._id)) ?? 0) === 0)
+      .map((group) => group.groupName);
+    return { groupCount: groups.length, unassignedTeamCount, undersizedGroups, emptyGroups };
   }
 
   async getMatches(seasonId: string): Promise<SeasonMatchEntity[]> {

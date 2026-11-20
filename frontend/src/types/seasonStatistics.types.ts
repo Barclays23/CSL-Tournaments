@@ -68,6 +68,7 @@ export interface SeasonTeamDashboard {
     purchasePrice: number | null;
     isIconPlayer: boolean;
     isGoalkeeper: boolean;
+    auctionStatus: "sold" | "withdrawn";
   }>;
   stats: {
     played: number;

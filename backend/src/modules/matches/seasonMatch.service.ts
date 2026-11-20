@@ -1,5 +1,6 @@
 import {Types} from "mongoose";
 import {getPairFixtureError} from "./seasonMatch.fixtureRules.js";
+import {requiresAuctionForFixtureMutation} from "./seasonMatch.auctionAccess.js";
 import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
 import {assertPenaltyShootoutScore,calculateCompletedMatchWinner} from "./seasonMatch.completionRules.js";
@@ -57,6 +58,7 @@ export class SeasonMatchService implements ISeasonMatchService{
  async get(id:string):Promise<SeasonMatchResponseDto>{this.id(id,"match");const m=await this.repo.findPopulatedById(id);if(!m)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");return this.map(m);}
  async create(seasonId:string,input:CreateSeasonMatchDto):Promise<SeasonMatchResponseDto>{
   this.id(seasonId,"season");const season=await this.repo.findSeason(seasonId);if(!season||!["upcoming","active"].includes(season.status))throw new AppError("Fixtures can only be created for Upcoming or Active seasons",409,"SEASON_NOT_FIXTURE_READY");
+  if(season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction and validate every team roster before creating fixtures.",409,"AUCTION_NOT_COMPLETED");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   if(input.stage==="group"&&!season.groupStageEnabled)throw new AppError("Group-stage fixtures are disabled for this season",409,"GROUP_STAGE_DISABLED");
   this.assertKickoffWithinSeason(season,input.kickoffAt);
@@ -85,9 +87,9 @@ export class SeasonMatchService implements ISeasonMatchService{
   }
   assertMatchStatusTransition(existing.status,nextStatus);
   if(existing.status==="completed")throw new AppError("Completed fixtures can only be changed through the audited correction workflow.",409,"MATCH_DETAILS_EDIT_NOT_ALLOWED");
-  const fixtureDetailFields=["matchNumber","roundNumber","stage","groupRef","kickoffAt","venueRef","homeSeasonTeamRef","awaySeasonTeamRef","notes","penaltyShootout"] as const;
-  const isFixtureDetailsEdit=fixtureDetailFields.some((field)=>input[field]!==undefined);
+  const isFixtureDetailsEdit=requiresAuctionForFixtureMutation(input);
   const existingCards=(existing as SeasonMatchEntity&{cards?:unknown[]}).cards??[];
+  if(isFixtureDetailsEdit&&season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction before editing fixture details or schedules.",409,"AUCTION_NOT_COMPLETED");
   if(isFixtureDetailsEdit){
    if(existing.status!=="scheduled"&&existing.status!=="live"){
     throw new AppError("Only Scheduled or Live matches can be edited.",409,"MATCH_DETAILS_EDIT_NOT_ALLOWED");
@@ -149,7 +151,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   const merged:SeasonMatchFields={...existing,matchNumber:number,roundNumber,stage,groupRef:stage==="group"&&groupId?new Types.ObjectId(groupId):null,kickoffAt,venueRef:new Types.ObjectId(venueRef),homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:nextStatus,penaltyShootout:existing.status==="live"&&nextStatus==="scheduled"?null:input.penaltyShootout===undefined?existing.penaltyShootout:this.buildShootout(input.penaltyShootout),notes:input.notes===undefined?existing.notes:input.notes,winnerSeasonTeamRef:existing.status==="live"&&nextStatus==="scheduled"?null:existing.winnerSeasonTeamRef,resolutionHistory};
   if(merged.penaltyShootout)await this.validateShootout(String(existing.seasonRef),merged,merged.penaltyShootout);
   merged.winnerSeasonTeamRef=this.calculateWinner(merged,season.matchRules,season.pointsRules);
-  const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,roundNumber:merged.roundNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venueRef:merged.venueRef,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory},season.homeAndAwayFixtures??false,statusHistoryEntry?{expectedStatus:existing.status,entry:statusHistoryEntry,requireNoGoals:existing.status==="live"&&nextStatus==="scheduled"}:undefined,{requireEditableWithoutEvents:isFixtureDetailsEdit});
+  const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,roundNumber:merged.roundNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venueRef:merged.venueRef,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory},season.homeAndAwayFixtures??false,statusHistoryEntry?{expectedStatus:existing.status,entry:statusHistoryEntry,requireNoGoals:existing.status==="live"&&nextStatus==="scheduled"}:undefined,{requireEditableWithoutEvents:isFixtureDetailsEdit,requireAuctionCompleted:isFixtureDetailsEdit});
   if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated fixture could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);
  }
  async reschedule(id:string,input:import("./seasonMatch.dto.js").RescheduleSeasonMatchDto,changedBy?:string):Promise<SeasonMatchResponseDto>{
@@ -160,6 +162,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   assertMatchStatusTransition(existing.status,"scheduled");
   const season=await this.repo.findSeason(String(existing.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
+  if(season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction before rescheduling this fixture.",409,"AUCTION_NOT_COMPLETED");
   if(!["upcoming","active"].includes(season.status))throw new AppError("Only Upcoming or Active season matches can be rescheduled",409,"SEASON_CLOSED");
   if(!(input.kickoffAt instanceof Date)||Number.isNaN(input.kickoffAt.getTime())){
    throw new AppError("A valid new match date and kick-off time are required",422,"RESCHEDULE_KICKOFF_REQUIRED",{kickoffAt:"Enter a valid date and kick-off time"});
@@ -201,7 +204,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   if(existing.status!=="completed")throw new AppError("Only Completed matches can use the correction workflow",409,"MATCH_NOT_COMPLETED");
   const season=await this.repo.findSeason(String(existing.seasonRef));
   if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
-  if(season.status==="archived")throw new AppError("Archived seasons cannot be corrected",409,"SEASON_CLOSED");
+  if(isSeasonReadOnly(season.status))throw new AppError("Completed and archived seasons cannot be corrected",409,"SEASON_CLOSED");
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
   const correctedAt=new Date();
   const reusedGoalIds=new Set<string>();
@@ -239,7 +242,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   return this.map(populated);
  }
 
- async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");throw new AppError("Fixtures are retained as tournament history and cannot be physically deleted. Change the fixture status to cancelled or abandoned instead.",409,"MATCH_DELETE_BLOCKED");}
+ async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction before deleting fixtures.",409,"AUCTION_NOT_COMPLETED");if(isSeasonReadOnly(season.status))throw new AppError("Completed or archived seasons are read-only",409,"SEASON_CLOSED");const deleted=await this.repo.delete(id);if(!deleted)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");}
  async addGoal(id:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.assertGoalManagementAllowed(match);const goal=await this.buildGoal(match,input);const result={...match,goals:[...match.goals,goal]};const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals:result.goals},season.matchRules,season.pointsRules);const saved=await this.repo.appendGoalWithWinner(id,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved){const latest=await this.repo.findById(id);if(latest&&latest.status!=="live")throw new AppError("Goals can only be added, edited or removed while the match is Live.",409,"MATCH_NOT_LIVE");throw new AppError("Match not found",404,"MATCH_NOT_FOUND");}const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  async updateGoal(id:string,goalId:string,input:SeasonGoalDto):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.assertGoalManagementAllowed(match);this.id(goalId,"goal");if(!match.goals.some(g=>String(g._id)===goalId))throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const goal=await this.buildGoal(match,input);const goals=match.goals.map(g=>String(g._id)===goalId?goal:g);const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules,season.pointsRules);const saved=await this.repo.updateGoalWithWinner(id,goalId,goal,winner?new Types.ObjectId(String(winner)):null);if(!saved){const latest=await this.repo.findById(id);if(latest&&latest.status!=="live")throw new AppError("Goals can only be added, edited or removed while the match is Live.",409,"MATCH_NOT_LIVE");throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");}const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
  async deleteGoal(id:string,goalId:string):Promise<SeasonMatchResponseDto>{const match=await this.getExisting(id);this.assertGoalManagementAllowed(match);this.id(goalId,"goal");const goals=match.goals.filter(g=>String(g._id)!==goalId);if(goals.length===match.goals.length)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const season=await this.repo.findSeason(String(match.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(!season.matchRules)throw new AppError("Match rules are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");const winner=this.calculateWinner({...match,goals},season.matchRules,season.pointsRules);const saved=await this.repo.removeGoalWithWinner(id,goalId,winner?new Types.ObjectId(String(winner)):null);if(!saved)throw new AppError("Goal not found",404,"GOAL_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated match could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);}
