@@ -1,5 +1,6 @@
 import {Types} from "mongoose";
 import {getPairFixtureError} from "./seasonMatch.fixtureRules.js";
+import {requiresAuctionForFixtureMutation} from "./seasonMatch.auctionAccess.js";
 import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
 import {assertPenaltyShootoutScore,calculateCompletedMatchWinner} from "./seasonMatch.completionRules.js";
@@ -86,8 +87,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   }
   assertMatchStatusTransition(existing.status,nextStatus);
   if(existing.status==="completed")throw new AppError("Completed fixtures can only be changed through the audited correction workflow.",409,"MATCH_DETAILS_EDIT_NOT_ALLOWED");
-  const fixtureDetailFields=["matchNumber","roundNumber","stage","groupRef","kickoffAt","venueRef","homeSeasonTeamRef","awaySeasonTeamRef","notes"] as const;
-  const isFixtureDetailsEdit=fixtureDetailFields.some((field)=>input[field]!==undefined);
+  const isFixtureDetailsEdit=requiresAuctionForFixtureMutation(input);
   const existingCards=(existing as SeasonMatchEntity&{cards?:unknown[]}).cards??[];
   if(isFixtureDetailsEdit&&season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction before editing fixture details or schedules.",409,"AUCTION_NOT_COMPLETED");
   if(isFixtureDetailsEdit){
