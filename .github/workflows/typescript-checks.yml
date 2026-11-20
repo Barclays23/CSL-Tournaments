@@ -17,6 +17,7 @@ on:
       - feature/match-goal-status-restrictions
       - feature/completed-match-correction
       - feature/match-status-mock-sync-tests
+      - fix/auction-lifecycle-and-fixture-validation
   pull_request:
     branches:
       - main
