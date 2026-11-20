@@ -41,7 +41,7 @@ export class AuctionLotService implements IAuctionLotService{
     const season=await SeasonModel.findById(input.seasonId).session(session).lean().exec();
     if(!season||!["upcoming","active"].includes(season.status)||!["not_started","in_progress"].includes(season.auctionLifecycleStatus))throw new AppError("Auction nominations are available only while an Upcoming season's auction is open",409,"SEASON_NOT_AUCTION_READY");
     if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
-    const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:{$in:["not_started","in_progress"]}}},{$inc:{auctionRevision:1}},{session}).exec();
+    const lock=await SeasonModel.updateOne({_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:{$in:["not_started","in_progress"]}},{$inc:{auctionRevision:1}},{session}).exec();
     if(lock.matchedCount!==1)throw new AppError("Season is not open for nominations",409,"SEASON_CLOSED");
     // Write the Player master document in the same transaction as the new reference.
     // This serializes nomination against safe hard deletion of an otherwise unreferenced player.
