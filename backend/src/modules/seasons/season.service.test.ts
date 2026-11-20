@@ -98,7 +98,7 @@ test("Draft season name remains editable after teams and groups are registered",
 test("activation requires the exact eligible participating team count", async () => {
   const instance = service({
     countEligibleSeasonTeams: async () => 3,
-    getGroupReadiness: async () => ({ groupCount: 2, unassignedTeamCount: 0, undersizedGroups: [] }),
+    getGroupReadiness: async () => ({ groupCount: 2, unassignedTeamCount: 0, undersizedGroups: [], emptyGroups: [] }),
   });
   const season = {
     _id: id,
@@ -119,7 +119,7 @@ test("activation requires the exact eligible participating team count", async ()
 test("activation requires every participating group to contain at least two eligible teams", async () => {
   const instance = service({
     countEligibleSeasonTeams: async () => 4,
-    getGroupReadiness: async () => ({ groupCount: 2, unassignedTeamCount: 0, undersizedGroups: ["Group B"] }),
+    getGroupReadiness: async () => ({ groupCount: 2, unassignedTeamCount: 0, undersizedGroups: ["Group B"], emptyGroups: [] }),
   });
   const season = {
     _id: id,
@@ -140,7 +140,7 @@ test("activation requires every participating group to contain at least two elig
 test("activation requires every participating team to be assigned to a season group", async () => {
   const instance = service({
     countEligibleSeasonTeams: async () => 4,
-    getGroupReadiness: async () => ({ groupCount: 2, unassignedTeamCount: 1, undersizedGroups: [] }),
+    getGroupReadiness: async () => ({ groupCount: 2, unassignedTeamCount: 1, undersizedGroups: [], emptyGroups: [] }),
   });
   const season = {
     _id: id,
@@ -155,5 +155,55 @@ test("activation requires every participating team to be assigned to a season gr
   await assert.rejects(
     () => (instance as unknown as { validateReadiness: (season: unknown, requireAuctionCompleted: boolean) => Promise<void> }).validateReadiness(season, true),
     (error: unknown) => error instanceof AppError && error.errorCode === "SEASON_GROUPS_INCOMPLETE",
+  );
+});
+
+
+test("Upcoming configuration allows unused groups to remain temporarily", async () => {
+  const instance = service({
+    countEligibleSeasonTeams: async () => 4,
+    getGroupReadiness: async () => ({
+      groupCount: 3, unassignedTeamCount: 0, undersizedGroups: [], emptyGroups: ["Group C"],
+    }),
+  });
+  const season = {
+    _id: id,
+    status: "upcoming",
+    auctionLifecycleStatus: "not_started",
+    auctionSettings: { seasonTeamCount: 4 },
+    pointsRules: { win: 3, draw: 1, loss: 0 },
+    standingsTieBreakers: ["points"],
+    matchRules: { groupStageDrawAllowed: true },
+    groupStageEnabled: true,
+  };
+
+  await assert.doesNotReject(
+    () => (instance as unknown as { validateReadiness: (season: unknown, requireAuctionCompleted: boolean) => Promise<void> }).validateReadiness(season, false),
+  );
+});
+
+test("activation asks the admin to remove every unused group manually", async () => {
+  const instance = service({
+    countEligibleSeasonTeams: async () => 4,
+    getGroupReadiness: async () => ({
+      groupCount: 3, unassignedTeamCount: 0, undersizedGroups: [], emptyGroups: ["Group C"],
+    }),
+  });
+  const season = {
+    _id: id,
+    status: "upcoming",
+    auctionLifecycleStatus: "completed",
+    auctionSettings: { seasonTeamCount: 4 },
+    pointsRules: { win: 3, draw: 1, loss: 0 },
+    standingsTieBreakers: ["points"],
+    matchRules: { groupStageDrawAllowed: true },
+    groupStageEnabled: true,
+  };
+
+  await assert.rejects(
+    () => (instance as unknown as { validateReadiness: (season: unknown, requireAuctionCompleted: boolean) => Promise<void> }).validateReadiness(season, true),
+    (error: unknown) => error instanceof AppError
+      && error.errorCode === "SEASON_GROUPS_INCOMPLETE"
+      && error.fieldErrors?.emptyGroups.includes("Group C") === true,
   );
 });

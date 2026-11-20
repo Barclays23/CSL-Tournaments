@@ -243,7 +243,10 @@ export class SeasonRepository implements ISeasonRepository {
     const undersizedGroups = groups
       .filter((group) => { const count = counts.get(String(group._id)) ?? 0; return count > 0 && count < 2; })
       .map((group) => group.groupName);
-    return { groupCount: groups.length, unassignedTeamCount, undersizedGroups };
+    const emptyGroups = groups
+      .filter((group) => (counts.get(String(group._id)) ?? 0) === 0)
+      .map((group) => group.groupName);
+    return { groupCount: groups.length, unassignedTeamCount, undersizedGroups, emptyGroups };
   }
 
   async getMatches(seasonId: string): Promise<SeasonMatchEntity[]> {

@@ -1073,7 +1073,21 @@ export const seasonPreviewRepository = {
           }
           counts.set(groupRef, (counts.get(groupRef) ?? 0) + 1);
         }
-        if (!groups.length || [...counts.values()].some((count) => count > 0 && count < 2)) fail(422, "Every participating group must contain at least two teams");
+        if (next === "active") {
+          const emptyGroups = groups.filter((group) => (counts.get(group._id) ?? 0) === 0);
+          if (emptyGroups.length) {
+            const names = emptyGroups.map((group) => group.groupName);
+            fail(
+              422,
+              "Remove unused groups before activating the season: " + names.join(", "),
+              "SEASON_GROUPS_INCOMPLETE",
+              { emptyGroups: names.join(", ") },
+            );
+          }
+        }
+        if (!groups.length || [...counts.values()].some((count) => count > 0 && count < 2)) {
+          fail(422, "Every participating group must contain at least two teams", "SEASON_GROUPS_INCOMPLETE");
+        }
       }
     }
     if (next === "active" && db.seasons.some((s) => s._id !== id && s.status === "active")) fail(409, "Another season is already Active");

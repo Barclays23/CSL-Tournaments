@@ -355,6 +355,9 @@ export class SeasonService implements ISeasonService {
       if (readiness.groupCount === 0) errors.groups = "Create at least one season-scoped Group";
       if (readiness.unassignedTeamCount > 0) errors.unassignedTeams = readiness.unassignedTeamCount + " participating team(s) need a Group";
       if (readiness.undersizedGroups.length > 0) errors.groupSizes = "Every Group must contain at least two eligible teams: " + readiness.undersizedGroups.join(", ");
+      if (requireAuctionCompleted && readiness.emptyGroups.length > 0) {
+        errors.emptyGroups = "Remove unused groups before activating the season: " + readiness.emptyGroups.join(", ");
+      }
       if (Object.keys(errors).length) throw new AppError("Group-stage setup is incomplete", 422, "SEASON_GROUPS_INCOMPLETE", errors);
     }
   }

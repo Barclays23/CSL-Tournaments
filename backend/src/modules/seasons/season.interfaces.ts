@@ -8,6 +8,7 @@ export interface SeasonGroupReadiness {
   groupCount: number;
   unassignedTeamCount: number;
   undersizedGroups: string[];
+  emptyGroups: string[];
 }
 
 export interface ISeasonRepository {
