@@ -66,7 +66,6 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
   if(!participation)return {participates:false,season:this.seasonBrief(season),team:teamInfo,seasonTeam:null,managers:[],squad:[],stats:{played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,goalDifference:0,cleanSheets:0,topScorer:null},recentFixtures:[],upcomingFixtures:[]};
   const [lots,matches]=await Promise.all([this.repo.findSquadLots(seasonId),this.repo.findMatchesForSeasonTeam(seasonId,String(participation._id))]);
   const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(participation._id));
-  const soldTeamLots=teamLots.filter(l=>l.auctionStatus==="sold");
   const squad=teamLots.map(l=>({player:{_id:String(l.playerRef._id),name:l.playerRef.name,profilePic:l.playerRef.profilePic},position:l.playerPosition,jerseyNo:l.jerseyNo,purchasePrice:l.purchasePrice,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper,auctionStatus:l.auctionStatus as "sold"|"withdrawn"}));
   const stats:TeamTotals={played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,cleanSheets:0};const playerGoals=new Map<string,number>();
   const signedPlayers=new Map(teamLots.map(l=>[String(l.playerRef._id),l.playerRef]));
