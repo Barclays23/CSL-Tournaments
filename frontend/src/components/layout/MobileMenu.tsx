@@ -16,7 +16,7 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
             <X className="h-5 w-5" />
           </IconButton>
         </div>
-        <nav className="mt-6 flex flex-col gap-2" aria-label="Mobile">
+        <nav className="mt-6 flex flex-col gap-2 bg-bg/90" aria-label="Mobile">
           {NAV_ITEMS.map((item) => (
             <Link key={item.to} to={item.to} onClick={onClose} className="rounded-card px-3 py-3 text-lg font-medium text-fg">
               {item.label}
