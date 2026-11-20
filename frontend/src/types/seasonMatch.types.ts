@@ -140,6 +140,7 @@ export interface SeasonMatchWrite {
   awaySeasonTeamRef: string;
   status?: SeasonMatchStatus;
   notes?: string | null;
+  penaltyShootout?: SeasonMatch["penaltyShootout"];
 }
 
 
