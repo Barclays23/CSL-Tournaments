@@ -9,6 +9,7 @@ import {AuctionLotModel} from "./auctionLot.model.js";
 import {AuctionLotRepository} from "./auctionLot.repository.js";
 import type {NominatePlayerDto,SellAuctionLotDto,UpdateAuctionLotStatusDto,UpdateAuctionLotDto,AuctionLotResponseDto,AuctionSummaryDto,AuctionTeamSummaryDto,AuctionLotsQueryDto} from "./auctionLot.dto.js";
 import type {AuctionLotEntity,AuctionLotFields,PopulatedAuctionLotEntity,PopulatedAuctionLotTeam} from "./auctionLot.types.js";
+import { canDeletePendingAuctionLot, canUpdateAuctionLot } from "./auctionLot.lifecycle.js";
 export class AuctionLotService implements IAuctionLotService{
  constructor(private readonly lots:AuctionLotRepository){}
  async summary(seasonId:string):Promise<AuctionSummaryDto>{
@@ -104,11 +105,12 @@ export class AuctionLotService implements IAuctionLotService{
     const lot=await AuctionLotModel.findById(id).session(session).exec();
     if(!lot)throw new AppError("Auction lot not found",404,"LOT_NOT_FOUND");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
-    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus !== "in_progress")throw new AppError("Auction lots can only be changed while an Upcoming or Active season auction is open",409,"SEASON_NOT_AUCTION_READY");
-    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
-
     const previousStatus = lot.auctionStatus;
     const nextStatus=input.auctionStatus;
+    if(!season || !canUpdateAuctionLot(season.status, season.auctionLifecycleStatus, previousStatus, nextStatus)) {
+     throw new AppError("Before the auction starts, only Pending lot details can be edited. Start the auction to record sales or change lot status.",409,"SEASON_NOT_AUCTION_READY");
+    }
+    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
     if (lot.auctionStatus === "withdrawn") throw new AppError("Withdrawn auction lots are historical records and cannot be changed again.", 409, "LOT_WITHDRAWN_READ_ONLY");
     if (nextStatus === "withdrawn" && lot.auctionStatus !== "sold") throw new AppError("Only a Sold player can be marked Withdrawn.", 409, "LOT_WITHDRAWAL_NOT_ALLOWED");
     if (lot.auctionStatus === "sold" && (nextStatus === "pending" || nextStatus === "unsold")) {
@@ -192,9 +194,11 @@ export class AuctionLotService implements IAuctionLotService{
     if(lot.auctionStatus!=="pending")throw new AppError("Only pending auction lots can be removed. Sold, Unsold and Withdrawn lots are retained as auction history.",409,"LOT_DELETE_NOT_ALLOWED");
     if(lot.seasonTeamRef)throw new AppError("This auction lot is assigned to a season team and cannot be removed.",409,"LOT_ALREADY_ASSIGNED");
     const season=await SeasonModel.findById(lot.seasonRef).session(session).exec();
-    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus!=="in_progress")throw new AppError("Pending lots can only be removed while the auction is in progress.",409,"SEASON_NOT_AUCTION_READY");
+    if(!season || !canDeletePendingAuctionLot(season.status, season.auctionLifecycleStatus, lot.auctionStatus)) {
+     throw new AppError("Pending lots can only be removed before the auction is completed.",409,"SEASON_NOT_AUCTION_READY");
+    }
     const lock=await SeasonModel.updateOne(
-     {_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:"in_progress"},
+     {_id:season._id,status:{$in:["upcoming","active"]},auctionLifecycleStatus:{$in:["not_started","in_progress"]}},
      {$inc:{auctionRevision:1}},
      {session},
     ).exec();

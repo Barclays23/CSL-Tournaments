@@ -1182,7 +1182,9 @@ export const seasonPreviewRepository = {
     if (lot.auctionStatus !== "pending") fail(409, "Only pending auction lots can be removed. Sold, Unsold and Withdrawn lots are retained as auction history.", "LOT_DELETE_NOT_ALLOWED");
     if (lot.seasonTeamRef) fail(409, "An auction lot assigned to a season team cannot be removed", "LOT_ALREADY_ASSIGNED");
     const season = seasonById(db, lot.seasonRef);
-    if (!["upcoming", "active"].includes(season.status) || season.auctionLifecycleStatus !== "in_progress") fail(409, "Pending lots can only be removed while the auction is in progress");
+    if (!["upcoming", "active"].includes(season.status) || !["not_started", "in_progress"].includes(season.auctionLifecycleStatus)) {
+      fail(409, "Pending lots can only be removed before the auction is completed", "SEASON_NOT_AUCTION_READY");
+    }
     db.auctionLots.splice(index, 1);
     season.auctionRevision += 1;
     season.updatedAt = now();
@@ -1470,8 +1472,14 @@ export const seasonPreviewRepository = {
     const lot = db.auctionLots.find((item) => item._id === id);
     if (!lot) return fail(404, "Auction lot not found");
     const season = seasonById(db, lot.seasonRef);
-    if (!["upcoming", "active"].includes(season.status) || season.auctionLifecycleStatus !== "in_progress") fail(409, "Auction changes are available only while an Upcoming or Active season auction is in progress.", "SEASON_NOT_AUCTION_READY");
     const previousStatus = lot.auctionStatus;
+    const pendingPreparationEdit = season.auctionLifecycleStatus === "not_started"
+      && previousStatus === "pending"
+      && input.auctionStatus === "pending";
+    if (!["upcoming", "active"].includes(season.status)
+      || (season.auctionLifecycleStatus !== "in_progress" && !pendingPreparationEdit)) {
+      fail(409, "Before the auction starts, only Pending lot details can be edited. Start the auction to record sales or change lot status.", "SEASON_NOT_AUCTION_READY");
+    }
     if (previousStatus === "withdrawn") fail(409, "Withdrawn auction lots are historical records and cannot be changed again.", "LOT_WITHDRAWN_READ_ONLY");
     if (input.auctionStatus === "withdrawn" && previousStatus !== "sold") fail(409, "Only a Sold player can be marked Withdrawn.", "LOT_WITHDRAWAL_NOT_ALLOWED");
     if (previousStatus === "sold" && (input.auctionStatus === "pending" || input.auctionStatus === "unsold")) {

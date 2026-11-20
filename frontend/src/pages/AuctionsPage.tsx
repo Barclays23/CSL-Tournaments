@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -45,14 +45,18 @@ export function AuctionsPage() {
   const { isAdmin } = useAuth();
   const seasons = useServiceQuery(() => getSeasons(), []);
   const [seasonId, setSeasonId] = useState("");
-
-  useEffect(() => {
-    if (!seasonId && seasons.data?.data.length) {
-      const auctionOpen = seasons.data.data.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "in_progress");
-      const active = seasons.data.data.find((season) => season.status === "active");
-      setSeasonId(auctionOpen?._id ?? active?._id ?? seasons.data.data[0]._id);
-    }
-  }, [seasonId, seasons.data]);
+  const defaultSeasonId = useMemo(() => {
+    const availableSeasons = seasons.data?.data ?? [];
+    const preferredSeason =
+      availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "in_progress")
+      ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "in_progress")
+      ?? availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "not_started")
+      ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "not_started")
+      ?? availableSeasons.find((season) => season.status === "active")
+      ?? availableSeasons[0];
+    return preferredSeason?._id ?? "";
+  }, [seasons.data]);
+  const selectedSeasonId = seasonId || defaultSeasonId;
 
   const [playerSearch, setPlayerSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState("");
@@ -62,15 +66,15 @@ export function AuctionsPage() {
   const [iconFilter, setIconFilter] = useState("");
   const [goalkeeperFilter, setGoalkeeperFilter] = useState("");
   const summary = useServiceQuery(
-    () => seasonId
-      ? getAuctionSummary(seasonId)
+    () => selectedSeasonId
+      ? getAuctionSummary(selectedSeasonId)
       : Promise.resolve(EMPTY_SUMMARY as unknown as Awaited<ReturnType<typeof getAuctionSummary>>),
-    [seasonId],
+    [selectedSeasonId],
   );
   const lots = useServiceQuery(
-    () => seasonId
+    () => selectedSeasonId
       ? getAuctionLots({
-          seasonId,
+          seasonId: selectedSeasonId,
           ...(teamFilter ? { seasonTeamId: teamFilter } : {}),
           ...(statusFilter ? { auctionStatus: statusFilter } : {}),
           ...(positionFilter ? { playerPosition: positionFilter } : {}),
@@ -79,7 +83,7 @@ export function AuctionsPage() {
           ...(goalkeeperFilter ? { isGoalkeeper: goalkeeperFilter === "true" } : {}),
         })
       : Promise.resolve(EMPTY_LOTS),
-    [seasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
+    [selectedSeasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
   );
   const players = useServiceQuery(() => getPlayers({ limit: 100, status: "active" }), []);
 
@@ -110,8 +114,19 @@ export function AuctionsPage() {
     lots.reload();
   };
 
-  const canEditAuction = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "in_progress");
-  const canNominate = Boolean(isAdmin && data && ["upcoming", "active"].includes(data.season.status) && ["not_started", "in_progress"].includes(data.season.auctionLifecycleStatus));
+  const canManageAuctionLots = Boolean(
+    isAdmin
+    && data
+    && ["upcoming", "active"].includes(data.season.status)
+    && ["not_started", "in_progress"].includes(data.season.auctionLifecycleStatus),
+  );
+  const canEditAuction = Boolean(canManageAuctionLots && data?.season.auctionLifecycleStatus === "in_progress");
+  const canNominate = canManageAuctionLots;
+  const canEditLot = (lot: AuctionLot) => canEditAuction || (
+    canManageAuctionLots
+    && data?.season.auctionLifecycleStatus === "not_started"
+    && lot.auctionStatus === "pending"
+  );
   const playerNameFor = (lot: AuctionLot) =>
     typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef.name;
   const playerImageFor = (lot: AuctionLot) =>
@@ -191,7 +206,7 @@ export function AuctionsPage() {
         <div className="w-full max-w-sm">
           <label className="mb-1.5 block text-sm font-medium text-fg">Season</label>
           <Select
-            value={seasonId}
+            value={selectedSeasonId}
             onChange={(event) => {
               setSeasonId(event.target.value);
               setTeamFilter("");
@@ -208,13 +223,13 @@ export function AuctionsPage() {
             ))}
           </Select>
         </div>
-        {canNominate ? <Button onClick={() => setNominateOpen(true)}>Nominate player</Button> : null}
+        {canNominate ? <Button onClick={() => setNominateOpen(true)}>Create auction lot</Button> : null}
         {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "not_started" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
             if (!window.confirm("Start the auction? The server will verify the exact configured number of nominated players and registered teams.")) return;
             setSaving(true);
             try {
-              await startSeasonAuction(seasonId);
+              await startSeasonAuction(selectedSeasonId);
               toast.success("Auction started");
               refresh();
               seasons.reload();
@@ -227,7 +242,7 @@ export function AuctionsPage() {
             if (!window.confirm("Complete this season auction? The server will validate every lot, team roster, squad limit, Icon Player limit, Goalkeeper limit and team budget. The auction will remain open if any validation fails.")) return;
             setSaving(true);
             try {
-              await completeSeasonAuction(seasonId);
+              await completeSeasonAuction(selectedSeasonId);
               toast.success("Auction completed successfully");
               refresh();
               seasons.reload();
@@ -240,7 +255,7 @@ export function AuctionsPage() {
             if (!window.confirm("Reopen this auction? Existing lot assignments, sale history and fixtures will be preserved.")) return;
             setSaving(true);
             try {
-              await reopenSeasonAuction(seasonId);
+              await reopenSeasonAuction(selectedSeasonId);
               toast.success("Auction resumed");
               refresh();
               seasons.reload();
@@ -251,6 +266,23 @@ export function AuctionsPage() {
         {data?.season.auctionLifecycleStatus === "completed" ? <span className="self-center text-xs font-medium text-success">Auction completed</span> : null}
         {data?.season.auctionLifecycleStatus === "in_progress" ? <span className="self-center text-xs text-muted">Auction in progress</span> : null}
       </div>
+
+      {isAdmin && data ? (
+        <p className="mb-5 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted" role="status">
+          {data.season.status === "draft"
+            ? "Move this season to Upcoming from the Seasons page before creating auction lots."
+            : data.season.status === "completed" || data.season.status === "archived"
+              ? "This season is read-only. Auction lot changes are no longer available."
+              : data.season.auctionLifecycleStatus === "not_started"
+                ? "Auction setup: create, edit or remove Pending lots. Start the auction after the configured player nominations are ready."
+                : data.season.auctionLifecycleStatus === "in_progress"
+                  ? "Auction in progress: you can create lots, edit lot details and remove Pending lots. Sold, Unsold and Withdrawn records are protected by auction rules."
+                  : "Auction completed. Reopen the auction to make further lot changes."}
+        </p>
+      ) : null}
+      {!isAdmin ? (
+        <p className="mb-5 text-sm text-muted">Sign in with an administrator account to create or manage auction lots.</p>
+      ) : null}
 
       {seasons.loading ? <Skeleton className="h-24" /> : null}
       {seasons.error ? <ErrorState message={seasons.error} onRetry={seasons.reload} /> : null}
@@ -389,9 +421,10 @@ export function AuctionsPage() {
                     <span className="mr-1 text-sm font-semibold text-fg">
                       {lot.purchasePrice === null ? "—" : formatCurrency(lot.purchasePrice)}
                     </span>
-                    {canEditAuction ? <>
+                    {canEditLot(lot) ? <>
                       {lot.auctionStatus !== "withdrawn" ? <Button size="sm" onClick={() => openEdit(lot)}>Edit lot</Button> : null}
-                      {lot.auctionStatus === "pending" && !lot.seasonTeamRef ? (
+                    </> : null}
+                    {canManageAuctionLots && lot.auctionStatus === "pending" && !lot.seasonTeamRef ? (
                         <Button size="sm" variant="danger" disabled={saving} onClick={async () => {
                           if (!window.confirm("Remove this pending auction lot? The player will become available for nomination again.")) return;
                           setSaving(true);
@@ -403,7 +436,6 @@ export function AuctionsPage() {
                           finally { setSaving(false); }
                         }}>Remove</Button>
                       ) : null}
-                    </> : null}
                   </div>
                 </GlassCard>
               ))}
@@ -414,18 +446,18 @@ export function AuctionsPage() {
 
       <Modal
         open={nominateOpen}
-        title="Nominate a player"
-        description="Nominate the configured number of active players before starting the auction. Withdrawn lots remain in history and do not count toward the current nomination limit."
+        title="Create auction lot"
+        description="Create a Pending auction lot by selecting an active player. You can prepare, edit or remove Pending lots before starting the auction."
         onClose={() => setNominateOpen(false)}
       >
         <form
           className="grid gap-3"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!seasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
+            if (!selectedSeasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
             setSaving(true);
             try {
-              await nominatePlayer({ seasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
+              await nominatePlayer({ seasonId: selectedSeasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
               toast.success("Player nominated");
               setNominateOpen(false);
               setPlayerId("");
@@ -478,7 +510,7 @@ export function AuctionsPage() {
           {players.error ? <p className="text-sm text-danger">{players.error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="surface" onClick={() => setNominateOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving || !playerId || !playerPosition}>{saving ? "Saving…" : "Nominate"}</Button>
+            <Button type="submit" disabled={saving || !playerId || !playerPosition}>{saving ? "Saving…" : "Create lot"}</Button>
           </div>
         </form>
       </Modal>
@@ -503,7 +535,17 @@ export function AuctionsPage() {
             Auction status
             <Select className="mt-1" value={editStatus} onChange={(event) => setEditStatus(event.target.value as AuctionLotStatus)}>
               {LOT_STATUSES.map((status) => (
-                <option key={status} value={status} disabled={editingLot?.auctionStatus === "withdrawn" || (status === "withdrawn" && editingLot?.auctionStatus !== "sold")}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
+                <option
+                key={status}
+                value={status}
+                disabled={
+                  editingLot?.auctionStatus === "withdrawn"
+                  || (status === "withdrawn" && editingLot?.auctionStatus !== "sold")
+                  || (data?.season.auctionLifecycleStatus === "not_started" && status !== "pending")
+                }
+              >
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </option>
               ))}
             </Select>
           </label>
