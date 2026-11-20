@@ -262,9 +262,12 @@ export function TeamDetailsPage({ teamId }: { teamId: string }) {
               <div className="grid gap-2 sm:grid-cols-2">
                 {data.squad.map((player) => (
                   <div key={player.player._id} className="rounded-xl bg-surface p-3">
-                    <p className="font-semibold text-fg">
-                      {player.player.name}{player.jerseyNo ? " · #" + player.jerseyNo : ""}
-                    </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold text-fg">
+                        {player.player.name}{player.jerseyNo ? " · #" + player.jerseyNo : ""}
+                      </p>
+                      <Badge>{player.auctionStatus === "withdrawn" ? "Withdrawn" : "Sold"}</Badge>
+                    </div>
                     <p className="mt-1 text-xs text-muted">
                       {POSITION_LABEL[player.position]}{player.isIconPlayer ? " · Icon" : ""}{player.isGoalkeeper ? " · Goalkeeper" : ""}
                     </p>
