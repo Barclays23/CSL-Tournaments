@@ -144,4 +144,4 @@ export interface SeasonMatchWrite {
 }
 
 
-export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt"> & { kickoffAt: string };
+export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt" | "penaltyShootout"> & { kickoffAt: string };
