@@ -63,6 +63,7 @@ export function getAuctionCompletionBlockers(
 
   const eligibleTeams = teams.filter((team) => ELIGIBLE_TEAM_STATUSES.has(team.status));
   const eligibleIds = new Set(eligibleTeams.map((team) => id(team._id)));
+  const allTeamIds = new Set(teams.map((team) => id(team._id)));
   if (eligibleTeams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
   const currentLots = lots.filter((lot) => lot.auctionStatus !== "withdrawn");
   if (currentLots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
@@ -86,7 +87,7 @@ export function getAuctionCompletionBlockers(
     soldByTeam.set(teamId, roster);
     if (lot.purchasePrice === null || !Number.isFinite(lot.purchasePrice) || lot.purchasePrice < 0) blockers.push("A sold auction lot has an invalid purchase price");
   }
-  if (lots.some((lot) => lot.auctionStatus === "withdrawn" && (!id(lot.seasonTeamRef) || lot.purchasePrice === null || lot.purchasePrice === undefined || !lot.soldAt))) {
+  if (lots.some((lot) => lot.auctionStatus === "withdrawn" && (!id(lot.seasonTeamRef) || !allTeamIds.has(id(lot.seasonTeamRef)) || lot.purchasePrice === null || lot.purchasePrice === undefined || !lot.soldAt))) {
     blockers.push("Withdrawn sold players must retain their original team, purchase price and soldAt history");
   }
   for (const team of eligibleTeams) {
