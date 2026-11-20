@@ -92,11 +92,10 @@ export class SeasonMatchRepository {
             throw new AppError("Fixtures cannot be changed after the season is completed or archived", 409, "SEASON_WRITE_LOCKED");
           }
         } else {
-          const writableSeason = await SeasonModel.findOne({ _id: new Types.ObjectId(seasonId), status: { $in: allowedStatuses } })
-            .select("_id").session(session).lean<{ _id: Types.ObjectId } | null>().exec();
-          if (!writableSeason) {
-            const exists = await SeasonModel.exists({ _id: new Types.ObjectId(seasonId) }).session(session).exec();
-            if (!exists) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          const writableSeason = await SeasonModel.findById(seasonId).select("status")
+            .session(session).lean<{ status: string } | null>().exec();
+          if (!writableSeason) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          if (!allowedStatuses.includes(writableSeason.status)) {
             throw new AppError("Completed or archived seasons are read-only", 409, "SEASON_WRITE_LOCKED");
           }
         }
