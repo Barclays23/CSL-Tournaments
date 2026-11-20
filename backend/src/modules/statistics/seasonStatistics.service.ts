@@ -64,11 +64,12 @@ export class SeasonStatisticsService implements ISeasonStatisticsService{
   if(!team||team.status!=="active")throw new AppError("Team not found",404,"TEAM_NOT_FOUND");
   const teamInfo={_id:String(team._id),name:team.name,shortName:team.shortName,logo:team.logo};
   if(!participation)return {participates:false,season:this.seasonBrief(season),team:teamInfo,seasonTeam:null,managers:[],squad:[],stats:{played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,goalDifference:0,cleanSheets:0,topScorer:null},recentFixtures:[],upcomingFixtures:[]};
-  const [lots,matches]=await Promise.all([this.repo.findSoldLots(seasonId),this.repo.findMatchesForSeasonTeam(seasonId,String(participation._id))]);
+  const [lots,matches]=await Promise.all([this.repo.findSquadLots(seasonId),this.repo.findMatchesForSeasonTeam(seasonId,String(participation._id))]);
   const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(participation._id));
-  const squad=teamLots.map(l=>({player:{_id:String(l.playerRef._id),name:l.playerRef.name,profilePic:l.playerRef.profilePic},position:l.playerPosition,jerseyNo:l.jerseyNo,purchasePrice:l.purchasePrice,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper}));
+  const soldTeamLots=teamLots.filter(l=>l.auctionStatus==="sold");
+  const squad=teamLots.map(l=>({player:{_id:String(l.playerRef._id),name:l.playerRef.name,profilePic:l.playerRef.profilePic},position:l.playerPosition,jerseyNo:l.jerseyNo,purchasePrice:l.purchasePrice,isIconPlayer:l.isIconPlayer,isGoalkeeper:l.isGoalkeeper,auctionStatus:l.auctionStatus as "sold"|"withdrawn"}));
   const stats:TeamTotals={played:0,won:0,drawn:0,lost:0,goalsScored:0,goalsConceded:0,cleanSheets:0};const playerGoals=new Map<string,number>();
-  const signedPlayers=new Map(teamLots.map(l=>[String(l.playerRef._id),l.playerRef]));
+  const signedPlayers=new Map(soldTeamLots.map(l=>[String(l.playerRef._id),l.playerRef]));
   for(const match of matches.filter(m=>m.status==="completed")){
    const id=String(participation._id),other=this.refId(match.homeSeasonTeamRef)===id?this.refId(match.awaySeasonTeamRef):this.refId(match.homeSeasonTeamRef);
    const scored=this.score(match,id),conceded=this.score(match,other);stats.played++;stats.goalsScored+=scored;stats.goalsConceded+=conceded;if(conceded===0)stats.cleanSheets++;
