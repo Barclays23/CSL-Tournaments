@@ -71,20 +71,20 @@ export class SeasonMatchRepository {
    * MongoDB's transaction conflict detection prevents completion from observing
    * a fixture snapshot that is concurrently being changed.
    */
-  private async withSeasonWriteLock<T>(seasonId: string, work: (session: ClientSession) => Promise<T>, allowCompleted = false): Promise<T> {
+  private async withSeasonWriteLock<T>(seasonId: string, work: (session: ClientSession) => Promise<T>, allowCompleted = false, requireAuctionCompleted = true): Promise<T> {
     const session = await mongoose.startSession();
     try {
       let result!: T;
       await session.withTransaction(async () => {
         const lock = await SeasonModel.updateOne(
-          { _id: new Types.ObjectId(seasonId), status: { $in: allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"] }, auctionLifecycleStatus: "completed" },
+          { _id: new Types.ObjectId(seasonId), status: { $in: allowCompleted ? ["upcoming", "active", "completed"] : ["upcoming", "active"] }, ...(requireAuctionCompleted ? { auctionLifecycleStatus: "completed" } : {}) },
           { $inc: { auctionRevision: 1 } },
           { session },
         ).exec();
         if (lock.matchedCount !== 1) {
           const existingSeason = await SeasonModel.findById(seasonId).select("status auctionLifecycleStatus").session(session).lean<{ status: string; auctionLifecycleStatus: string } | null>().exec();
           if (!existingSeason) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-          if (existingSeason.auctionLifecycleStatus !== "completed") {
+          if (requireAuctionCompleted && existingSeason.auctionLifecycleStatus !== "completed") {
             throw new AppError("Complete the auction and validate every team's roster before creating or changing fixtures.", 409, "AUCTION_NOT_COMPLETED");
           }
           throw new AppError("Fixtures cannot be changed after the season is completed or archived", 409, "SEASON_WRITE_LOCKED");
@@ -174,7 +174,7 @@ export class SeasonMatchRepository {
     data: Partial<SeasonMatchFields>,
     homeAndAway: boolean,
     statusAudit?: { expectedStatus: SeasonMatchFields["status"]; entry: import("./seasonMatch.types.js").SeasonMatchStatusHistoryEntry; requireNoGoals?: boolean },
-    options?: { requireEditableWithoutEvents?: boolean },
+    options?: { requireEditableWithoutEvents?: boolean; requireAuctionCompleted?: boolean },
   ): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
@@ -262,7 +262,7 @@ export class SeasonMatchRepository {
         throw new AppError("This match status was changed by another update. Refresh the fixture and try again.", 409, "MATCH_STATUS_CONFLICT");
       }
       return saved;
-    });
+    }, false, options?.requireAuctionCompleted ?? true);
   }
 
   async correctCompletedMatch(id: string, expectedUpdatedAt: Date, goals: SeasonMatchFields["goals"], penaltyShootout: SeasonMatchFields["penaltyShootout"], winnerSeasonTeamRef: Types.ObjectId | null, historyEntry: import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry): Promise<SeasonMatchEntity | null> {
@@ -277,7 +277,7 @@ export class SeasonMatchRepository {
         throw new AppError("This completed match changed while the correction was being prepared. Refresh and try again.", 409, "MATCH_CORRECTION_CONFLICT");
       }
       return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: { correctionHistory: historyEntry } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
-    }, true);
+    }, true, false);
   }
 
   async delete(id: string): Promise<boolean> {
@@ -299,7 +299,7 @@ export class SeasonMatchRepository {
         { $push: { goals: goal }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    );
+    , false, false);
   }
 
   async updateGoalWithWinner(id: string, goalId: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
@@ -311,7 +311,7 @@ export class SeasonMatchRepository {
         { $set: { "goals.$": goal, winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    );
+    , false, false);
   }
 
   async removeGoalWithWinner(id: string, goalId: string, winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
@@ -323,7 +323,7 @@ export class SeasonMatchRepository {
         { $pull: { goals: { _id: new Types.ObjectId(goalId) } }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(),
-    );
+    , false, false);
   }
   async appendGoal(id: string, goal: SeasonMatchFields["goals"][number]): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
@@ -334,7 +334,7 @@ export class SeasonMatchRepository {
         { $push: { goals: goal } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    );
+    , false, false);
   }
 
   async updateGoal(id: string, goalId: string, goal: SeasonMatchFields["goals"][number]): Promise<SeasonMatchEntity | null> {
@@ -346,7 +346,7 @@ export class SeasonMatchRepository {
         { $set: { "goals.$": goal } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
-    );
+    , false, false);
   }
 
   async removeGoal(id: string, goalId: string): Promise<SeasonMatchEntity | null> {
@@ -358,6 +358,6 @@ export class SeasonMatchRepository {
         { $pull: { goals: { _id: new Types.ObjectId(goalId) } } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(),
-    );
+    , false, false);
   }
 }
