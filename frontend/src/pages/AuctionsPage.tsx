@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -45,20 +45,18 @@ export function AuctionsPage() {
   const { isAdmin } = useAuth();
   const seasons = useServiceQuery(() => getSeasons(), []);
   const [seasonId, setSeasonId] = useState("");
-
-  useEffect(() => {
-    if (!seasonId && seasons.data?.data.length) {
-      const availableSeasons = seasons.data.data;
-      const preferredSeason =
-        availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "in_progress")
-        ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "in_progress")
-        ?? availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "not_started")
-        ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "not_started")
-        ?? availableSeasons.find((season) => season.status === "active")
-        ?? availableSeasons[0];
-      setSeasonId(preferredSeason._id);
-    }
-  }, [seasonId, seasons.data]);
+  const defaultSeasonId = useMemo(() => {
+    const availableSeasons = seasons.data?.data ?? [];
+    const preferredSeason =
+      availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "in_progress")
+      ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "in_progress")
+      ?? availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "not_started")
+      ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "not_started")
+      ?? availableSeasons.find((season) => season.status === "active")
+      ?? availableSeasons[0];
+    return preferredSeason?._id ?? "";
+  }, [seasons.data]);
+  const selectedSeasonId = seasonId || defaultSeasonId;
 
   const [playerSearch, setPlayerSearch] = useState("");
   const [teamFilter, setTeamFilter] = useState("");
@@ -68,15 +66,15 @@ export function AuctionsPage() {
   const [iconFilter, setIconFilter] = useState("");
   const [goalkeeperFilter, setGoalkeeperFilter] = useState("");
   const summary = useServiceQuery(
-    () => seasonId
-      ? getAuctionSummary(seasonId)
+    () => selectedSeasonId
+      ? getAuctionSummary(selectedSeasonId)
       : Promise.resolve(EMPTY_SUMMARY as unknown as Awaited<ReturnType<typeof getAuctionSummary>>),
-    [seasonId],
+    [selectedSeasonId],
   );
   const lots = useServiceQuery(
-    () => seasonId
+    () => selectedSeasonId
       ? getAuctionLots({
-          seasonId,
+          seasonId: selectedSeasonId,
           ...(teamFilter ? { seasonTeamId: teamFilter } : {}),
           ...(statusFilter ? { auctionStatus: statusFilter } : {}),
           ...(positionFilter ? { playerPosition: positionFilter } : {}),
@@ -85,7 +83,7 @@ export function AuctionsPage() {
           ...(goalkeeperFilter ? { isGoalkeeper: goalkeeperFilter === "true" } : {}),
         })
       : Promise.resolve(EMPTY_LOTS),
-    [seasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
+    [selectedSeasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
   );
   const players = useServiceQuery(() => getPlayers({ limit: 100, status: "active" }), []);
 
@@ -208,7 +206,7 @@ export function AuctionsPage() {
         <div className="w-full max-w-sm">
           <label className="mb-1.5 block text-sm font-medium text-fg">Season</label>
           <Select
-            value={seasonId}
+            value={selectedSeasonId}
             onChange={(event) => {
               setSeasonId(event.target.value);
               setTeamFilter("");
@@ -231,7 +229,7 @@ export function AuctionsPage() {
             if (!window.confirm("Start the auction? The server will verify the exact configured number of nominated players and registered teams.")) return;
             setSaving(true);
             try {
-              await startSeasonAuction(seasonId);
+              await startSeasonAuction(selectedSeasonId);
               toast.success("Auction started");
               refresh();
               seasons.reload();
@@ -244,7 +242,7 @@ export function AuctionsPage() {
             if (!window.confirm("Complete this season auction? The server will validate every lot, team roster, squad limit, Icon Player limit, Goalkeeper limit and team budget. The auction will remain open if any validation fails.")) return;
             setSaving(true);
             try {
-              await completeSeasonAuction(seasonId);
+              await completeSeasonAuction(selectedSeasonId);
               toast.success("Auction completed successfully");
               refresh();
               seasons.reload();
@@ -257,7 +255,7 @@ export function AuctionsPage() {
             if (!window.confirm("Reopen this auction? Existing lot assignments, sale history and fixtures will be preserved.")) return;
             setSaving(true);
             try {
-              await reopenSeasonAuction(seasonId);
+              await reopenSeasonAuction(selectedSeasonId);
               toast.success("Auction resumed");
               refresh();
               seasons.reload();
@@ -456,10 +454,10 @@ export function AuctionsPage() {
           className="grid gap-3"
           onSubmit={async (event) => {
             event.preventDefault();
-            if (!seasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
+            if (!selectedSeasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
             setSaving(true);
             try {
-              await nominatePlayer({ seasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
+              await nominatePlayer({ seasonId: selectedSeasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
               toast.success("Player nominated");
               setNominateOpen(false);
               setPlayerId("");
