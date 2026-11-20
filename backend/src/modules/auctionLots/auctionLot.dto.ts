@@ -11,7 +11,7 @@ export interface NominatePlayerDto {
   isGoalkeeper?: boolean;
 }
 export interface SellAuctionLotDto { seasonTeamId: string; purchasePrice: number; jerseyNo?: number | null; }
-export interface UpdateAuctionLotStatusDto { auctionStatus: "unsold" | "withdrawn"; }
+export interface UpdateAuctionLotStatusDto { auctionStatus: "pending" | "unsold" | "withdrawn"; }
 export interface UpdateAuctionLotDto {
   auctionStatus: AuctionLotStatus;
   seasonTeamId?: string | null;
