@@ -79,3 +79,19 @@ test("PlayerService permits deletion only after the repository confirms no refer
   await service.deletePlayer(String(createPlayerRecord()._id));
   assert.equal(calls.deleted, true);
 });
+
+test("PlayerService search matches both player name and normalized mobile number", async () => {
+  let receivedFilter: import("./player.types.js").PlayerListFilter | undefined;
+  const { repository } = createRepository({
+    findPlayers: async (filter) => {
+      receivedFilter = filter;
+      return { items: [], total: 0 };
+    },
+  });
+  const service = new PlayerService(repository);
+  await service.getPlayers({ page: 1, limit: 10, search: "98470 12345" }, true);
+  assert.equal(receivedFilter?.$or?.length, 2);
+  const serialized = JSON.stringify(receivedFilter?.$or);
+  assert.match(serialized, /98470 12345/);
+  assert.match(serialized, /9847012345/);
+});

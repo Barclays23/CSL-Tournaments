@@ -36,6 +36,7 @@ export interface Season {
     shootoutCountsForPlayerGoals: false;
   } | null;
   auctionSettings: SeasonAuctionSettings | null;
+  auctionClosedAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -145,6 +146,7 @@ export interface AuctionSummary {
     year: number;
     status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
+    auctionClosedAt?: string | null;
   };
   totals: {
     participatingTeams: number;

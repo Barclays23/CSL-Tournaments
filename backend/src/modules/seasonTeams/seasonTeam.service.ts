@@ -44,6 +44,14 @@ export class SeasonTeamService implements ISeasonTeamService {
           if (activeCount !== managerIds.length) {
             throw new AppError("All assigned managers must be active", 422, "INVALID_MANAGER_ASSIGNMENT");
           }
+          const conflictingTeams = await this.repository.findConflictingManagerAssignments(seasonId, id, managerIds, session);
+          if (conflictingTeams.length) {
+            throw new AppError(
+              "A manager can only be assigned to one team in a season. Already assigned to: " + conflictingTeams.join(", "),
+              409, "MANAGER_ALREADY_ASSIGNED",
+              { managerIds: "Remove the manager from the other team before assigning them here" },
+            );
+          }
           patch.managerRefs = managerIds;
         }
 

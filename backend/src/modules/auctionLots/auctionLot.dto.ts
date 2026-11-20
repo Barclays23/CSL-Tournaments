@@ -72,6 +72,7 @@ export interface AuctionSummaryDto {
     year: number;
     status: SeasonStatus;
     auctionSettings: SeasonAuctionSettings;
+    auctionClosedAt?: string | null;
   };
   totals: {
     participatingTeams: number;

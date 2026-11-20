@@ -20,6 +20,10 @@ export interface PlayerEntity extends PlayerFields {
   updatedAt: Date;
 }
 export interface PlayerListFilter {
+  $or?: Array<
+    | { name: { $regex: string; $options: "i" } }
+    | { mobile: { $regex: string; $options: "i" } }
+  >;
   name?: { $regex: string; $options: "i" };
   status?: PlayerStatus;
 }

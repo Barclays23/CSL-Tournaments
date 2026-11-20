@@ -49,6 +49,15 @@ export class SeasonController {
     } catch (error) { next(error); }
   };
 
+  closeAuction = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
+    try {
+      response.status(HTTP_STATUS.OK).json(ApiResponse.success(
+        "Season auction closed",
+        await this.service.closeAuction(getRequiredRouteParam(request.params.id, "id")),
+      ));
+    } catch (error) { next(error); }
+  };
+
   archive = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       response.status(HTTP_STATUS.OK).json(ApiResponse.success("Season archived", await this.service.archive(getRequiredRouteParam(request.params.id, "id"))));

@@ -20,6 +20,7 @@ export interface ISeasonRepository {
   update(id: string, data: Partial<SeasonEntity>): Promise<SeasonEntity | null>;
   updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null>;
   completeIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;
+  closeAuctionIfNoPendingLots(id: string): Promise<{ season: SeasonEntity | null; pendingLots: number }>;
   countLots(seasonId: string): Promise<number>;
   countMatches(seasonId: string): Promise<number>;
   countGroups(seasonId: string): Promise<number>;
@@ -40,6 +41,7 @@ export interface ISeasonService {
   update(id: string, input: UpdateSeasonDto): Promise<SeasonResponseDto>;
   transition(id: string, input: SeasonLifecycleDto): Promise<SeasonResponseDto>;
   complete(id: string): Promise<SeasonResponseDto>;
+  closeAuction(id: string): Promise<SeasonResponseDto>;
   archive(id: string): Promise<SeasonResponseDto>;
   delete(id: string): Promise<void>;
   registerTeams(id: string, input: RegisterSeasonTeamsDto): Promise<SeasonTeamEntity[]>;
@@ -52,6 +54,7 @@ export interface ISeasonController {
   update: ControllerMethod;
   transition: ControllerMethod;
   complete: ControllerMethod;
+  closeAuction: ControllerMethod;
   archive: ControllerMethod;
   delete: ControllerMethod;
   registerTeams: ControllerMethod;
