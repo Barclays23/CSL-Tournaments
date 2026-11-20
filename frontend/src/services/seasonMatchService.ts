@@ -84,6 +84,14 @@ export type SeasonGoalWrite = {
   goalType: "normal" | "own_goal";
 };
 
+export function deleteSeasonMatch(seasonId: string, matchId: string) {
+  return run(() =>
+    USE_MOCK_API
+      ? seasonPreviewRepository.deleteSeasonMatch(seasonId, matchId)
+      : api.delete<ApiResponse<null>>(`/seasons/${seasonId}/matches/${matchId}`).then((response) => response.data),
+  );
+}
+
 export function addSeasonMatchGoal(seasonId: string, matchId: string, data: SeasonGoalWrite) {
   return run(() =>
     USE_MOCK_API
