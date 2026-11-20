@@ -11,7 +11,7 @@ const teams = [
 ];
 const lot = (team: string, overrides: Partial<AuctionCompletionLot> = {}): AuctionCompletionLot => ({
   auctionStatus: "sold", seasonTeamRef: team, purchasePrice: 100, isIconPlayer: false,
-  isGoalkeeper: false, jerseyNo: null, ...overrides,
+  isGoalkeeper: false, jerseyNo: null, soldAt: new Date("2026-01-01T00:00:00.000Z"), ...overrides,
 });
 const validLots = () => teams.flatMap((team) => [lot(String(team._id)), lot(String(team._id)), lot(String(team._id))]);
 
@@ -40,7 +40,7 @@ test("withdrawn lots are excluded from current count and roster but must retain 
   const lots = validLots();
   lots.push(lot("team-a", { auctionStatus: "withdrawn" }));
   assert.deepEqual(getAuctionCompletionBlockers(settings, teams, lots), []);
-  lots[lots.length - 1] = lot("", { auctionStatus: "withdrawn", seasonTeamRef: null, purchasePrice: null });
+  lots[lots.length - 1] = lot("", { auctionStatus: "withdrawn", seasonTeamRef: null, purchasePrice: null, soldAt: null });
   assert.ok(getAuctionCompletionBlockers(settings, teams, lots).some((message) => message.includes("Withdrawn sold players")));
 });
 
