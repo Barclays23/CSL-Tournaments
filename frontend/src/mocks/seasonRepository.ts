@@ -1519,7 +1519,7 @@ export const seasonPreviewRepository = {
     void groupStagePoints;
     const squad = db.auctionLots.filter((lot) => lot.seasonRef === seasonId && lot.seasonTeamRef === st._id && ["sold", "withdrawn"].includes(lot.auctionStatus)).map((lot) => {
       const player = playerById(db, lot.playerRef);
-      return { player: { _id: player._id, name: player.name, profilePic: player.profilePic }, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper };
+      return { player: { _id: player._id, name: player.name, profilePic: player.profilePic }, position: lot.playerPosition, jerseyNo: lot.jerseyNo, purchasePrice: lot.purchasePrice, isIconPlayer: lot.isIconPlayer, isGoalkeeper: lot.isGoalkeeper, auctionStatus: lot.auctionStatus };
     });
     const related = db.matches.filter((m) => m.seasonRef === seasonId && (m.homeSeasonTeamRef === st._id || m.awaySeasonTeamRef === st._id));
     const recentFixtures = related.filter((m) => m.status === "completed").sort((a, b) => b.kickoffAt.localeCompare(a.kickoffAt)).slice(0, 5).map((m) => fixture(db, m));
