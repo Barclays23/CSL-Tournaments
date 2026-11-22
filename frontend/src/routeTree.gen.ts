@@ -76,10 +76,10 @@ const AdminVenuesRoute = AdminVenuesRouteImport.update({ id: '/admin/venues', pa
 const AdminSettingsRoute = AdminSettingsRouteImport.update({ id: '/admin/settings', path: '/admin/settings', getParentRoute: () => AdminLayoutRoute } as any)
 const LogoutRoute = LogoutRouteImport.update({ id: '/logout', path: '/logout', getParentRoute: () => UserLayoutRoute } as any)
 
+export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/news/': typeof NewsIndexRoute
   '/news/$slug': typeof NewsSlugRoute
-export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/matches/': typeof MatchesIndexRoute
@@ -105,10 +105,10 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
 }
 
+export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/news': typeof NewsIndexRoute
   '/news/$slug': typeof NewsSlugRoute
-export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
   '/matches': typeof MatchesIndexRoute
@@ -134,10 +134,10 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
 }
 
+export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/news/': typeof NewsIndexRoute
   '/news/$slug': typeof NewsSlugRoute
-export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_user': typeof UserLayoutRoute
   '/_admin': typeof AdminLayoutRoute
@@ -167,10 +167,10 @@ export interface FileRoutesById {
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
+  fullPaths:
     | '/login'
     | '/news/'
     | '/news/$slug'
-  fullPaths:
     | '/'
     | '/admin/login'
     | '/matches/'
@@ -195,10 +195,10 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/logout'
   fileRoutesByTo: FileRoutesByTo
+  to:
     | '/login'
     | '/news'
     | '/news/$slug'
-  to:
     | '/'
     | '/admin/login'
     | '/matches'
@@ -222,10 +222,10 @@ export interface FileRouteTypes {
     | '/admin/venues'
     | '/admin/settings'
     | '/logout'
+  id:
     | '/login'
     | '/news/'
     | '/news/$slug'
-  id:
     | '__root__'
     | '/_user'
     | '/_admin'
@@ -258,11 +258,11 @@ export interface RootRouteChildren {
   UserLayoutRoute: typeof UserLayoutRoute
   AdminLayoutRoute: typeof AdminLayoutRoute
 }
+export interface UserLayoutRouteChildren {
   LoginRoute: typeof LoginRoute
   NewsIndexRoute: typeof NewsIndexRoute
   NewsSlugRoute: typeof NewsSlugRoute
   LogoutRoute: typeof LogoutRoute
-export interface UserLayoutRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminLoginRoute: typeof AdminLoginRoute
   MatchesIndexRoute: typeof MatchesIndexRoute
@@ -291,15 +291,15 @@ export interface AdminLayoutRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof UserLayoutRoute }
     '/news/': { id: '/news/'; path: '/news'; fullPath: '/news/'; preLoaderRoute: typeof NewsIndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/news/$slug': { id: '/news/$slug'; path: '/news/$slug'; fullPath: '/news/$slug'; preLoaderRoute: typeof NewsSlugRouteImport; parentRoute: typeof UserLayoutRoute }
-    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/admin/login': { id: '/admin/login'; path: '/admin/login'; fullPath: '/admin/login'; preLoaderRoute: typeof AdminLoginRouteImport; parentRoute: typeof UserLayoutRoute }
     '/matches/': { id: '/matches/'; path: '/matches'; fullPath: '/matches/'; preLoaderRoute: typeof MatchesIndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/matches/$matchId': { id: '/matches/$matchId'; path: '/matches/$matchId'; fullPath: '/matches/$matchId'; preLoaderRoute: typeof MatchesMatchIdRouteImport; parentRoute: typeof UserLayoutRoute }
-    '/logout': { id: '/logout'; path: '/logout'; fullPath: '/logout'; preLoaderRoute: typeof LogoutRouteImport; parentRoute: typeof UserLayoutRoute }
     '/standings/': { id: '/standings/'; path: '/standings'; fullPath: '/standings/'; preLoaderRoute: typeof StandingsIndexRouteImport; parentRoute: typeof UserLayoutRoute }
+    '/logout': { id: '/logout'; path: '/logout'; fullPath: '/logout'; preLoaderRoute: typeof LogoutRouteImport; parentRoute: typeof UserLayoutRoute }
     '/admin/dashboard': { id: '/admin/dashboard'; path: '/admin/dashboard'; fullPath: '/admin/dashboard'; preLoaderRoute: typeof AdminDashboardRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/auctions': { id: '/admin/auctions'; path: '/admin/auctions'; fullPath: '/admin/auctions'; preLoaderRoute: typeof AdminAuctionsRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/managers': { id: '/admin/managers'; path: '/admin/managers'; fullPath: '/admin/managers'; preLoaderRoute: typeof AdminManagersRouteImport; parentRoute: typeof AdminLayoutRoute }
