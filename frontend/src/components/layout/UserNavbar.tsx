@@ -3,18 +3,12 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { ChevronDown, LogIn, LogOut, Menu } from "lucide-react";
 import { CslMark } from "@/components/brand/CslMark";
 import { MobileMenu } from "@/components/layout/MobileMenu";
+import { NAV_ITEMS } from "@/components/layout/userNavItems";
 import { IconButton } from "@/components/ui/IconButton";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/cn";
 
-export const NAV_ITEMS = [
-  { to: "/", label: "Home" },
-  { to: "/matches", label: "Fixtures" },
-  { to: "/standings", label: "Standings" },
-  { to: "/news", label: "News" },
-  { to: "/", hash: "about-csl-heading", label: "About" },
-] as const;
 
 export function UserNavbar() {
   const [open, setOpen] = useState(false);

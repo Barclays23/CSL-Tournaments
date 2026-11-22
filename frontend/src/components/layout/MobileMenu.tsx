@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { LogIn, LogOut, X } from "lucide-react";
-import { NAV_ITEMS } from "@/components/layout/UserNavbar";
+import { NAV_ITEMS } from "@/components/layout/userNavItems";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";

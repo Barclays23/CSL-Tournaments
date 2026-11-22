@@ -1,7 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Trophy } from "lucide-react";
 import { CslMark } from "@/components/brand/CslMark";
-import { NAV_ITEMS } from "@/components/layout/UserNavbar";
+import { NAV_ITEMS } from "@/components/layout/userNavItems";
 
 export function Footer() {
   const year = new Date().getFullYear();
