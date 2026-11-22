@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { LogOut, Shield, X } from "lucide-react";
-import { NAV_ITEMS } from "@/components/layout/Navbar";
+import { NAV_ITEMS } from "@/components/layout/UserNavbar";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";
@@ -26,11 +26,13 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
         <div className="mt-auto">
           {isAuthenticated ? (
             <div className="flex flex-col gap-2">
-              {isAdmin ? <Link to="/admin/dashboard" onClick={onClose}>
-                <Button variant="surface" className="w-full">
-                  Dashboard
-                </Button>
-              </Link> : null}
+              {isAdmin ? (
+                <Link to="/admin/dashboard" onClick={onClose}>
+                  <Button variant="surface" className="w-full">
+                    Dashboard
+                  </Button>
+                </Link>
+              ) : null}
               <Button
                 variant="danger"
                 className="w-full"

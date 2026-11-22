@@ -20,7 +20,7 @@ export const NAV_ITEMS = [
   { to: "/standings", label: "Standings" },
 ] as const;
 
-export function Navbar() {
+export function UserNavbar() {
   const [open, setOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const { isAuthenticated, isAdmin, user, logout } = useAuth();
@@ -53,9 +53,13 @@ export function Navbar() {
           <ThemeToggle />
           {isAuthenticated ? (
             <div className="hidden items-center gap-2 sm:flex">
-              {isAdmin ? <Link to="/admin/dashboard" className="rounded-full px-3 py-2 text-sm font-semibold text-fg">
-                {user?.name.split(" ")[0] ?? "Admin"}
-              </Link> : <span className="px-3 py-2 text-sm font-medium text-fg">{user?.name.split(" ")[0]}</span>}
+              {isAdmin ? (
+                <Link to="/admin/dashboard" className="rounded-full px-3 py-2 text-sm font-semibold text-fg">
+                  {user?.name.split(" ")[0] ?? "Admin"}
+                </Link>
+              ) : (
+                <span className="px-3 py-2 text-sm font-medium text-fg">{user?.name.split(" ")[0]}</span>
+              )}
               <IconButton aria-label="Log out" onClick={() => void logout()}>
                 <LogOut className="h-4 w-4" />
               </IconButton>

@@ -1,5 +1,4 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
@@ -11,9 +10,7 @@ function RootComponent() {
     <ThemeProvider>
       <AuthProvider>
         <ConfirmProvider>
-          <AppLayout>
-            <Outlet />
-          </AppLayout>
+          <Outlet />
           <ToastProvider />
         </ConfirmProvider>
       </AuthProvider>

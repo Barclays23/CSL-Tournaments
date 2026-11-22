@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { ArrowUpRight, Trophy } from "lucide-react";
 import { CslMark } from "@/components/brand/CslMark";
-import { NAV_ITEMS } from "@/components/layout/Navbar";
+import { NAV_ITEMS } from "@/components/layout/UserNavbar";
 import { getSponsors } from "@/services/sponsorService";
 import type { PublicSponsor } from "@/types/sponsor.types";
 
