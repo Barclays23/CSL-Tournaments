@@ -34,10 +34,14 @@ export function SeasonFixtureCard({
   match,
   groupName,
   onEdit,
+  onDelete,
+  managementMode = false,
 }: {
   match: SeasonMatch;
   groupName?: string | null;
+  managementMode?: boolean;
   onEdit?: (match: SeasonMatch) => void;
+  onDelete?: (match: SeasonMatch) => void;
 }) {
   const home = teamDetails(match.homeSeasonTeamRef);
   const away = teamDetails(match.awaySeasonTeamRef);
@@ -53,7 +57,7 @@ export function SeasonFixtureCard({
         <span>{STATUS_LABEL[match.status]}</span>
       </div>
       <Link
-        to="/matches/$matchId"
+        to={managementMode ? "/admin/matches/$matchId" : "/matches/$matchId"}
         params={{ matchId: match._id }}
         search={{ seasonId: match.seasonRef }}
         className="block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
@@ -76,7 +80,10 @@ export function SeasonFixtureCard({
           {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}{match.venue ? ` · ${match.venue}` : ""}
         </p>
       </Link>
-      {onEdit && canEditSeasonMatch(match) ? <div className="mt-3 flex justify-end border-t border-line pt-3"><Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button></div> : null}
+      {onEdit || onDelete ? <div className="mt-3 flex justify-end gap-2 border-t border-line pt-3">
+{onEdit && canEditSeasonMatch(match) ? <Button size="sm" variant="surface" onClick={() => onEdit(match)}>Edit fixture</Button> : null}
+{onDelete ? <Button size="sm" variant="danger" onClick={() => onDelete(match)}>Delete fixture</Button> : null}
+</div> : null}
     </GlassCard>
   );
 }

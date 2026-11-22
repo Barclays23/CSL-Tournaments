@@ -17,6 +17,7 @@ import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminAuctionsRouteImport } from './routes/admin/auctions'
 import { Route as AdminManagersRouteImport } from './routes/admin/managers'
 import { Route as AdminMatchesIndexRouteImport } from './routes/admin/matches/index'
+import { Route as AdminMatchesMatchIdRouteImport } from './routes/admin/matches/$matchId'
 import { Route as AdminNewsRouteImport } from './routes/admin/news'
 import { Route as AdminOrganizersRouteImport } from './routes/admin/organizers'
 import { Route as AdminPlayersIndexRouteImport } from './routes/admin/players/index'
@@ -54,6 +55,7 @@ const AdminDashboardRoute = AdminDashboardRouteImport.update({ id: '/admin/dashb
 const AdminAuctionsRoute = AdminAuctionsRouteImport.update({ id: '/admin/auctions', path: '/admin/auctions', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminManagersRoute = AdminManagersRouteImport.update({ id: '/admin/managers', path: '/admin/managers', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminMatchesIndexRoute = AdminMatchesIndexRouteImport.update({ id: '/admin/matches/', path: '/admin/matches/', getParentRoute: () => AdminLayoutRoute } as any)
+const AdminMatchesMatchIdRoute = AdminMatchesMatchIdRouteImport.update({ id: '/admin/matches/$matchId', path: '/admin/matches/$matchId', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminNewsRoute = AdminNewsRouteImport.update({ id: '/admin/news', path: '/admin/news', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminOrganizersRoute = AdminOrganizersRouteImport.update({ id: '/admin/organizers', path: '/admin/organizers', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminPlayersIndexRoute = AdminPlayersIndexRouteImport.update({ id: '/admin/players/', path: '/admin/players/', getParentRoute: () => AdminLayoutRoute } as any)
@@ -78,6 +80,7 @@ export interface FileRoutesByFullPath {
   '/admin/auctions': typeof AdminAuctionsRoute
   '/admin/managers': typeof AdminManagersRoute
   '/admin/matches/': typeof AdminMatchesIndexRoute
+  '/admin/matches/$matchId': typeof AdminMatchesMatchIdRoute
   '/admin/news': typeof AdminNewsRoute
   '/admin/organizers': typeof AdminOrganizersRoute
   '/admin/players/': typeof AdminPlayersIndexRoute
@@ -103,6 +106,7 @@ export interface FileRoutesByTo {
   '/admin/auctions': typeof AdminAuctionsRoute
   '/admin/managers': typeof AdminManagersRoute
   '/admin/matches': typeof AdminMatchesIndexRoute
+  '/admin/matches/$matchId': typeof AdminMatchesMatchIdRoute
   '/admin/news': typeof AdminNewsRoute
   '/admin/organizers': typeof AdminOrganizersRoute
   '/admin/players': typeof AdminPlayersIndexRoute
@@ -158,6 +162,7 @@ export interface FileRouteTypes {
     | '/admin/auctions'
     | '/admin/managers'
     | '/admin/matches/'
+    | '/admin/matches/$matchId'
     | '/admin/news'
     | '/admin/organizers'
     | '/admin/players/'
@@ -240,6 +245,7 @@ export interface AdminLayoutRouteChildren {
   AdminAuctionsRoute: typeof AdminAuctionsRoute
   AdminManagersRoute: typeof AdminManagersRoute
   AdminMatchesIndexRoute: typeof AdminMatchesIndexRoute
+  AdminMatchesMatchIdRoute: typeof AdminMatchesMatchIdRoute
   AdminNewsRoute: typeof AdminNewsRoute
   AdminOrganizersRoute: typeof AdminOrganizersRoute
   AdminPlayersIndexRoute: typeof AdminPlayersIndexRoute
@@ -266,6 +272,7 @@ declare module '@tanstack/react-router' {
     '/admin/auctions': { id: '/admin/auctions'; path: '/admin/auctions'; fullPath: '/admin/auctions'; preLoaderRoute: typeof AdminAuctionsRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/managers': { id: '/admin/managers'; path: '/admin/managers'; fullPath: '/admin/managers'; preLoaderRoute: typeof AdminManagersRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/matches/': { id: '/admin/matches/'; path: '/admin/matches'; fullPath: '/admin/matches/'; preLoaderRoute: typeof AdminMatchesIndexRouteImport; parentRoute: typeof AdminLayoutRoute }
+    '/admin/matches/$matchId': { id: '/admin/matches/$matchId'; path: '/admin/matches/$matchId'; fullPath: '/admin/matches/$matchId'; preLoaderRoute: typeof AdminMatchesMatchIdRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/news': { id: '/admin/news'; path: '/admin/news'; fullPath: '/admin/news'; preLoaderRoute: typeof AdminNewsRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/organizers': { id: '/admin/organizers'; path: '/admin/organizers'; fullPath: '/admin/organizers'; preLoaderRoute: typeof AdminOrganizersRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/players/': { id: '/admin/players/'; path: '/admin/players'; fullPath: '/admin/players/'; preLoaderRoute: typeof AdminPlayersIndexRouteImport; parentRoute: typeof AdminLayoutRoute }
@@ -294,6 +301,7 @@ const adminLayoutRouteChildren: AdminLayoutRouteChildren = {
   AdminAuctionsRoute,
   AdminManagersRoute,
   AdminMatchesIndexRoute,
+  AdminMatchesMatchIdRoute,
   AdminNewsRoute,
   AdminOrganizersRoute,
   AdminPlayersIndexRoute,

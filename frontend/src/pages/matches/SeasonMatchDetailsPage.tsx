@@ -179,7 +179,7 @@ function EventText({
   );
 }
 
-export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string; matchId: string }) {
+export function SeasonMatchDetailsPage({ seasonId, matchId, adminMode = false }: { seasonId: string; matchId: string; adminMode?: boolean }) {
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
@@ -301,7 +301,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
 
   return (
     <PageContainer>
-      <Link to="/matches" search={{ seasonId }} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
+      <Link to={adminMode ? "/admin/matches" : "/matches"} search={{ seasonId }} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         Back to matches
       </Link>
