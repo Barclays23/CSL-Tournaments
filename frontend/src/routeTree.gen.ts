@@ -34,12 +34,12 @@ import { Route as TeamsTeamIdRouteImport } from './routes/teams/$teamId'
 // Pathless layout routes keep all existing public and protected admin URLs intact.
 const UserLayoutRoute = createRoute({
   getParentRoute: () => rootRouteImport,
-  id: '_user',
+  id: '/_user',
   component: UserLayout,
 })
 const AdminLayoutRoute = createRoute({
   getParentRoute: () => rootRouteImport,
-  id: '_admin',
+  id: '/_admin',
   component: AdminRouteLayout,
 })
 

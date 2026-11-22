@@ -57,7 +57,7 @@ function SidebarContent({ collapsed, onMobileClose }: SidebarContentProps) {
 
   const initials = user?.name
     ?.trim()
-    .split(/\\s+/)
+    .split(/\s+/)
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("") || "A";
