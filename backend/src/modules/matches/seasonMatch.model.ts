@@ -42,7 +42,6 @@ const correctionResultSchema = new Schema({
   awayScore: { type: Number, min: 0, required: true },
   goals: { type: [goalSchema], default: [] },
   cards: { type: [cardSchema], default: [] },
-  cards: { type: [cardSchema], default: [] },
   penaltyShootout: { type: shootoutSchema, default: null },
   winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
 }, { _id: false, timestamps: false });
@@ -71,6 +70,7 @@ const schema = new Schema<SeasonMatchFields>({
   awaySeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   status: { type: String, enum: ["scheduled", "live", "completed", "postponed", "cancelled", "abandoned"], default: "scheduled" },
   goals: { type: [goalSchema], default: [] },
+  cards: { type: [cardSchema], default: [] },
   penaltyShootout: { type: shootoutSchema, default: null },
   winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
   notes: { type: String, default: null, trim: true },
