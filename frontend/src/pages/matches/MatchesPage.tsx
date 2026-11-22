@@ -106,7 +106,9 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
   const activeVenueCount = (venues.data?.data ?? []).filter((venue) => venue.status === "active").length;
   const fixtureBlockReason = !selectedSeason
     ? "Select a season to manage fixtures."
-    : !["upcoming", "active"].includes(selectedSeason.status)
+    : selectedSeason.auctionLifecycleStatus !== "completed"
+      ? "Complete the auction before creating or changing fixtures."
+      : !["upcoming", "active"].includes(selectedSeason.status)
       ? "Fixtures can only be created for upcoming or active seasons."
       : !selectedSeason.matchRules
         ? "Match rules are not configured for this season."
