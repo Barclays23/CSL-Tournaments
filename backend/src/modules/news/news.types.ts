@@ -24,6 +24,7 @@ export interface NewsEntity extends NewsFields {
 export interface NewsFilter {
   status?: NewsStatus;
   title?: { $regex: string; $options: "i" };
+  publishedAt?: { $lte: Date };
 }
 
 export type { CreateNewsDto, UpdateNewsDto, NewsQueryDto, NewsResponseDto };

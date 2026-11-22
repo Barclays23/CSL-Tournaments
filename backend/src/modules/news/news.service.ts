@@ -23,13 +23,14 @@ export class NewsService implements INewsService {
       if (query.status) filter.status = query.status;
     } else {
       filter.status = "published";
+      filter.publishedAt = { $lte: new Date() };
     }
     if (query.search?.trim()) filter.title = { $regex: escapeRegex(query.search.trim()), $options: "i" };
     const result = await this.repository.find(filter, query.page, query.limit);
-    const visible = isAdmin ? result.items : result.items.filter((item) => item.publishedAt && item.publishedAt <= new Date());
+    const visible = result.items;
     return {
       items: visible.map((item) => this.toResponse(item)),
-      pagination: { page: query.page, limit: query.limit, total: isAdmin ? result.total : visible.length, totalPages: Math.ceil((isAdmin ? result.total : visible.length) / query.limit) },
+      pagination: { page: query.page, limit: query.limit, total: result.total, totalPages: Math.ceil(result.total / query.limit) },
     };
   }
 

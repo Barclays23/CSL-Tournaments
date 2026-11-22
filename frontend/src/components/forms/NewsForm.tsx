@@ -20,6 +20,7 @@ export function NewsForm({ article, submitting, onSubmit }: {
     defaultValues: {
       title: article?.title ?? "", slug: article?.slug ?? "", excerpt: article?.excerpt ?? "",
       content: article?.content ?? "", tags: article?.tags.join(", ") ?? "", status: article?.status ?? "draft",
+      publishedAt: article?.publishedAt ? new Date(new Date(article.publishedAt).getTime() - new Date(article.publishedAt).getTimezoneOffset() * 60000).toISOString().slice(0,16) : "",
     },
   });
   return (
@@ -28,6 +29,7 @@ export function NewsForm({ article, submitting, onSubmit }: {
         title: values.title, slug: values.slug.trim() || undefined, excerpt: values.excerpt,
         content: values.content, tags: values.tags.split(",").map((tag) => tag.trim().replace(/^#/, "")).filter(Boolean),
         status: values.status,
+        publishedAt: values.publishedAt ? new Date(values.publishedAt).toISOString() : null,
       }, coverImage);
     })}>
       <FormField label="Title" required error={form.formState.errors.title?.message}><Input {...form.register("title")} placeholder="Article headline" /></FormField>
@@ -35,7 +37,7 @@ export function NewsForm({ article, submitting, onSubmit }: {
       <FormField label="Summary / excerpt" required error={form.formState.errors.excerpt?.message}><Textarea rows={3} {...form.register("excerpt")} placeholder="A short summary for article cards." /></FormField>
       <FormField label="Article content" required error={form.formState.errors.content?.message}><Textarea rows={12} {...form.register("content")} placeholder="Write the full article here. Separate paragraphs with a blank line." /></FormField>
       <FormField label="Tags" hint="Separate tags with commas."><Input {...form.register("tags")} placeholder="Tournament, Teams, Updates" /></FormField>
-      <FormField label="Publication status"><Select {...form.register("status")}><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></Select></FormField>
+      <div className="grid gap-3 sm:grid-cols-2"><FormField label="Publication status"><Select {...form.register("status")}><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></Select></FormField><FormField label="Publication date" hint="Leave empty to use the current date when publishing."><Input type="datetime-local" {...form.register("publishedAt")} /></FormField></div>
       <ImageUploader label="Cover image" purpose="news-cover" value={coverImage} onChange={setCoverImage} />
       <Button type="submit" disabled={submitting}>{submitting ? "Saving…" : article ? "Save changes" : "Create article"}</Button>
     </form>
