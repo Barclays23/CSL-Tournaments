@@ -504,7 +504,7 @@ export const seasonPreviewRepository = {
     const nextStatus = input.status;
     assertMockStatusTransition(match.status, nextStatus, fail);
     if (match.status === "live" && nextStatus === "scheduled" && (match.goals.length > 0 || (match.cards ?? []).length > 0)) {
-      fail(409, "Remove all recorded goal and card events before reverting this Live match to Scheduled.", "MATCH_HAS_EVENTS");
+      fail(409, "Remove all recorded goal and card events before reverting this Live match to Scheduled.", "MATCH_HAS_GOALS");
     }
     if (nextStatus === "live") {
       assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);

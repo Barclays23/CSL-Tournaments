@@ -95,7 +95,7 @@ export class SeasonMatchService implements ISeasonMatchService{
     throw new AppError("Only Scheduled or Live matches can be edited.",409,"MATCH_DETAILS_EDIT_NOT_ALLOWED");
    }
    if((existing.goals??[]).length>0||existingCards.length>0){
-    throw new AppError("Match details cannot be edited after goals or cards have been recorded.",409,"MATCH_HAS_EVENTS");
+    throw new AppError("Match details cannot be edited after goals or cards have been recorded.",409,"MATCH_HAS_GOALS");
    }
   }
   if(existing.status==="live"&&nextStatus==="scheduled"&&((existing.goals??[]).length>0||(existing.cards??[]).length>0)){
