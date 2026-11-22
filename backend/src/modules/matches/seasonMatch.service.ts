@@ -98,8 +98,8 @@ export class SeasonMatchService implements ISeasonMatchService{
     throw new AppError("Match details cannot be edited after goals or cards have been recorded.",409,"MATCH_HAS_EVENTS");
    }
   }
-  if(existing.status==="live"&&nextStatus==="scheduled"&&(existing.goals??[]).length>0){
-   throw new AppError("Remove all recorded goal events before reverting this Live match to Scheduled.",409,"MATCH_HAS_GOALS",{goals:"Delete every recorded goal event first"});
+  if(existing.status==="live"&&nextStatus==="scheduled"&&((existing.goals??[]).length>0||(existing.cards??[]).length>0)){
+   throw new AppError("Remove all recorded goal and card events before reverting this Live match to Scheduled.",409,"MATCH_HAS_EVENTS",{events:"Delete every recorded match event first"});
   }
   const statusChanged=nextStatus!==existing.status;
   const statusReasonValue=input.statusReason?.trim();
@@ -149,7 +149,10 @@ export class SeasonMatchService implements ISeasonMatchService{
    resolutionHistory.push({status:nextStatus,reason:statusReason!,decidedAt:changedAt!});
   }
   const merged:SeasonMatchFields={...existing,matchNumber:number,roundNumber,stage,groupRef:stage==="group"&&groupId?new Types.ObjectId(groupId):null,kickoffAt,venueRef:new Types.ObjectId(venueRef),homeSeasonTeamRef:new Types.ObjectId(homeId),awaySeasonTeamRef:new Types.ObjectId(awayId),status:nextStatus,penaltyShootout:existing.status==="live"&&nextStatus==="scheduled"?null:input.penaltyShootout===undefined?existing.penaltyShootout:this.buildShootout(input.penaltyShootout),notes:input.notes===undefined?existing.notes:input.notes,winnerSeasonTeamRef:existing.status==="live"&&nextStatus==="scheduled"?null:existing.winnerSeasonTeamRef,resolutionHistory};
-  if(merged.penaltyShootout)await this.validateShootout(String(existing.seasonRef),merged,merged.penaltyShootout);
+  if(merged.penaltyShootout){
+   if(merged.stage==="group")throw new AppError("Group-stage matches cannot have penalty shootouts.",422,"GROUP_SHOOTOUT");
+   await this.validateShootout(String(existing.seasonRef),merged,merged.penaltyShootout);
+  }
   merged.winnerSeasonTeamRef=this.calculateWinner(merged,season.matchRules,season.pointsRules);
   const saved=await this.repo.update(id,{matchNumber:merged.matchNumber,roundNumber:merged.roundNumber,stage:merged.stage,groupRef:merged.groupRef,kickoffAt:merged.kickoffAt,venueRef:merged.venueRef,homeSeasonTeamRef:merged.homeSeasonTeamRef,awaySeasonTeamRef:merged.awaySeasonTeamRef,status:merged.status,penaltyShootout:merged.penaltyShootout,winnerSeasonTeamRef:merged.winnerSeasonTeamRef,notes:merged.notes,resolutionHistory:merged.resolutionHistory},season.homeAndAwayFixtures??false,statusHistoryEntry?{expectedStatus:existing.status,entry:statusHistoryEntry,requireNoGoals:existing.status==="live"&&nextStatus==="scheduled"}:undefined,{requireEditableWithoutEvents:isFixtureDetailsEdit,requireAuctionCompleted:isFixtureDetailsEdit});
   if(!saved)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const populated=await this.repo.findPopulatedById(id);if(!populated)throw new AppError("Updated fixture could not be retrieved",500,"MATCH_UPDATE_FAILED");return this.map(populated);

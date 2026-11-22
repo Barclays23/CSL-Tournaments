@@ -254,6 +254,7 @@ export class SeasonMatchRepository {
           ? { status: statusAudit ? statusAudit.expectedStatus : { $in: ["scheduled", "live"] as SeasonMatchFields["status"][] } }
           : statusAudit ? { status: statusAudit.expectedStatus } : {}),
         ...(statusAudit?.requireNoGoals || options?.requireEditableWithoutEvents ? { goals: { $size: 0 } } : {}),
+        ...(statusAudit?.requireNoGoals ? { $and: [{ $or: [{ cards: { $exists: false } }, { cards: { $size: 0 } }] }] } : {}),
         ...(options?.requireEditableWithoutEvents
           ? { $or: [{ cards: { $exists: false } }, { cards: { $size: 0 } }] }
           : {}),
