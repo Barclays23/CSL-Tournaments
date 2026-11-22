@@ -1,11 +1,17 @@
 import { Schema, model } from "mongoose";
-import type { SeasonMatchFields, SeasonGoalFields } from "./seasonMatch.types.js";
+import type { SeasonMatchFields, SeasonGoalFields, SeasonMatchCardFields } from "./seasonMatch.types.js";
 
 const goalSchema = new Schema<SeasonGoalFields>({
   scoringSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   scorerPlayerRef: { type: Schema.Types.ObjectId, ref: "Player", default: null },
   playerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
   goalType: { type: String, enum: ["normal", "own_goal"], required: true },
+}, { timestamps: { createdAt: true, updatedAt: false } });
+
+const cardSchema = new Schema<SeasonMatchCardFields>({
+  seasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
+  playerRef: { type: Schema.Types.ObjectId, ref: "Player", required: true },
+  cardType: { type: String, enum: ["yellow_card", "red_card", "second_yellow"], required: true },
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const kickSchema = new Schema({
@@ -35,6 +41,7 @@ const correctionResultSchema = new Schema({
   homeScore: { type: Number, min: 0, required: true },
   awayScore: { type: Number, min: 0, required: true },
   goals: { type: [goalSchema], default: [] },
+  cards: { type: [cardSchema], default: [] },
   penaltyShootout: { type: shootoutSchema, default: null },
   winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
 }, { _id: false, timestamps: false });
@@ -63,6 +70,7 @@ const schema = new Schema<SeasonMatchFields>({
   awaySeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   status: { type: String, enum: ["scheduled", "live", "completed", "postponed", "cancelled", "abandoned"], default: "scheduled" },
   goals: { type: [goalSchema], default: [] },
+  cards: { type: [cardSchema], default: [] },
   penaltyShootout: { type: shootoutSchema, default: null },
   winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
   notes: { type: String, default: null, trim: true },

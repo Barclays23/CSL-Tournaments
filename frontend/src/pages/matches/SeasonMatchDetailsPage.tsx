@@ -10,6 +10,8 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Drawer } from "@/components/ui/Drawer";
 import { GoalManagementDrawer } from "@/components/matches/GoalManagementDrawer";
+import { CardManagementDrawer } from "@/components/matches/CardManagementDrawer";
+import { PenaltyShootoutManagementDrawer } from "@/components/matches/PenaltyShootoutManagementDrawer";
 import { CompletedMatchCorrectionDrawer } from "@/components/matches/CompletedMatchCorrectionDrawer";
 import { MatchStatusManager } from "@/components/matches/MatchStatusManager";
 import { MatchEventIcon, type MatchEventKind } from "@/components/matches/MatchEventIcon";
@@ -18,15 +20,18 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import {
   addSeasonMatchGoal,
+  addSeasonMatchCard,
   correctCompletedSeasonMatch,
   deleteSeasonMatchGoal,
+  deleteSeasonMatchCard,
   getSeasonMatchById,
   updateSeasonMatch,
   updateSeasonMatchGoal,
+  updateSeasonMatchCard,
 } from "@/services/seasonMatchService";
 import { getSeasonTeams, getAuctionLots } from "@/services/seasonService";
 import { getVenues } from "@/services/venueService";
-import type { SeasonMatch, SeasonMatchTeamRef, SeasonMatchWrite, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
+import type { SeasonMatch, SeasonMatchCardType, SeasonMatchTeamRef, SeasonMatchWrite, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
 import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
@@ -57,18 +62,9 @@ const STATUS_TONE: Record<SeasonMatch["status"], string> = {
   abandoned: "bg-danger/15 text-danger",
 };
 
-/**
- * One row in the centre timeline. Goals are built from match.goals today.
- * When cards are implemented, map them into this same shape
- * (kind: "yellow_card" | "red_card" | "second_yellow") and append them in buildEvents().
- */
 type MatchEvent = {
-  id: string;
-  kind: MatchEventKind;
-  teamId: string; // the side the event is displayed under
-  playerName: string;
-  at: string; // ISO timestamp, used for ordering + the small time label
-  goalId?: string; // present for goal events so admins can edit / delete
+  id: string; kind: MatchEventKind; teamId: string; playerName: string; at: string;
+  goalId?: string; cardId?: string;
 };
 
 function teamDetails(ref: SeasonMatchTeamRef) {
@@ -82,20 +78,18 @@ function lotPlayer(lot: AuctionLot) {
   return typeof lot.playerRef === "string" ? null : lot.playerRef;
 }
 
-function buildEvents(goals: SeasonMatch["goals"]): MatchEvent[] {
-  const events: MatchEvent[] = goals.map((goal) => {
+function buildEvents(goals: SeasonMatch["goals"], cards: NonNullable<SeasonMatch["cards"]> = []): MatchEvent[] {
+  const goalEvents: MatchEvent[] = goals.map((goal) => {
     const scorer = goal.scorerPlayerRef && typeof goal.scorerPlayerRef !== "string" ? goal.scorerPlayerRef.name : null;
-    return {
-      id: `goal-${goal._id}`,
-      kind: goal.goalType === "own_goal" ? "own_goal" : "goal",
-      teamId: refId(goal.scoringSeasonTeamRef) ?? "",
-      playerName: scorer ?? (goal.goalType === "own_goal" ? "Player" : "Scorer not recorded"),
-      at: goal.createdAt,
-      goalId: goal._id,
-    };
+    return { id: `goal-${goal._id}`, kind: goal.goalType === "own_goal" ? "own_goal" : "goal",
+      teamId: refId(goal.scoringSeasonTeamRef) ?? "", playerName: scorer ?? (goal.goalType === "own_goal" ? "Player" : "Scorer not recorded"),
+      at: goal.createdAt, goalId: goal._id };
   });
-  // FUTURE: events.push(...match.cards.map(card => ({ kind: card.type === "red" ? "red_card" : "yellow_card", ... })))
-  return events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  const cardEvents: MatchEvent[] = cards.map((card) => ({
+    id: `card-${card._id}`, kind: card.cardType, teamId: refId(card.seasonTeamRef) ?? "",
+    playerName: typeof card.playerRef === "string" ? "Player" : card.playerRef.name, at: card.createdAt, cardId: card._id,
+  }));
+  return [...goalEvents, ...cardEvents].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
 }
 
 function eventTime(iso: string) {
@@ -144,42 +138,31 @@ function TeamSide({ team, side }: { team: ReturnType<typeof teamDetails>; side: 
 }
 
 function EventText({
-  event,
-  side,
-  canManageGoals,
-  onEditGoal,
-  onDeleteGoal,
+  event, side, canManageEvents, onEditGoal, onDeleteGoal, onEditCard, onDeleteCard,
 }: {
-  event: MatchEvent;
-  side: "home" | "away";
-  canManageGoals: boolean;
-  onEditGoal: (goalId: string) => void;
-  onDeleteGoal: (goalId: string) => void;
+  event: MatchEvent; side: "home" | "away"; canManageEvents: boolean;
+  onEditGoal: (id: string) => void; onDeleteGoal: (id: string) => void;
+  onEditCard: (id: string) => void; onDeleteCard: (id: string) => void;
 }) {
-  const manage = canManageGoals && event.goalId;
+  const manage = canManageEvents && Boolean(event.goalId || event.cardId);
+  const title = event.kind === "yellow_card" ? "Yellow card" : event.kind === "red_card" ? "Red card"
+    : event.kind === "second_yellow" ? "Second yellow card" : event.kind === "own_goal" ? "Own goal" : "Goal";
   const content = (
     <div className={`min-w-0 ${side === "home" ? "text-right" : "text-left"}`}>
-      <p className="truncate text-sm font-semibold text-fg">
-        {event.playerName}
-        {event.kind === "own_goal" ? <span className="ml-1 font-medium text-danger">(OG)</span> : null}
-      </p>
-      <p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
+      <p className="truncate text-sm font-semibold text-fg">{event.playerName}{event.kind === "own_goal" ? <span className="ml-1 font-medium text-danger">(OG)</span> : null}</p>
+      <p className="text-xs text-muted">{title}</p><p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
     </div>
   );
   const actions = manage ? (
     <div className="flex shrink-0 items-center gap-1.5">
-      <button type="button" className={iconBtnClass} aria-label={`Edit goal by ${event.playerName}`} onClick={() => onEditGoal(event.goalId!)}><PencilIcon /></button>
-      <button type="button" className={`${iconBtnClass} hover:text-danger`} aria-label={`Delete goal by ${event.playerName}`} onClick={() => onDeleteGoal(event.goalId!)}><TrashIcon /></button>
+      <button type="button" className={iconBtnClass} aria-label={`Edit ${title} for ${event.playerName}`} onClick={() => event.goalId ? onEditGoal(event.goalId) : onEditCard(event.cardId!)}><PencilIcon /></button>
+      <button type="button" className={`${iconBtnClass} hover:text-danger`} aria-label={`Delete ${title} for ${event.playerName}`} onClick={() => event.goalId ? onDeleteGoal(event.goalId) : onDeleteCard(event.cardId!)}><TrashIcon /></button>
     </div>
   ) : null;
-  return (
-    <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>
-      {side === "home" ? <>{actions}{content}</> : <>{content}{actions}</>}
-    </div>
-  );
+  return <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>{side === "home" ? <>{actions}{content}</> : <>{content}{actions}</>}</div>;
 }
 
-export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string; matchId: string }) {
+export function SeasonMatchDetailsPage({ seasonId, matchId, adminMode = false }: { seasonId: string; matchId: string; adminMode?: boolean }) {
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
@@ -190,6 +173,14 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const [goalPlayerId, setGoalPlayerId] = useState("");
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [savingGoal, setSavingGoal] = useState(false);
+  const [cardTeamId, setCardTeamId] = useState("");
+  const [cardType, setCardType] = useState<SeasonMatchCardType>("yellow_card");
+  const [cardPlayerId, setCardPlayerId] = useState("");
+  const [cardOpen, setCardOpen] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [savingCard, setSavingCard] = useState(false);
+  const [shootoutOpen, setShootoutOpen] = useState(false);
+  const [savingShootout, setSavingShootout] = useState(false);
   const [correctionOpen, setCorrectionOpen] = useState(false);
   const [savingCorrection, setSavingCorrection] = useState(false);
 
@@ -214,11 +205,15 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
   const playerTeamId = goalType === "normal" ? scoringTeamId : scoringTeamId === home.id ? away.id : home.id;
   const eligibleGoalPlayers = (lotsQuery.data?.data ?? []).filter((lot) => lotTeamId(lot) === playerTeamId && lotPlayer(lot));
   const canManageGoals = isAdmin && match.status === "live";
+  const canManageCards = isAdmin && match.status === "live";
+  const canManageShootout = isAdmin && match.stage !== "group" && match.status === "live";
   const showScore = match.status === "live"
     || match.status === "completed"
     || (match.status !== "scheduled" && match.goals.length > 0);
   const hasPreMatchGoals = match.status === "scheduled" && match.goals.length > 0;
-  const events = buildEvents(match.goals);
+  const events = buildEvents(match.goals, match.cards ?? []);
+  const eligibleCardPlayers = (lotsQuery.data?.data ?? []).filter((lot) => lotTeamId(lot) === (cardTeamId || home.id) && lotPlayer(lot));
+  const shootoutPlayers = (lotsQuery.data?.data ?? []).flatMap((lot) => { const player = lotPlayer(lot); return player ? [{ id: player._id, name: player.name, seasonTeamId: lotTeamId(lot) }] : []; });
 
   // Group name (only meaningful in the group stage). Adjust the field name if your type differs.
   const rawGroup = (match as unknown as { groupRef?: string | { _id: string; name?: string } | null }).groupRef;
@@ -298,10 +293,48 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
     }
   };
 
+  const saveCard = async () => {
+    if (!canManageCards) { toast.error("Cards can only be managed by an admin while the match is Live."); return; }
+    if (!cardTeamId || !cardPlayerId) { toast.error("Choose the team and player receiving the card."); return; }
+    setSavingCard(true);
+    try {
+      const payload = { seasonTeamRef: cardTeamId, playerRef: cardPlayerId, cardType };
+      if (editingCardId) await updateSeasonMatchCard(seasonId, matchId, editingCardId, payload);
+      else await addSeasonMatchCard(seasonId, matchId, payload);
+      toast.success(editingCardId ? "Card updated" : "Card recorded");
+      setEditingCardId(null); setCardTeamId(""); setCardPlayerId(""); setCardType("yellow_card"); setCardOpen(false); matchQuery.reload();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to save card"); }
+    finally { setSavingCard(false); }
+  };
+  const beginCardEdit = (cardId: string) => {
+    if (!canManageCards) return;
+    const card = (match.cards ?? []).find((item) => item._id === cardId);
+    if (!card) return;
+    setEditingCardId(card._id); setCardTeamId(refId(card.seasonTeamRef) ?? home.id);
+    setCardType(card.cardType); setCardPlayerId(refId(card.playerRef) ?? ""); setCardOpen(true);
+  };
+  const removeCard = async (cardId: string) => {
+    if (!canManageCards) return;
+    const yes = await confirm({ title: "Remove this card?", description: "This removes the incident from the match timeline. The normal-time score and goals are unchanged.", confirmLabel: "Remove card", danger: true });
+    if (!yes) return;
+    try { await deleteSeasonMatchCard(seasonId, matchId, cardId); toast.success("Card removed"); matchQuery.reload(); }
+    catch (error) { toast.error(error instanceof Error ? error.message : "Unable to remove card"); }
+  };
+  const saveShootout = async (value: SeasonMatch["penaltyShootout"]) => {
+    if (!canManageShootout) return;
+    setSavingShootout(true);
+    try {
+      await updateSeasonMatch(seasonId, matchId, { penaltyShootout: value });
+      toast.success(value ? "Penalty shootout saved" : "Penalty shootout cleared");
+      setShootoutOpen(false); matchQuery.reload();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to save penalty shootout"); }
+    finally { setSavingShootout(false); }
+  };
+
 
   return (
     <PageContainer>
-      <Link to="/matches" search={{ seasonId }} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
+      <Link to={adminMode ? "/admin/matches" : "/matches"} search={{ seasonId }} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
         Back to matches
       </Link>
@@ -409,26 +442,31 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
           {/* Events under each team, icon on the centre line */}
           <div className="mt-8 border-t border-line pt-5">
             {events.length === 0 ? (
-              <p className="text-center text-sm text-muted">No goals recorded.</p>
+              <p className="text-center text-sm text-muted">No match events recorded.</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {events.map((event) => {
                   const side = event.teamId === away.id ? "away" : "home";
                   return (
                     <li key={event.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6">
-                      {side === "home" ? <EventText event={event} side="home" canManageGoals={canManageGoals} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} /> : <span />}
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-glass backdrop-blur-md">
-                        <MatchEventIcon kind={event.kind} className="h-5 w-5" />
-                      </span>
-                      {side === "away" ? <EventText event={event} side="away" canManageGoals={canManageGoals} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} /> : <span />}
+                      {side === "home" ? <EventText event={event} side="home" canManageEvents={canManageGoals || canManageCards} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} onEditCard={beginCardEdit} onDeleteCard={(cardId) => void removeCard(cardId)} /> : <span />}
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-glass backdrop-blur-md"><MatchEventIcon kind={event.kind} className="h-5 w-5" /></span>
+                      {side === "away" ? <EventText event={event} side="away" canManageEvents={canManageGoals || canManageCards} onEditGoal={beginGoalEdit} onDeleteGoal={(goalId) => void removeGoal(goalId)} onEditCard={beginCardEdit} onDeleteCard={(cardId) => void removeCard(cardId)} /> : <span />}
                     </li>
                   );
                 })}
               </ul>
             )}
-            {canManageGoals ? (
-              <div className="mt-5 flex justify-center">
-                <Button size="sm" onClick={() => { setEditingGoalId(null); setGoalTeamId(home.id); setGoalType("normal"); setGoalPlayerId(""); setGoalOpen(true); }}>Add goal</Button>
+            {(canManageGoals || canManageCards) ? (
+              <div className="mt-5 flex flex-wrap justify-center gap-2">
+                {canManageGoals ? <Button size="sm" onClick={() => { setEditingGoalId(null); setGoalTeamId(home.id); setGoalType("normal"); setGoalPlayerId(""); setGoalOpen(true); }}>Add goal</Button> : null}
+                {canManageCards ? <Button size="sm" variant="surface" onClick={() => { setEditingCardId(null); setCardTeamId(home.id); setCardPlayerId(""); setCardType("yellow_card"); setCardOpen(true); }}>Add card</Button> : null}
+              </div>
+            ) : null}
+            {canManageShootout ? (
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3 border-t border-line pt-4">
+                <div className="text-center"><p className="text-sm font-semibold text-fg">Penalty shootout</p><p className="text-xs text-muted">{match.penaltyShootout ? `Pens ${match.penaltyShootout.homeTeamScore} - ${match.penaltyShootout.awayTeamScore} · ${match.penaltyShootout.status}` : "No shootout recorded"}</p></div>
+                <Button size="sm" variant="surface" onClick={() => setShootoutOpen(true)}>{match.penaltyShootout ? "Edit shootout" : "Record shootout"}</Button>
               </div>
             ) : null}
           </div>
@@ -468,6 +506,19 @@ export function SeasonMatchDetailsPage({ seasonId, matchId }: { seasonId: string
         saving={savingGoal}
         error={lotsQuery.error}
         onSubmit={saveGoal}
+      />
+      <CardManagementDrawer
+        open={cardOpen} onClose={() => { setCardOpen(false); setEditingCardId(null); setCardTeamId(""); setCardPlayerId(""); setCardType("yellow_card"); }}
+        editing={editingCardId !== null} home={{ id: home.id, name: home.name }} away={{ id: away.id, name: away.name }}
+        teamId={cardTeamId || home.id} onTeamChange={setCardTeamId} cardType={cardType} onCardTypeChange={setCardType}
+        playerId={cardPlayerId} onPlayerChange={setCardPlayerId}
+        players={eligibleCardPlayers.map((lot) => { const player = lotPlayer(lot); return player ? { id: player._id, name: player.name, jerseyNo: lot.jerseyNo } : null; }).filter((player): player is NonNullable<typeof player> => player !== null)}
+        saving={savingCard} error={lotsQuery.error} onSubmit={saveCard}
+      />
+      <PenaltyShootoutManagementDrawer key={shootoutOpen ? "open" : "closed"} open={shootoutOpen} onClose={() => setShootoutOpen(false)}
+        home={{ id: home.id, name: home.name }} away={{ id: away.id, name: away.name }}
+        shootout={match.penaltyShootout} players={shootoutPlayers} saving={savingShootout}
+        onSubmit={(value) => void saveShootout(value)}
       />
       {correctionOpen ? <CompletedMatchCorrectionDrawer
         open={true}

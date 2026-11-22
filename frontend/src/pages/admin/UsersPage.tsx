@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { AdminRoute } from "@/components/auth/AdminRoute";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -15,6 +14,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { FormField } from "@/components/forms/FormField";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { ImageUploader } from "@/components/ui/ImageUploader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { useDebounce } from "@/hooks/useDebounce";
@@ -28,7 +28,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
 
 export function UsersPage() {
-  return <AdminRoute><UsersBody /></AdminRoute>;
+  return <UsersBody />;
 }
 
 function UsersBody() {
@@ -110,14 +110,12 @@ function UsersBody() {
 
   return (
     <section>
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-accent">Admin management</p>
-          <h1 className="mt-1 font-display text-4xl text-fg">Users</h1>
-          <p className="mt-2 text-sm text-muted">Create accounts, assign roles and control access. Public self-registration is disabled.</p>
-        </div>
-        <Button onClick={() => setEditing(null)}>Create user</Button>
-      </div>
+      <AdminPageBanner
+        breadcrumb="Admin / Access management"
+        title="Users"
+        description="Create accounts, assign roles and control access. Public self-registration is disabled."
+        actions={<Button onClick={() => setEditing(null)}>Create user</Button>}
+      />
 
       <div className="mb-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_180px]">
         <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search name, email, mobile or username" />

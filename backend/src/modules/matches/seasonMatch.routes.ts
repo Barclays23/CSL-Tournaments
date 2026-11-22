@@ -13,3 +13,6 @@ seasonMatchRouter.delete("/:matchId", authenticate, requireAdmin, seasonMatchCon
 seasonMatchRouter.post("/:matchId/goals", authenticate, requireAdmin, seasonMatchController.addGoal);
 seasonMatchRouter.patch("/:matchId/goals/:goalId", authenticate, requireAdmin, seasonMatchController.updateGoal);
 seasonMatchRouter.delete("/:matchId/goals/:goalId", authenticate, requireAdmin, seasonMatchController.deleteGoal);
+seasonMatchRouter.post("/:matchId/cards", authenticate, requireAdmin, seasonMatchController.addCard);
+seasonMatchRouter.patch("/:matchId/cards/:cardId", authenticate, requireAdmin, seasonMatchController.updateCard);
+seasonMatchRouter.delete("/:matchId/cards/:cardId", authenticate, requireAdmin, seasonMatchController.deleteCard);

@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { Avatar } from "@/components/ui/Avatar";
 import type { GroupStanding } from "@/types/statistics.types";
 
@@ -20,10 +19,10 @@ export function StandingsTable({ group }: { group: GroupStanding }) {
             <tr key={row.team._id} className={row.qualified ? "bg-primary/10" : undefined}>
               <td className="px-2 py-3 tabular text-muted">{row.position}</td>
               <td className="px-2 py-3">
-                <Link to="/teams/$teamId" params={{ teamId: row.team._id }} className="flex items-center gap-2 font-semibold text-fg">
+                <div className="flex items-center gap-2 font-semibold text-fg">
                   <Avatar name={row.team.name} asset={row.team.logo} className="h-8 w-8 rounded-lg" />
                   {row.team.name}
-                </Link>
+                </div>
               </td>
               {[row.played, row.won, row.drawn, row.lost, row.goalsFor, row.goalsAgainst, row.goalDifference].map((value, index) => (
                 <td key={index} className="px-2 py-3 tabular text-fg">

@@ -2,7 +2,7 @@ import { USE_MOCK_API } from "@/config/env";
 import { seasonPreviewRepository } from "@/mocks/seasonRepository";
 import { api, run } from "@/services/api";
 import type { ApiResponse, Pagination } from "@/types/api.types";
-import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchWrite, SeasonMatchCreateWrite, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
+import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchWrite, SeasonMatchCreateWrite, SeasonMatchCorrectionWrite, SeasonMatchCardType } from "@/types/seasonMatch.types";
 
 export function getSeasonGroups(seasonId: string) {
   return run(() =>
@@ -114,6 +114,24 @@ export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId:
       ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId)
       : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`).then((response) => response.data),
   );
+}
+
+export interface SeasonMatchCardWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; }
+
+export function addSeasonMatchCard(seasonId: string, matchId: string, data: SeasonMatchCardWrite) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.addSeasonMatchCard(seasonId, matchId, data)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards`, data).then((response) => response.data));
+}
+export function updateSeasonMatchCard(seasonId: string, matchId: string, cardId: string, data: SeasonMatchCardWrite) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.updateSeasonMatchCard(seasonId, matchId, cardId, data)
+    : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`, data).then((response) => response.data));
+}
+export function deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.deleteSeasonMatchCard(seasonId, matchId, cardId)
+    : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`).then((response) => response.data));
 }
 
 export function correctCompletedSeasonMatch(seasonId: string, matchId: string, data: SeasonMatchCorrectionWrite) {

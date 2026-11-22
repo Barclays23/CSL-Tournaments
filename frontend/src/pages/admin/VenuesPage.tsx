@@ -2,7 +2,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AdminRoute } from "@/components/auth/AdminRoute";
 import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -29,20 +28,20 @@ import {
 import type { Venue } from "@/types/venue.types";
 import { errorMessage } from "@/utils/errorHandler";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { SearchBar } from "@/components/forms/SearchBar";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 
 export function VenuesPage() {
-  return (
-    <AdminRoute>
-      <VenuesBody />
-    </AdminRoute>
-  );
+  return <VenuesBody />;
 }
 function VenuesBody() {
   const confirm = useConfirm();
   const [editing, setEditing] = useState<Venue | null | undefined>(undefined);
   const [status, setStatus] = useState<"active" | "inactive" | "all">("all");
+  const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const venues = useServiceQuery(() => getVenues(status), [status]);
+  const visibleVenues = (venues.data?.data ?? []).filter((venue) => !search.trim() || venue.name.toLowerCase().includes(search.trim().toLowerCase()) || (venue.location ?? "").toLowerCase().includes(search.trim().toLowerCase()));
   const form = useForm<VenueFormValues>({
     resolver: zodResolver(venueFormSchema) as Resolver<VenueFormValues>,
     defaultValues: { name: "", location: "", notes: "" },
@@ -117,21 +116,14 @@ function VenuesBody() {
   return (
     <PageContainer>
       <section>
-        <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-accent">
-              Tournament master data
-            </p>
-            <h1 className="mt-1 font-display text-4xl text-fg">
-              Venues & Grounds
-            </h1>
-            <p className="mt-2 text-sm text-muted">
-              Maintain the approved match locations used by every fixture.
-            </p>
-          </div>
-          <Button onClick={() => open(null)}>Add venue</Button>
-        </div>
-        <div className="mb-4 max-w-xs">
+        <AdminPageBanner
+          breadcrumb="Admin / Tournament master data"
+          title="Venues & Grounds"
+          description="Maintain the approved match locations used by every fixture."
+          actions={<Button onClick={() => open(null)}>Add venue</Button>}
+        />
+        <div className="mb-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_16rem]">
+          <SearchBar value={search} onChange={setSearch} placeholder="Search venue or location" />
           <Select
             value={status}
             onChange={(event) => setStatus(event.target.value as typeof status)}
@@ -146,14 +138,14 @@ function VenuesBody() {
         {venues.error ? (
           <ErrorState message={venues.error} onRetry={venues.reload} />
         ) : null}
-        {venues.data?.data.length === 0 ? (
+        {visibleVenues.length === 0 ? (
           <EmptyState
             title="No venues yet"
             description="Add a venue or ground before creating fixtures."
           />
         ) : null}
         <div className="grid gap-3 md:grid-cols-2">
-          {venues.data?.data.map((record) => (
+          {visibleVenues.map((record) => (
             <GlassCard key={record._id} className="p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>

@@ -5,6 +5,7 @@ import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { SeasonFixtureCard } from "@/components/matches/SeasonFixtureCard";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -15,10 +16,11 @@ import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Tabs } from "@/components/ui/Tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getSeasons, getSeasonTeams } from "@/services/seasonService";
-import { createSeasonMatch, getSeasonGroups, getSeasonMatches, updateSeasonMatch } from "@/services/seasonMatchService";
+import { createSeasonMatch, deleteSeasonMatch, getSeasonGroups, getSeasonMatches, updateSeasonMatch } from "@/services/seasonMatchService";
 import type { SeasonMatch, SeasonMatchStage, SeasonMatchStatus, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { errorMessage } from "@/utils/errorHandler";
 import { getVenues } from "@/services/venueService";
@@ -50,8 +52,9 @@ const EMPTY_MATCH_RESPONSE = {
   pagination: { page: 1, limit: 8, total: 0, totalPages: 0 },
 };
 
-export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
+export function MatchesPage({ initialSeasonId, managementMode = false }: { initialSeasonId?: string; managementMode?: boolean }) {
   const { isAdmin } = useAuth();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [status, setStatus] = useState<SeasonMatchStatus | "">("");
   const [stage, setStage] = useState<SeasonMatchStage | "">("");
@@ -103,7 +106,9 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
   const activeVenueCount = (venues.data?.data ?? []).filter((venue) => venue.status === "active").length;
   const fixtureBlockReason = !selectedSeason
     ? "Select a season to manage fixtures."
-    : !["upcoming", "active"].includes(selectedSeason.status)
+    : selectedSeason.auctionLifecycleStatus !== "completed"
+      ? "Complete the auction before creating or changing fixtures."
+      : !["upcoming", "active"].includes(selectedSeason.status)
       ? "Fixtures can only be created for upcoming or active seasons."
       : !selectedSeason.matchRules
         ? "Match rules are not configured for this season."
@@ -137,12 +142,16 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
 
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Calendar"
-        title="Fixtures"
-        description="Choose a season to view its fixtures, match results and penalty shootouts."
-        actions={isAdmin ? <div className="flex flex-wrap gap-2"><Button variant="surface" onClick={() => void navigate({ to: "/admin/venues" })}>Manage venues</Button>{canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}</div> : null}
-      />
+      {managementMode ? (
+        <AdminPageBanner
+          breadcrumb="Admin / Competition management"
+          title="Matches"
+          description="Manage season fixtures, results, match status and venue assignments."
+          actions={<div className="flex flex-wrap gap-2"><Button variant="surface" onClick={() => void navigate({ to: "/admin/venues" })}>Manage venues</Button>{canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}</div>}
+        />
+      ) : (
+        <PageHeader eyebrow="Calendar" title="Fixtures" description="Choose a season to view its fixtures, match results and penalty shootouts." actions={canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : undefined} />
+      )}
       <div className="mb-4 max-w-sm">
         <Select
           value={seasonId}
@@ -150,7 +159,7 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
           disabled={seasons.loading || availableSeasons.length === 0}
           onChange={(event) => {
             resetFilters();
-            void navigate({ to: "/matches", search: { seasonId: event.target.value || undefined }, replace: true });
+            void navigate({ to: managementMode ? "/admin/matches" : "/matches", search: { seasonId: event.target.value || undefined }, replace: true });
           }}
         >
           {availableSeasons.length === 0 ? <option value="">No seasons available</option> : null}
@@ -220,7 +229,14 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
             key={match._id}
             match={match}
             groupName={(groups.data?.data ?? []).find((group) => group._id === match.groupRef)?.groupName ?? null}
-            onEdit={isAdmin && ["upcoming", "active"].includes(selectedSeason?.status ?? "") && canEditSeasonMatch(match) ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
+            managementMode={managementMode}
+            onEdit={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && ["upcoming", "active"].includes(selectedSeason?.status ?? "") && canEditSeasonMatch(match) ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
+            onDelete={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && ["upcoming", "active"].includes(selectedSeason?.status ?? "") ? async (fixture) => {
+              const yes = await confirm({ title: "Delete this fixture?", description: "Delete match " + fixture.matchNumber + "?", confirmLabel: "Delete fixture", danger: true });
+              if (!yes) return;
+              try { await deleteSeasonMatch(seasonId, fixture._id); toast.success("Fixture deleted"); matches.reload(); }
+              catch (error) { toast.error(errorMessage(error)); }
+            } : undefined}
           />
         ))}
       </div>

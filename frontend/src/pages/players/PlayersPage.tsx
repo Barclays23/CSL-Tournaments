@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { PlayerForm } from "@/components/forms/PlayerForm";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { PlayerCard } from "@/components/players/PlayerCard";
@@ -13,7 +14,6 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Select } from "@/components/ui/Select";
 import { CardSkeletonGrid } from "@/components/ui/Skeleton";
 import { PLAYER_STATUSES } from "@/constants/football.constants";
-import { useAuth } from "@/contexts/AuthContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
@@ -24,7 +24,7 @@ import type { PlayerStatus, PublicPlayer } from "@/types/player.types";
 import { errorMessage } from "@/utils/errorHandler";
 
 export function PlayersPage() {
-  const { isAdmin } = useAuth();
+  const isAdmin = true;
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<PlayerStatus | "">("");
@@ -62,9 +62,7 @@ export function PlayersPage() {
 
   return (
     <PageContainer>
-      <PageHeader eyebrow="Player master" title="Players"
-        description="Manage permanent player profiles and contact information."
-        actions={isAdmin ? <Button onClick={() => setEditing(null)}>Add player</Button> : null} />
+      <AdminPageBanner breadcrumb="Admin / Player directory" title="Players" description="Manage permanent player profiles, player status and contact information." actions={<Button onClick={() => setEditing(null)}>Add player</Button>} />
       <div className="mb-5 grid gap-3 md:grid-cols-2">
         <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search players by name" />
         {isAdmin ? <Select value={status} onChange={(event) => { setStatus(event.target.value as PlayerStatus | ""); setPage(1); }} aria-label="Player status">
@@ -80,6 +78,7 @@ export function PlayersPage() {
         {players.data?.data.map((player) => <div key={player._id} className="grid gap-2">
           <PlayerCard player={player} />
           {isAdmin ? <div className="flex gap-2">
+            <Link to="/admin/players/$playerId" params={{ playerId: player._id }}><Button size="sm" variant="surface">View</Button></Link>
             <Button size="sm" variant="surface" onClick={() => setEditing(player)}>Edit</Button>
             <Button size="sm" variant="danger" onClick={() => void remove(player)}>Delete</Button>
           </div> : null}

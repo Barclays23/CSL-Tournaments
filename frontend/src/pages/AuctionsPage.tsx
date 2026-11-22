@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { Avatar } from "@/components/ui/Avatar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Select } from "@/components/ui/Select";
@@ -11,7 +11,6 @@ import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { useAuth } from "@/contexts/AuthContext";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import {
   getSeasons,
@@ -42,7 +41,7 @@ const POSITIONS: Record<SeasonPlayerPosition, string> = {
 const LOT_STATUSES: AuctionLotStatus[] = ["pending", "sold", "unsold", "withdrawn"];
 
 export function AuctionsPage() {
-  const { isAdmin } = useAuth();
+  const isAdmin = true;
   const seasons = useServiceQuery(() => getSeasons(), []);
   const [seasonId, setSeasonId] = useState("");
   const defaultSeasonId = useMemo(() => {
@@ -197,11 +196,7 @@ export function AuctionsPage() {
 
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Season auction"
-        title="Auctions"
-        description="Season-wise nominations, player purchases, budgets and squad composition."
-      />
+      <AdminPageBanner breadcrumb="Admin / Season operations" title="Auctions" description="Season-wise nominations, player purchases, budgets and squad composition." />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="w-full max-w-sm">
           <label className="mb-1.5 block text-sm font-medium text-fg">Season</label>

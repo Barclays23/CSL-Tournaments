@@ -6,7 +6,7 @@ import type { PublicPlayer } from "@/types/player.types";
 
 export function PlayerCard({ player }: { player: PublicPlayer }) {
   return (
-    <Link to="/players/$playerId" params={{ playerId: player._id }} className="block">
+    <Link to="/admin/players/$playerId" params={{ playerId: player._id }} className="block">
       <GlassCard className="h-full p-3 transition duration-200 hover:-translate-y-0.5 hover:border-accent">
         <div className="flex items-center gap-3">
           <Avatar name={player.name} asset={player.profilePic} />

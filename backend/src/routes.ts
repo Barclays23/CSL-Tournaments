@@ -12,6 +12,7 @@ import { seasonRouter } from "./modules/seasons/season.routes.js";
 import { auctionLotRouter } from "./modules/auctionLots/auctionLot.routes.js";
 import { auctionsRouter } from "./modules/auctionLots/auction.routes.js";
 import { venueRouter } from "./modules/venues/venue.routes.js";
+import { newsRouter } from "./modules/news/news.routes.js";
 
 
 
@@ -32,3 +33,4 @@ apiRouter.use("/seasons",seasonRouter);
 apiRouter.use("/auction-lots",auctionLotRouter);
 apiRouter.use("/auctions",auctionsRouter);
 apiRouter.use("/venues", venueRouter);
+apiRouter.use("/news", newsRouter);

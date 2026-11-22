@@ -11,7 +11,8 @@ export type UploadPurpose =
   | "manager-profile"
   | "user-profile"
   | "organizer-profile"
-  | "sponsor-logo";
+  | "sponsor-logo"
+  | "news-cover";
 
 
 

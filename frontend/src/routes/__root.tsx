@@ -1,6 +1,6 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { AppLayout } from "@/components/layout/AppLayout";
 import { ToastProvider } from "@/components/ui/ToastProvider";
+import { UserLayout } from "@/components/layout/UserLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -11,9 +11,7 @@ function RootComponent() {
     <ThemeProvider>
       <AuthProvider>
         <ConfirmProvider>
-          <AppLayout>
-            <Outlet />
-          </AppLayout>
+          <Outlet />
           <ToastProvider />
         </ConfirmProvider>
       </AuthProvider>
@@ -21,7 +19,15 @@ function RootComponent() {
   );
 }
 
+function RootNotFound() {
+  return (
+    <UserLayout>
+      <NotFoundPage />
+    </UserLayout>
+  );
+}
+
 export const Route = createRootRoute({
   component: RootComponent,
-  notFoundComponent: NotFoundPage,
+  notFoundComponent: RootNotFound,
 });

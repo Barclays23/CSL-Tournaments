@@ -2,14 +2,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { SponsorForm } from "@/components/forms/SponsorForm";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { SponsorCard } from "@/components/sponsors/SponsorCard";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { CardSkeletonGrid } from "@/components/ui/Skeleton";
-import { useAuth } from "@/contexts/AuthContext";
+import { Pagination } from "@/components/ui/Pagination";
+import { SearchBar } from "@/components/forms/SearchBar";
+import { useDebounce } from "@/hooks/useDebounce";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import type { SponsorFormValues } from "@/schemas/sponsor.schema";
@@ -19,12 +21,15 @@ import type { AdminSponsor, PublicSponsor } from "@/types/sponsor.types";
 import { errorMessage } from "@/utils/errorHandler";
 
 export function SponsorsPage() {
-  const { isAdmin } = useAuth();
+  const isAdmin = true;
   const confirm = useConfirm();
-  const sponsors = useServiceQuery(() => getSponsors({ limit: 24 }), []);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const debouncedSearch = useDebounce(search);
+  const sponsors = useServiceQuery(() => getSponsors({ page, limit: 12, search: debouncedSearch }), [page, debouncedSearch]);
   const [editing, setEditing] = useState<PublicSponsor | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
-  const visible = sponsors.data?.data.filter((sponsor) => isAdmin || sponsor.status === "active") ?? [];
+  const visible = sponsors.data?.data ?? [];
 
   const save = async (values: SponsorFormValues, logo: Asset | null) => {
     setSaving(true);
@@ -45,12 +50,8 @@ export function SponsorsPage() {
 
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Support"
-        title="Sponsors"
-        description="The people and businesses backing this tournament."
-        actions={isAdmin ? <Button onClick={() => setEditing(null)}>Add sponsor</Button> : null}
-      />
+      <AdminPageBanner breadcrumb="Admin / Tournament partners" title="Sponsors" description="Manage sponsor profiles, branding, tiers and contact information." actions={<Button onClick={() => setEditing(null)}>Add sponsor</Button>} />
+      <div className="mb-5 max-w-md"><SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search sponsors" /></div>
       {sponsors.loading ? <CardSkeletonGrid /> : null}
       {sponsors.error ? <ErrorState message={sponsors.error} onRetry={sponsors.reload} /> : null}
       {sponsors.data && visible.length === 0 ? <EmptyState title="No sponsors yet" description="Active sponsors will appear here." /> : null}
@@ -93,6 +94,7 @@ export function SponsorsPage() {
           </div>
         ))}
       </div>
+      <Pagination pagination={sponsors.data?.pagination} onPage={setPage} />
       <Drawer open={editing !== undefined} title={editing ? "Edit sponsor" : "Add sponsor"} onClose={() => setEditing(undefined)}>
         <SponsorForm sponsor={editing} submitting={saving} onSubmit={save} />
       </Drawer>

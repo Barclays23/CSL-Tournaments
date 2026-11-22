@@ -7,6 +7,16 @@ import type { AuctionLot, AuctionLotsQuery, AuctionLotStatus, AuctionSummary, No
 export function getSeasons() {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.getSeasons() : api.get<ApiResponse<Season[]>>("/seasons").then((r) => r.data));
 }
+
+export function getSeasonById(id: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.getSeasons().then((response) => {
+        const season = response.data.find((item) => item._id === id);
+        if (!season) throw new Error("Season not found");
+        return { ...response, data: season };
+      })
+    : api.get<ApiResponse<Season>>("/seasons/" + id).then((response) => response.data));
+}
 export function createSeason(data: SeasonWrite) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.createSeason(data) : api.post<ApiResponse<Season>>("/seasons", data).then((r) => r.data));
 }
