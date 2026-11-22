@@ -42,6 +42,7 @@ const correctionResultSchema = new Schema({
   awayScore: { type: Number, min: 0, required: true },
   goals: { type: [goalSchema], default: [] },
   cards: { type: [cardSchema], default: [] },
+  cards: { type: [cardSchema], default: [] },
   penaltyShootout: { type: shootoutSchema, default: null },
   winnerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
 }, { _id: false, timestamps: false });
