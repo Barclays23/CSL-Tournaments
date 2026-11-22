@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import type { SeasonMatch } from "@/types/seasonMatch.types";
@@ -14,7 +14,6 @@ export function PenaltyShootoutManagementDrawer({ open, onClose, home, away, sho
   const [awayScore, setAwayScore] = useState(shootout?.awayTeamScore ?? 0);
   const [kicks, setKicks] = useState<Shootout["kicks"]>(shootout?.kicks.map((kick) => ({ ...kick })) ?? []);
   const [teamId, setTeamId] = useState(home.id); const [playerId, setPlayerId] = useState(""); const [result, setResult] = useState<"scored"|"missed"|"saved">("scored");
-  useEffect(() => { if (!open) return; setStatus(shootout?.status ?? "pending"); setHomeScore(shootout?.homeTeamScore ?? 0); setAwayScore(shootout?.awayTeamScore ?? 0); setKicks(shootout?.kicks.map((kick) => ({ ...kick })) ?? []); setTeamId(home.id); setPlayerId(""); setResult("scored"); }, [open, shootout, home.id]);
   const updateKicks = (next: Shootout["kicks"]) => { setKicks(next); if (next.length) { setHomeScore(score(next, home.id)); setAwayScore(score(next, away.id)); } };
   const submit = () => onSubmit({ status, homeTeamScore: kicks.length ? score(kicks, home.id) : homeScore, awayTeamScore: kicks.length ? score(kicks, away.id) : awayScore, kicks });
   return <Drawer open={open} title={shootout ? "Edit penalty shootout" : "Record penalty shootout"} description="Shootout data is separate from normal-time goals and scores." onClose={onClose}>

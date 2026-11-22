@@ -515,7 +515,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId, adminMode = false }:
         players={eligibleCardPlayers.map((lot) => { const player = lotPlayer(lot); return player ? { id: player._id, name: player.name, jerseyNo: lot.jerseyNo } : null; }).filter((player): player is NonNullable<typeof player> => player !== null)}
         saving={savingCard} error={lotsQuery.error} onSubmit={saveCard}
       />
-      <PenaltyShootoutManagementDrawer open={shootoutOpen} onClose={() => setShootoutOpen(false)}
+      <PenaltyShootoutManagementDrawer key={shootoutOpen ? "open" : "closed"} open={shootoutOpen} onClose={() => setShootoutOpen(false)}
         home={{ id: home.id, name: home.name }} away={{ id: away.id, name: away.name }}
         shootout={match.penaltyShootout} players={shootoutPlayers} saving={savingShootout}
         onSubmit={(value) => void saveShootout(value)}
