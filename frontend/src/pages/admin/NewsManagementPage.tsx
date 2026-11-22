@@ -32,7 +32,7 @@ export function NewsManagementPage() {
   const [editing, setEditing] = useState<NewsArticle | null | undefined>(undefined);
   const [saving, setSaving] = useState(false);
   const debounced = useDebounce(search);
-  const news = useServiceQuery(() => getNews({ page, limit: 12, search: debounced, status }), [page, debounced, status]);
+  const news = useServiceQuery(() => getNews({ page, limit: 12, search: debounced, ...(status ? { status } : {}) }), [page, debounced, status]);
   const records = news.data?.data ?? [];
 
   const save = async (values: NewsWrite, coverImage: Asset | null) => {

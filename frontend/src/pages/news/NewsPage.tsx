@@ -15,7 +15,7 @@ import { useAuth } from "@/contexts/AuthContext";
 export function NewsPage() {
   const [page, setPage] = useState(1);
   const { isAdmin } = useAuth();
-  const news = useServiceQuery(() => getNews({ page, limit: 9 }), [page]);
+  const news = useServiceQuery(() => getNews({ page, limit: 9, status: "published" }), [page]);
   const articles = news.data?.data ?? [];
   return <PageContainer>
     <PageHeader eyebrow="CSL updates" title="News" description="Announcements, tournament updates and stories from the CSL Cherukunnu football community." />

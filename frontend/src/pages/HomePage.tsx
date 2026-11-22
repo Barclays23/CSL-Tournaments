@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { CalendarRange, Newspaper, Shield, Sparkles, Swords, Trophy, Users } from "lucide-react";
+import { CalendarRange, Shield, Sparkles, Swords, Users } from "lucide-react";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AboutSection } from "@/components/home/AboutSection";
 import { SeasonFixtureCard } from "@/components/matches/SeasonFixtureCard";
@@ -59,7 +59,7 @@ export function HomePage() {
     () => seasonId ? getSeasonTopScorers(seasonId) : Promise.resolve({ success: true, message: "No season", data: { season: undefined as never, items: [] } }),
     [seasonId],
   );
-  const latestNews = useServiceQuery(() => getNews({ page: 1, limit: 3 }), []);
+  const latestNews = useServiceQuery(() => getNews({ page: 1, limit: 3, status: "published" }), []);
   const organizers = useServiceQuery(() => getOrganizers({ page: 1, limit: 8, status: "active" }), []);
   const sponsors = useServiceQuery(() => getSponsors({ page: 1, limit: 8, status: "active" }), []);
 
