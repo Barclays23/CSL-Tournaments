@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { ApiResponse } from "../../utils/apiResponse.utils.js";
 import { getRequiredRouteParam } from "../../shared/utils/routeParams.js";
-import { seasonGoalSchema, seasonMatchCreateSchema, seasonMatchQuerySchema, seasonMatchUpdateSchema, seasonMatchRescheduleSchema, seasonMatchCorrectionSchema } from "./seasonMatch.schema.js";
+import { seasonGoalSchema, seasonMatchCreateSchema, seasonMatchQuerySchema, seasonMatchUpdateSchema, seasonMatchRescheduleSchema, seasonMatchCorrectionSchema, seasonMatchCardSchema } from "./seasonMatch.schema.js";
 import type { ISeasonMatchService } from "./seasonMatch.interfaces.js";
 export class SeasonMatchController {
  constructor(private readonly service: ISeasonMatchService) {}
@@ -15,4 +15,7 @@ export class SeasonMatchController {
  addGoal = async (req: Request, res: Response, next: NextFunction) => { try { const input = seasonGoalSchema.parse(req.body); res.status(201).json(ApiResponse.success("Goal added", await this.service.addGoal(getRequiredRouteParam(req.params.matchId, "matchId"), input))); } catch (e) { next(e); } };
  updateGoal = async (req: Request, res: Response, next: NextFunction) => { try { const input = seasonGoalSchema.parse(req.body); res.status(200).json(ApiResponse.success("Goal updated", await this.service.updateGoal(getRequiredRouteParam(req.params.matchId, "matchId"), getRequiredRouteParam(req.params.goalId, "goalId"), input))); } catch (e) { next(e); } };
  deleteGoal = async (req: Request, res: Response, next: NextFunction) => { try { res.status(200).json(ApiResponse.success("Goal deleted", await this.service.deleteGoal(getRequiredRouteParam(req.params.matchId, "matchId"), getRequiredRouteParam(req.params.goalId, "goalId")))); } catch (e) { next(e); } };
+ addCard = async (req: Request, res: Response, next: NextFunction) => { try { const input = seasonMatchCardSchema.parse(req.body); res.status(201).json(ApiResponse.success("Card recorded", await this.service.addCard(getRequiredRouteParam(req.params.matchId, "matchId"), input))); } catch (e) { next(e); } };
+ updateCard = async (req: Request, res: Response, next: NextFunction) => { try { const input = seasonMatchCardSchema.parse(req.body); res.status(200).json(ApiResponse.success("Card updated", await this.service.updateCard(getRequiredRouteParam(req.params.matchId, "matchId"), getRequiredRouteParam(req.params.cardId, "cardId"), input))); } catch (e) { next(e); } };
+ deleteCard = async (req: Request, res: Response, next: NextFunction) => { try { res.status(200).json(ApiResponse.success("Card deleted", await this.service.deleteCard(getRequiredRouteParam(req.params.matchId, "matchId"), getRequiredRouteParam(req.params.cardId, "cardId")))); } catch (e) { next(e); } };
 }

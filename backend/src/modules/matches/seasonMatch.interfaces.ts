@@ -1,5 +1,5 @@
 import type { PaginatedResult } from "../../shared/types/common.types.js";
-import type { CreateSeasonMatchDto, UpdateSeasonMatchDto, SeasonMatchQueryDto, SeasonGoalDto, SeasonMatchResponseDto, RescheduleSeasonMatchDto, CorrectCompletedMatchDto } from "./seasonMatch.dto.js";
+import type { CreateSeasonMatchDto, UpdateSeasonMatchDto, SeasonMatchQueryDto, SeasonGoalDto, SeasonMatchCardDto, SeasonMatchResponseDto, RescheduleSeasonMatchDto, CorrectCompletedMatchDto } from "./seasonMatch.dto.js";
 export interface ISeasonMatchService {
   list(seasonId: string, query: SeasonMatchQueryDto): Promise<PaginatedResult<SeasonMatchResponseDto>>;
   get(id: string): Promise<SeasonMatchResponseDto>;
@@ -11,4 +11,7 @@ export interface ISeasonMatchService {
   addGoal(id: string, input: SeasonGoalDto): Promise<SeasonMatchResponseDto>;
   updateGoal(id: string, goalId: string, input: SeasonGoalDto): Promise<SeasonMatchResponseDto>;
   deleteGoal(id: string, goalId: string): Promise<SeasonMatchResponseDto>;
+  addCard(id: string, input: SeasonMatchCardDto): Promise<SeasonMatchResponseDto>;
+  updateCard(id: string, cardId: string, input: SeasonMatchCardDto): Promise<SeasonMatchResponseDto>;
+  deleteCard(id: string, cardId: string): Promise<SeasonMatchResponseDto>;
 }

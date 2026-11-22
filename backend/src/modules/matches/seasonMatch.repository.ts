@@ -21,6 +21,8 @@ const population = [
   { path: "goals.scoringSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
   { path: "goals.playerSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
   { path: "goals.scorerPlayerRef", select: "name profilePic" },
+  { path: "cards.seasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
+  { path: "cards.playerRef", select: "name profilePic" },
   { path: "venueRef", select: "name location" },
 ];
 
@@ -370,4 +372,37 @@ export class SeasonMatchRepository {
       ).lean<SeasonMatchEntity>().exec(),
       false, false);
   }
+  async appendCard(id: string, card: import("./seasonMatch.types.js").SeasonMatchCardFields): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
+      SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
+        { $push: { cards: card } },
+        { session, returnDocument: "after", runValidators: true },
+      ).lean<SeasonMatchEntity>().exec(), false, false);
+  }
+
+  async updateCard(id: string, cardId: string, card: import("./seasonMatch.types.js").SeasonMatchCardFields): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
+      SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", "cards._id": new Types.ObjectId(cardId) },
+        { $set: { "cards.$": card } },
+        { session, returnDocument: "after", runValidators: true },
+      ).lean<SeasonMatchEntity>().exec(), false, false);
+  }
+
+  async removeCard(id: string, cardId: string): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+    return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
+      SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
+        { $pull: { cards: { _id: new Types.ObjectId(cardId) } } },
+        { session, returnDocument: "after" },
+      ).lean<SeasonMatchEntity>().exec(), false, false);
+  }
+
 }
