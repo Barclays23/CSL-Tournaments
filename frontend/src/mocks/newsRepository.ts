@@ -51,6 +51,7 @@ export const newsPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb(), item = db.news.find((record) => record._id === id);
     if (!item) return fail(404, "News article not found");
+    const previousPublishedAt = item.publishedAt;
     if (input.title !== undefined) item.title = input.title.trim();
     if (input.slug !== undefined) item.slug = uniqueSlug(db, input.slug || input.title || item.title, id);
     else if (input.title !== undefined && slugify(input.title) !== item.slug) item.slug = uniqueSlug(db, input.title, id);
@@ -64,6 +65,7 @@ export const newsPreviewRepository = {
       else if (input.status === "draft" && input.publishedAt === undefined) item.publishedAt = null;
     }
     if (input.publishedAt !== undefined) item.publishedAt = input.publishedAt;
+    if (item.status === "published" && !item.publishedAt) item.publishedAt = previousPublishedAt ?? now();
     item.updatedAt = now(); commitSeasonDb(db);
     return ok("News article updated", present(item));
   },

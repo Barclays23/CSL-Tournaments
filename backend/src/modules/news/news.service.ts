@@ -74,7 +74,7 @@ export class NewsService implements INewsService {
     }
     if (input.publishedAt !== undefined) update.publishedAt = input.publishedAt;
     const nextStatus = update.status ?? current.status;
-    if (nextStatus === "published" && update.publishedAt === undefined && !current.publishedAt) update.publishedAt = new Date();
+    if (nextStatus === "published" && !update.publishedAt) update.publishedAt = current.publishedAt ?? new Date();
     const updated = await this.repository.update(id, update);
     if (!updated) throw new AppError("News article not found", 404, "NEWS_NOT_FOUND");
     return this.toResponse(updated);

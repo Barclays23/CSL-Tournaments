@@ -67,3 +67,11 @@ test("updating title refreshes slug and archive hides the article from public re
   await assert.rejects(() => service.getBySlug(renamed.slug, false), { statusCode: 404 });
   assert.equal((await service.list({ page: 1, limit: 10, status: "archived" }, true)).items.length, 1);
 });
+
+test("publishing a draft without a date assigns a publication timestamp", async () => {
+  const repository = new MemoryNewsRepository(), service = new NewsService(repository);
+  const draft = await service.create({ ...input, status: "draft" });
+  const published = await service.update(draft._id, { status: "published", publishedAt: null });
+  assert.ok(published.publishedAt);
+  assert.equal((await service.list({ page: 1, limit: 10 }, false)).items.length, 1);
+});
