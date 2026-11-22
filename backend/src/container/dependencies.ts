@@ -5,6 +5,9 @@ import { TeamRepository } from "../modules/teams/team.repository.js";
 import { ManagerRepository } from "../modules/managers/manager.repository.js";
 import { SponsorRepository } from "../modules/sponsors/sponsor.repository.js";
 import { StatisticsRepository } from "../modules/statistics/statistics.repository.js";
+import { NewsRepository } from "../modules/news/news.repository.js";
+import { NewsService } from "../modules/news/news.service.js";
+import { NewsController } from "../modules/news/news.controller.js";
 
 import { AuthService } from "../modules/auth/auth.service.js";
 import { UserService } from "../modules/users/user.service.js";
@@ -95,6 +98,9 @@ export const managerController: IManagerController       = new ManagerController
 export const sponsorController: ISponsorController       = new SponsorController(sponsorService);
 export const statisticsController: IStatisticsController = new StatisticsController(statisticsService);
 export const uploadController: IUploadController         = new UploadController(uploadService);
+const newsRepository = new NewsRepository();
+const newsService = new NewsService(newsRepository);
+export const newsController = new NewsController(newsService);
 import { SeasonRepository } from "../modules/seasons/season.repository.js";
 import { SeasonService } from "../modules/seasons/season.service.js";
 import { SeasonController } from "../modules/seasons/season.controller.js";

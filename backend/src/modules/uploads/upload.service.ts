@@ -16,6 +16,7 @@ const uploadFolderByPurpose: Record<UploadPurpose, string> = {
   "manager-profile": `${appConfig.CLOUDINARY_FOLDER}/managers`,
   "organizer-profile": `${appConfig.CLOUDINARY_FOLDER}/organizers`,
   "sponsor-logo": `${appConfig.CLOUDINARY_FOLDER}/sponsors`,
+  "news-cover": `${appConfig.CLOUDINARY_FOLDER}/news`,
 };
 
 const supportedImageMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];

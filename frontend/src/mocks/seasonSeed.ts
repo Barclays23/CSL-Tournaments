@@ -35,6 +35,10 @@ export interface MockSponsor {
   contactPerson: string | null; contactMobile: string | null; email: string | null; displayOrder: number; status: "active" | "inactive";
   notes: string | null; createdAt: string; updatedAt: string;
 }
+export interface MockNews {
+  _id: string; title: string; slug: string; excerpt: string; content: string; coverImage: Asset | null;
+  tags: string[]; status: "draft" | "published" | "archived"; publishedAt: string | null; createdAt: string; updatedAt: string;
+}
 export interface MockOrganizer {
   _id: string; name: string; title: string; mobile: string | null; email: string | null;
   profilePic: Asset | null; displayOrder: number; status: "active" | "inactive";
@@ -77,7 +81,7 @@ export interface MockUser {
 }
 export interface SeasonMockDatabase {
   users: MockUser[]; teams: MockTeam[]; players: MockPlayer[]; managers: MockManager[];
-  sponsors: MockSponsor[]; organizers: MockOrganizer[]; seasons: MockSeason[]; seasonTeams: MockSeasonTeam[];
+  sponsors: MockSponsor[]; organizers: MockOrganizer[]; news: MockNews[]; seasons: MockSeason[]; seasonTeams: MockSeasonTeam[];
   auctionLots: MockAuctionLot[]; matches: MockSeasonMatch[]; groups: MockGroup[]; venues: MockVenue[]; awards: MockSeasonAward[];
 }
 
@@ -142,6 +146,11 @@ const organizers: MockOrganizer[] = [
   { _id: oid(453), name: "Fathima A", title: "Media Coordinator", mobile: null, email: "media@csl.local", profilePic: asset("https://i.pravatar.cc/240?img=23", "mock/organizers/organizer-4"), displayOrder: 4, status: "inactive", notes: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now },
 ];
 
+const news: MockNews[] = [
+  { _id: oid(800), title: "CSL 2026 season kicks off in Cherukunnu", slug: "csl-2026-season-kicks-off-in-cherukunnu", excerpt: "The new CSL season brings six teams together for another chapter of community football.", content: "The CSL Cherukunnu football community is ready for another exciting season. Follow the fixtures, match results, standings and player performances throughout the tournament.\n\nMore updates will be shared here as the season progresses.", coverImage: asset("https://images.unsplash.com/photo-1522778119026-d647f0596c20?w=1400&auto=format&fit=crop&q=85", "mock/news/csl-season-kickoff"), tags: ["Season 2026", "Tournament"], status: "published", publishedAt: timestamp("2026-11-02T10:00:00.000Z"), createdAt: timestamp("2026-11-02T10:00:00.000Z"), updatedAt: now },
+  { _id: oid(801), title: "Meet the teams competing this season", slug: "meet-the-teams-competing-this-season", excerpt: "Get to know the six sides taking part in this year's CSL tournament.", content: "Six teams are part of the CSL 2026 competition. Each team brings its own players, playing style and supporters to the tournament.\n\nVisit the fixtures and standings pages to follow every team's progress.", coverImage: asset("https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=1400&auto=format&fit=crop&q=85", "mock/news/teams"), tags: ["Teams"], status: "published", publishedAt: timestamp("2026-11-05T10:00:00.000Z"), createdAt: timestamp("2026-11-05T10:00:00.000Z"), updatedAt: now },
+  { _id: oid(802), title: "Follow every result and league update", slug: "follow-every-result-and-league-update", excerpt: "The CSL website brings live match information, results and standings into one place.", content: "Keep up with the tournament through the CSL website. You can view upcoming fixtures, follow live matches, check completed results and see the latest standings.\n\nThe news section will also carry tournament announcements and important updates.", coverImage: asset("https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=1400&auto=format&fit=crop&q=85", "mock/news/updates"), tags: ["Updates"], status: "published", publishedAt: timestamp("2026-11-08T10:00:00.000Z"), createdAt: timestamp("2026-11-08T10:00:00.000Z"), updatedAt: now },
+];
 const seasonDefinitions: Array<Omit<MockSeason, "_id" | "createdAt" | "updatedAt" | "auctionLifecycleStatus">> = [
   { seasonNumber: 9, name: "CSL Football Tournament 2024", year: 2024, startDate: "2024-11-01T00:00:00.000Z", endDate: "2024-11-17T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: false, status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 8000, playersCount: 16, seasonTeamCount: 4, teamSquadSize: 8, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
   { seasonNumber: 10, name: "CSL Football Tournament 2025", year: 2025, startDate: "2025-11-01T00:00:00.000Z", endDate: "2025-11-18T00:00:00.000Z", timeZone: "Asia/Kolkata", homeAndAwayFixtures: true, status: "completed", auctionSettings: { currency: "INR", budgetPerTeam: 9000, playersCount: 24, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 }, pointsRules: { win: 3, draw: 1, loss: 0 }, standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"], matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }, auctionRevision: 0 },
@@ -410,7 +419,7 @@ function assertSeedIntegrity(db: SeasonMockDatabase): void {
   const validId = (value: string) => /^[a-f0-9]{24}$/i.test(value);
   for (const [label, docs] of Object.entries({
     users: db.users, teams: db.teams, players: db.players, managers: db.managers,
-    sponsors: db.sponsors, organizers: db.organizers, seasons: db.seasons, seasonTeams: db.seasonTeams,
+    sponsors: db.sponsors, organizers: db.organizers, news: db.news, seasons: db.seasons, seasonTeams: db.seasonTeams,
     auctionLots: db.auctionLots, matches: db.matches, groups: db.groups, venues: db.venues, awards: db.awards,
   })) {
     unique(docs.map((doc) => doc._id), `${label} _id`);
@@ -509,7 +518,7 @@ export function createSeasonDatabase(): SeasonMockDatabase {
       passwordHash: "$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi", role: "user", profilePic: null,
       status: "active", lastLoginAt: null, createdAt: timestamp("2024-01-01T08:00:00.000Z"), updatedAt: now,
     }],
-    teams, players, managers, sponsors, organizers, seasons, seasonTeams, auctionLots, matches, groups, venues, awards,
+    teams, players, managers, sponsors, organizers, news, seasons, seasonTeams, auctionLots, matches, groups, venues, awards,
   };
   assertSeedIntegrity(database);
   return database;

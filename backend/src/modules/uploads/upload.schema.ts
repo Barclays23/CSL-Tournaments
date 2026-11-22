@@ -8,6 +8,7 @@ export const uploadPurposeSchema = z.enum([
   "team-poster",
   "manager-profile",
   "sponsor-logo",
+  "news-cover",
 ]);
 
 export const imageUploadSchema = z.object({

@@ -27,6 +27,7 @@ function compactSeasonDatabase(database: SeasonMockDatabase): SeasonMockDatabase
       ...team,
       logoSnapshot: withoutInlineImage(team.logoSnapshot),
     })),
+    news: database.news ?? [],
     awards: database.awards.map((award) => ({
       ...award,
       recipients: award.recipients.map((recipient) => ({
@@ -102,6 +103,7 @@ function loadDatabase(): SeasonMockDatabase {
         managers: Array.isArray(stored.managers) ? stored.managers : seeded.managers,
         sponsors: Array.isArray(stored.sponsors) ? stored.sponsors : seeded.sponsors,
         organizers: Array.isArray(stored.organizers) ? stored.organizers : seeded.organizers,
+        news: Array.isArray(stored.news) ? stored.news : seeded.news,
         seasons: Array.isArray(stored.seasons) ? stored.seasons.map((season: any) => ({ ...season, homeAndAwayFixtures: season.homeAndAwayFixtures ?? false })) : seeded.seasons,
         seasonTeams: Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams,
         auctionLots: Array.isArray(stored.auctionLots) ? stored.auctionLots : seeded.auctionLots,
