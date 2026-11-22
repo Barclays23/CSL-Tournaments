@@ -21,7 +21,7 @@ export function UserNavbar() {
       <Link to="/" className="flex items-center gap-2"><CslMark className="h-9 w-9" /><span className="font-display text-xl leading-none tracking-wide text-fg">CSL</span></Link>
       <nav className="ml-4 hidden items-center gap-1 lg:flex" aria-label="Primary">
         {NAV_ITEMS.map((item) => {
-          const active = item.hash ? pathname === "/" && hash === item.hash : item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+          const active = "hash" in item && item.hash ? pathname === "/" && hash === item.hash : item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
           return <Link key={item.label} to={item.to} hash={"hash" in item ? item.hash : undefined} className={cn("rounded-full px-3 py-2 text-sm font-medium", active ? "bg-accent text-accent-fg" : "text-muted hover:text-fg")}>{item.label}</Link>;
         })}
       </nav>
