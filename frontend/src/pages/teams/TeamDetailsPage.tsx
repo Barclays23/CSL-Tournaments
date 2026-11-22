@@ -137,12 +137,12 @@ export function TeamDetailsPage({ teamId }: { teamId: string }) {
   }
 
   return (
-    <PageContainer
+    <PageContainer>
       <AdminPageBanner
         breadcrumb="Admin / Teams"
-        title={record?.name ?? "Team details"}
+        title={record.name}
         description="View season-specific team activity, squad information and competition history."
-      />>
+      />
       <Link to="/admin/teams" className="text-sm font-semibold text-accent">Back to teams</Link>
       <GlassCard className="mt-4 overflow-hidden">
         {record.poster ? <img src={record.poster.url} alt="" className="h-48 w-full object-cover" /> : null}
