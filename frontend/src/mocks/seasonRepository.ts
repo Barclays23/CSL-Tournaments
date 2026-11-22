@@ -277,6 +277,10 @@ function populatedSeasonMatch(db: SeasonMockDatabase, match: MockSeasonMatch): S
     winnerSeasonTeamRef: match.winnerSeasonTeamRef
       ? populatedMatchTeam(db, match.winnerSeasonTeamRef) ?? match.winnerSeasonTeamRef
       : null,
+    cards: (match.cards ?? []).map((card) => {
+      const player = db.players.find((item) => item._id === card.playerRef);
+      return { ...card, seasonTeamRef: populatedMatchTeam(db, card.seasonTeamRef) ?? card.seasonTeamRef, playerRef: player ? { _id: player._id, name: player.name, profilePic: player.profilePic } : card.playerRef };
+    }),
     goals: match.goals.map((goal) => {
       const scorer = goal.scorerPlayerRef ? playerById(db, goal.scorerPlayerRef) : null;
       return {
@@ -931,6 +935,62 @@ export const seasonPreviewRepository = {
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Goal deleted", populatedSeasonMatch(db, match));
+  },
+  async addSeasonMatchCard(seasonId: string, matchId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow" }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    assertLiveMatch(match);
+    if (input.seasonTeamRef !== match.homeSeasonTeamRef && input.seasonTeamRef !== match.awaySeasonTeamRef) fail(422, "Card recipient team must be one of the match participants", "INVALID_CARD_TEAM");
+    const player = db.players.find((item) => item._id === input.playerRef && item.status === "active");
+    const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === input.playerRef && item.auctionStatus === "sold");
+    if (!player || !lot || lot.seasonTeamRef !== input.seasonTeamRef) fail(422, "Card recipient must be an active player registered to the selected match team", "INVALID_CARD_PLAYER");
+    match.cards ??= [];
+    match.cards.push({ _id: newId(), ...input, createdAt: now() });
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Card recorded", populatedSeasonMatch(db, match));
+  },
+  async updateSeasonMatchCard(seasonId: string, matchId: string, cardId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow" }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    assertLiveMatch(match);
+    const cards = match.cards ?? [];
+    const index = cards.findIndex((card) => card._id === cardId);
+    if (index < 0) return fail(404, "Card not found");
+    if (input.seasonTeamRef !== match.homeSeasonTeamRef && input.seasonTeamRef !== match.awaySeasonTeamRef) fail(422, "Card recipient team must be one of the match participants", "INVALID_CARD_TEAM");
+    const player = db.players.find((item) => item._id === input.playerRef && item.status === "active");
+    const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === input.playerRef && item.auctionStatus === "sold");
+    if (!player || !lot || lot.seasonTeamRef !== input.seasonTeamRef) fail(422, "Card recipient must be an active player registered to the selected match team", "INVALID_CARD_PLAYER");
+    cards[index] = { ...cards[index], ...input };
+    match.cards = cards;
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Card updated", populatedSeasonMatch(db, match));
+  },
+  async deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    assertLiveMatch(match);
+    const cards = match.cards ?? [];
+    const index = cards.findIndex((card) => card._id === cardId);
+    if (index < 0) return fail(404, "Card not found");
+    cards.splice(index, 1);
+    match.cards = cards;
+    match.updatedAt = now();
+    commitSeasonDb(db);
+    return ok("Card removed", populatedSeasonMatch(db, match));
   },
   recalculateMockWinner(season: MockSeason, match: MockSeasonMatch) {
     match.winnerSeasonTeamRef = calculateMockCompletedWinner(match, season, fail);

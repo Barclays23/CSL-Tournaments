@@ -47,6 +47,16 @@ export interface SeasonMatchPlayer {
 export type SeasonMatchTeamRef = string | SeasonMatchTeam;
 export type SeasonMatchPlayerRef = string | SeasonMatchPlayer;
 
+export type SeasonMatchCardType = "yellow_card" | "red_card" | "second_yellow";
+
+export interface SeasonMatchCard {
+  _id: string;
+  seasonTeamRef: SeasonMatchTeamRef;
+  playerRef: SeasonMatchPlayerRef;
+  cardType: SeasonMatchCardType;
+  createdAt: string;
+}
+
 export interface SeasonMatchGoal {
   _id: string;
   scoringSeasonTeamRef: SeasonMatchTeamRef;
@@ -101,6 +111,7 @@ export interface SeasonMatch {
     toKickoffAt: string | null;
   }>;
   goals: SeasonMatchGoal[];
+  cards?: SeasonMatchCard[];
   penaltyShootout: {
     status: "pending" | "completed";
     homeTeamScore: number;
