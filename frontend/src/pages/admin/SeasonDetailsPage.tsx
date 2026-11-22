@@ -7,7 +7,6 @@ import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Badge } from "@/components/ui/Badge";
@@ -29,7 +28,7 @@ import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from 
 import { SeasonConfigurationForm, type SeasonFormState } from "@/components/forms/SeasonConfigurationForm";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
 import {
-  Award, CalendarDays, Check, Layers3, Lock, Medal, Plus, ChevronDown, Settings2, ShieldCheck, Trophy, UserPlus, Users, X,
+  Award, CalendarDays, Check, Layers3, Lock, Medal, Plus, Search, ChevronDown, Settings2, ShieldCheck, Trophy, UserPlus, Users, X,
 } from "lucide-react";
 
 /* ───────────────────────── helpers ───────────────────────── */

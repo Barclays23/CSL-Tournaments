@@ -39,10 +39,10 @@ export function AboutSection() {
               teams and players to fixtures, results and standings.
             </p>
             <Link
-              to="/teams"
+              to="/matches"
               className="mt-7 inline-flex items-center gap-2 rounded-control bg-accent px-5 py-3 text-sm font-bold text-accent-fg transition hover:brightness-110"
             >
-              Explore the teams
+              Explore the fixtures
               <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
