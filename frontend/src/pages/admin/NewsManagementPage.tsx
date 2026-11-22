@@ -19,7 +19,6 @@ import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { createNews, deleteNews, getNews, updateNews } from "@/services/newsService";
 import type { Asset } from "@/types/api.types";
 import type { NewsArticle, NewsStatus, NewsWrite } from "@/types/news.types";
-import type { NewsFormValues } from "@/schemas/news.schema";
 import { errorMessage } from "@/utils/errorHandler";
 
 const statusTone: Record<NewsStatus, "neutral" | "accent" | "gold"> = { draft: "neutral", published: "accent", archived: "gold" };

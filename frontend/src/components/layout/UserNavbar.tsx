@@ -20,13 +20,14 @@ export function UserNavbar() {
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const hash = useRouterState({ select: (state) => state.location.hash });
   const { isAuthenticated, isAdmin, user } = useAuth();
   return <header className="sticky top-0 z-40 border-b border-line bg-glass backdrop-blur-xl">
     <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
       <Link to="/" className="flex items-center gap-2"><CslMark className="h-9 w-9" /><span className="font-display text-xl leading-none tracking-wide text-fg">CSL</span></Link>
       <nav className="ml-4 hidden items-center gap-1 lg:flex" aria-label="Primary">
         {NAV_ITEMS.map((item) => {
-          const active = item.hash ? pathname === "/" : item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
+          const active = item.hash ? pathname === "/" && hash === item.hash : item.to === "/" ? pathname === "/" : pathname.startsWith(item.to);
           return <Link key={item.label} to={item.to} hash={"hash" in item ? item.hash : undefined} className={cn("rounded-full px-3 py-2 text-sm font-medium", active ? "bg-accent text-accent-fg" : "text-muted hover:text-fg")}>{item.label}</Link>;
         })}
       </nav>

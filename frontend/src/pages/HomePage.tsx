@@ -65,7 +65,7 @@ export function HomePage() {
 
   const allMatches = matches.data?.data ?? [];
   const liveMatch = allMatches.filter((match) => match.status === "live").sort((a,b)=>a.kickoffAt.localeCompare(b.kickoffAt))[0];
-  const upcomingMatches = allMatches.filter((match) => match.status === "scheduled").sort((a,b)=>a.kickoffAt.localeCompare(b.kickoffAt));
+  const upcomingMatches = allMatches.filter((match) => match.status === "scheduled" && match.kickoffAt >= new Date().toISOString()).sort((a,b)=>a.kickoffAt.localeCompare(b.kickoffAt));
   const featuredMatch = liveMatch ?? upcomingMatches[0];
   const recentResults = allMatches.filter((match) => match.status === "completed").sort((a,b)=>b.kickoffAt.localeCompare(a.kickoffAt)).slice(0,3);
   const upcoming = upcomingMatches.slice(0,3);

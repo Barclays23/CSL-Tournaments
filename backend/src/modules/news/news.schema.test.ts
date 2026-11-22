@@ -6,7 +6,6 @@ const validArticle = {
   title: "CSL tournament update",
   excerpt: "A short update about the CSL football tournament.",
   content: "The CSL tournament community has a new update to share with supporters.",
-  status: "draft",
 };
 
 test("news create schema accepts article fields and defaults draft status", () => {
