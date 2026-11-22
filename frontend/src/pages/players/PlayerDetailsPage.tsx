@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { PlayerForm } from "@/components/forms/PlayerForm";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -10,7 +11,6 @@ import { Drawer } from "@/components/ui/Drawer";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { useAuth } from "@/contexts/AuthContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import type { PlayerFormValues } from "@/schemas/player.schema";
@@ -24,7 +24,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 import { isAdminRecord } from "@/utils/forms";
 
 export function PlayerDetailsPage({ playerId }: { playerId: string }) {
-  const { isAdmin } = useAuth();
+  const isAdmin = true;
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,7 +58,8 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
 
   return (
     <PageContainer>
-      <Link to="/players" className="text-sm font-semibold text-accent">Back to players</Link>
+      <AdminPageBanner breadcrumb="Admin / Players" title={record?.name ?? "Player details"} description="View player profile, auction history and recorded awards." />
+      <Link to="/admin/players" className="text-sm font-semibold text-accent">Back to players</Link>
       <GlassCard className="mt-4 grid gap-6 p-5 sm:grid-cols-[auto_1fr]">
         <Avatar name={record.name} asset={record.profilePic} className="h-28 w-28" />
         <div>

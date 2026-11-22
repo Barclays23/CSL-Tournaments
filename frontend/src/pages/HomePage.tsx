@@ -79,9 +79,6 @@ export function HomePage() {
                 {data ? formatDateRange(data.startDate, data.endDate) : "Dates loading"}
               </p>
               <div className="mt-6 flex flex-wrap gap-2">
-                <Link to="/teams">
-                  <Button variant="accent">View teams</Button>
-                </Link>
                 <Link to="/matches">
                   <Button variant="surface">Fixtures</Button>
                 </Link>

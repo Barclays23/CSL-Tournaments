@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -65,7 +66,7 @@ function GroupStandingsCard({
                   <td className="px-2 py-3 tabular text-muted">{row.position}</td>
                   <td className="px-2 py-3">
                     <Link
-                      to="/teams/$teamId"
+                      to="/admin/teams/$teamId"
                       params={{ teamId: row.team.teamId }}
                       className="flex items-center gap-2 font-semibold text-fg"
                     >
@@ -136,8 +137,13 @@ export function TeamDetailsPage({ teamId }: { teamId: string }) {
   }
 
   return (
-    <PageContainer>
-      <Link to="/teams" className="text-sm font-semibold text-accent">Back to teams</Link>
+    <PageContainer
+      <AdminPageBanner
+        breadcrumb="Admin / Teams"
+        title={record?.name ?? "Team details"}
+        description="View season-specific team activity, squad information and competition history."
+      />>
+      <Link to="/admin/teams" className="text-sm font-semibold text-accent">Back to teams</Link>
       <GlassCard className="mt-4 overflow-hidden">
         {record.poster ? <img src={record.poster.url} alt="" className="h-48 w-full object-cover" /> : null}
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">

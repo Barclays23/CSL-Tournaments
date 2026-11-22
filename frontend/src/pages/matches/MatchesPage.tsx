@@ -5,6 +5,7 @@ import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { SeasonFixtureCard } from "@/components/matches/SeasonFixtureCard";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -50,8 +51,9 @@ const EMPTY_MATCH_RESPONSE = {
   pagination: { page: 1, limit: 8, total: 0, totalPages: 0 },
 };
 
-export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
-  const { isAdmin } = useAuth();
+export function MatchesPage({ initialSeasonId, managementMode = false }: { initialSeasonId?: string; managementMode?: boolean }) {
+  const { isAdmin: authenticatedAdmin } = useAuth();
+  const isAdmin = managementMode && authenticatedAdmin;
   const navigate = useNavigate();
   const [status, setStatus] = useState<SeasonMatchStatus | "">("");
   const [stage, setStage] = useState<SeasonMatchStage | "">("");
@@ -137,12 +139,16 @@ export function MatchesPage({ initialSeasonId }: { initialSeasonId?: string }) {
 
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Calendar"
-        title="Fixtures"
-        description="Choose a season to view its fixtures, match results and penalty shootouts."
-        actions={isAdmin ? <div className="flex flex-wrap gap-2"><Button variant="surface" onClick={() => void navigate({ to: "/admin/venues" })}>Manage venues</Button>{canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}</div> : null}
-      />
+      {managementMode ? (
+        <AdminPageBanner
+          breadcrumb="Admin / Competition management"
+          title="Matches"
+          description="Manage season fixtures, results, match status and venue assignments."
+          actions={<div className="flex flex-wrap gap-2"><Button variant="surface" onClick={() => void navigate({ to: "/admin/venues" })}>Manage venues</Button>{canCreateFixture ? <Button onClick={() => { setEditingMatch(null); setOpen(true); }}>Create fixture</Button> : null}</div>}
+        />
+      ) : (
+        <PageHeader eyebrow="Calendar" title="Fixtures" description="Choose a season to view its fixtures, match results and penalty shootouts." />
+      )}
       <div className="mb-4 max-w-sm">
         <Select
           value={seasonId}

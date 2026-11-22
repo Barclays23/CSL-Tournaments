@@ -2,8 +2,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, type Resolver } from "react-hook-form";
-import { AdminRoute } from "@/components/auth/AdminRoute";
 import { FormField } from "@/components/forms/FormField";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
@@ -28,7 +28,7 @@ import type { AdminOrganizer, Organizer, OrganizerWrite } from "@/types/organize
 import { errorMessage } from "@/utils/errorHandler";
 
 export function OrganizersPage() {
-  return <AdminRoute><OrganizersBody /></AdminRoute>;
+  return <OrganizersBody />;
 }
 
 function OrganizersBody() {
@@ -75,14 +75,12 @@ function OrganizersBody() {
 
   return (
     <section>
-      <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-accent">Committee directory</p>
-          <h1 className="mt-1 font-display text-4xl text-fg">Organizers</h1>
-          <p className="mt-2 text-sm text-muted">Manage tournament committee profiles separately from football team Managers.</p>
-        </div>
-        <Button onClick={() => setEditing(null)}>Add organizer</Button>
-      </div>
+      <AdminPageBanner
+        breadcrumb="Admin / Committee directory"
+        title="Organizers"
+        description="Manage tournament committee profiles separately from football team managers."
+        actions={<Button onClick={() => setEditing(null)}>Add organizer</Button>}
+      />
       <div className="mb-5 grid gap-3 md:grid-cols-[minmax(0,1fr)_200px]">
         <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search organizer name or title" />
         <Select value={status} onChange={(event) => { setStatus(event.target.value as typeof status); setPage(1); }} aria-label="Filter organizer status">

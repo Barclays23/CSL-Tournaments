@@ -31,7 +31,7 @@ export function Footer() {
 
   const year = new Date().getFullYear();
   const quickLinks = NAV_ITEMS.filter((item) =>
-    ["/", "/matches", "/standings", "/teams", "/players"].includes(item.to),
+    ["/", "/matches", "/standings"].includes(item.to),
   );
 
   return (
@@ -44,7 +44,7 @@ export function Footer() {
               <span className="font-display text-2xl tracking-wide text-fg">CSL Football</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-6 text-muted">
-              The home of CSL Cherukunnu football — bringing teams, players, fixtures and season standings together.
+              The home of CSL Cherukunnu football — bringing fixtures, results and season standings together.
             </p>
             <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-2 text-xs font-semibold text-muted">
               <Trophy className="h-4 w-4 text-accent" />
@@ -71,8 +71,6 @@ export function Footer() {
             <ul className="mt-4 space-y-3 text-sm">
               <li><Link to="/matches" className="text-fg transition-colors hover:text-accent">Fixtures & results</Link></li>
               <li><Link to="/standings" className="text-fg transition-colors hover:text-accent">Season standings</Link></li>
-              <li><Link to="/teams" className="text-fg transition-colors hover:text-accent">Participating teams</Link></li>
-              <li><Link to="/players" className="text-fg transition-colors hover:text-accent">Player directory</Link></li>
             </ul>
           </div>
 

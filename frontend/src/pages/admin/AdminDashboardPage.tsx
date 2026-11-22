@@ -1,23 +1,18 @@
 import { Link } from "@tanstack/react-router";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { FixtureCard } from "@/components/matches/FixtureCard";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { StatCard } from "@/components/ui/StatCard";
-import { AdminRoute } from "@/components/auth/AdminRoute";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getDashboardSummary } from "@/services/statisticsService";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { formatDateRange } from "@/utils/formatDate";
 
 export function AdminDashboardPage() {
-  return (
-    <AdminRoute>
-      <DashboardBody />
-    </AdminRoute>
-  );
+  return <DashboardBody />;
 }
 
 function DashboardBody() {
@@ -25,8 +20,8 @@ function DashboardBody() {
   const data = dashboard.data?.data;
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Admin"
+      <AdminPageBanner
+        breadcrumb="Admin"
         title={data?.tournamentName ?? "Dashboard"}
         description={data ? formatDateRange(data.startDate, data.endDate) : "Tournament controls for the current event."}
       />
@@ -45,11 +40,11 @@ function DashboardBody() {
             <StatCard label="Goals" value={data.totalGoals} />
           </div>
           <div className="mt-6 flex flex-wrap gap-2">
-            <Link to="/players"><Button size="sm">Add player</Button></Link>
-            <Link to="/teams"><Button size="sm" variant="surface">Add team</Button></Link>
-            <Link to="/managers"><Button size="sm" variant="surface">Add manager</Button></Link>
-            <Link to="/sponsors"><Button size="sm" variant="surface">Add sponsor</Button></Link>
-            <Link to="/matches"><Button size="sm" variant="surface">Create fixture</Button></Link>
+            <Link to="/admin/players"><Button size="sm">Add player</Button></Link>
+            <Link to="/admin/teams"><Button size="sm" variant="surface">Add team</Button></Link>
+            <Link to="/admin/managers"><Button size="sm" variant="surface">Add manager</Button></Link>
+            <Link to="/admin/sponsors"><Button size="sm" variant="surface">Add sponsor</Button></Link>
+            <Link to="/admin/matches"><Button size="sm" variant="surface">Create fixture</Button></Link>
             <Link to="/admin/seasons"><Button size="sm" variant="surface">Seasons</Button></Link>
             <Link to="/admin/users"><Button size="sm" variant="surface">Users</Button></Link>
             <Link to="/admin/organizers"><Button size="sm" variant="surface">Organizers</Button></Link>

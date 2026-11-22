@@ -11,11 +11,6 @@ import { cn } from "@/lib/cn";
 
 export const NAV_ITEMS = [
   { to: "/", label: "Home" },
-  { to: "/players", label: "Players" },
-  { to: "/teams", label: "Teams" },
-  { to: "/auctions", label: "Auctions" },
-  { to: "/managers", label: "Managers" },
-  { to: "/sponsors", label: "Sponsors" },
   { to: "/matches", label: "Fixtures" },
   { to: "/standings", label: "Standings" },
 ] as const;

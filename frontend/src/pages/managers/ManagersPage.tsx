@@ -3,7 +3,7 @@ import { toast } from "sonner";
 import { ManagerForm } from "@/components/forms/ManagerForm";
 import { SearchBar } from "@/components/forms/SearchBar";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { ManagerCard } from "@/components/managers/ManagerCard";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
@@ -11,7 +11,6 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Pagination } from "@/components/ui/Pagination";
 import { CardSkeletonGrid } from "@/components/ui/Skeleton";
-import { useAuth } from "@/contexts/AuthContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import { useDebounce } from "@/hooks/useDebounce";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
@@ -22,7 +21,7 @@ import type { PublicManager } from "@/types/manager.types";
 import { errorMessage } from "@/utils/errorHandler";
 
 export function ManagersPage() {
-  const { isAdmin } = useAuth();
+  const isAdmin = true;
   const confirm = useConfirm();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -50,12 +49,7 @@ export function ManagersPage() {
 
   return (
     <PageContainer>
-      <PageHeader
-        eyebrow="Bench"
-        title="Managers"
-        description="Who is in charge of each side. Phone numbers are not shown publicly."
-        actions={isAdmin ? <Button onClick={() => setEditing(null)}>Add manager</Button> : null}
-      />
+      <AdminPageBanner breadcrumb="Admin / Team directory" title="Managers" description="Manage team managers and their contact information." actions={<Button onClick={() => setEditing(null)}>Add manager</Button>} />
       <div className="mb-5 max-w-md">
         <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search managers" />
       </div>
