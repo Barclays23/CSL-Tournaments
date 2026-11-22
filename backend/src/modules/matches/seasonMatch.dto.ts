@@ -1,5 +1,5 @@
 import type { Asset } from "../../shared/types/common.types.js";
-import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, ShootoutStatus, ShootoutKickResult } from "./seasonMatch.types.js";
+import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult } from "./seasonMatch.types.js";
 
 export interface SeasonMatchResolutionDto {
   status: "cancelled" | "abandoned";
@@ -84,6 +84,8 @@ export interface SeasonGoalDto {
   scorerPlayerRef?: string | null;
   goalType: SeasonGoalType;
 }
+export interface SeasonMatchCardDto { seasonTeamRef: string; playerRef: string; cardType: SeasonCardType; }
+export interface SeasonMatchCardResponseDto { _id: string; seasonTeamRef: SeasonMatchTeamDto | string; playerRef: SeasonMatchPlayerDto | string; cardType: SeasonCardType; createdAt: string; }
 export interface SeasonMatchTeamDto {
   _id: string;
   displayName: string;
@@ -114,6 +116,7 @@ export interface SeasonMatchResponseDto {
   awaySeasonTeamRef: SeasonMatchTeamDto | string;
   status: SeasonMatchStatus;
   goals: SeasonGoalResponseDto[];
+  cards: SeasonMatchCardResponseDto[];
   penaltyShootout: {
     status: ShootoutStatus;
     homeTeamScore: number;

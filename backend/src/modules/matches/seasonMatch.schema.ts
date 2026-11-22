@@ -50,3 +50,4 @@ export const seasonMatchRescheduleSchema = z.object({
 
 export const seasonMatchQuerySchema = paginationSchema.extend({ stage: stage.optional(), groupRef: objectId.nullable().optional(), status: status.optional(), dateFrom: z.coerce.date().optional(), dateTo: z.coerce.date().optional(), seasonTeamRef: objectId.optional(), search: z.string().trim().max(100).optional() }).strict();
 export const seasonGoalSchema = z.object({ scoringSeasonTeamRef: objectId, scorerPlayerRef: objectId.nullable().optional(), goalType: z.enum(["normal", "own_goal"]) }).strict();
+export const seasonMatchCardSchema = z.object({ seasonTeamRef: objectId, playerRef: objectId, cardType: z.enum(["yellow_card", "red_card", "second_yellow"]) }).strict();
