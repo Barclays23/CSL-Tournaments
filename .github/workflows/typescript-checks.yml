@@ -19,6 +19,7 @@ on:
       - feature/match-status-mock-sync-tests
       - fix/auction-lifecycle-and-fixture-validation
       - fix/auction-lot-management-actions
+      - feature/csl-public-admin-layout-refactor
   pull_request:
     branches:
       - main
