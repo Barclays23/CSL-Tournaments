@@ -11,6 +11,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { UserLayout } from './components/layout/UserLayout'
 import { AdminRouteLayout } from './components/layout/AdminRouteLayout'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as NewsIndexRouteImport } from './routes/news/index'
+import { Route as NewsSlugRouteImport } from './routes/news/$slug'
 import { Route as AdminDashboardRouteImport } from './routes/admin/dashboard'
 import { Route as AdminLoginRouteImport } from './routes/admin/login'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
@@ -46,6 +49,9 @@ const AdminLayoutRoute = createRoute({
 })
 
 const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => UserLayoutRoute } as any)
+const LoginRoute = LoginRouteImport.update({ id: '/login', path: '/login', getParentRoute: () => UserLayoutRoute } as any)
+const NewsIndexRoute = NewsIndexRouteImport.update({ id: '/news/', path: '/news/', getParentRoute: () => UserLayoutRoute } as any)
+const NewsSlugRoute = NewsSlugRouteImport.update({ id: '/news/$slug', path: '/news/$slug', getParentRoute: () => UserLayoutRoute } as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({ id: '/admin/login', path: '/admin/login', getParentRoute: () => UserLayoutRoute } as any)
 const MatchesIndexRoute = MatchesIndexRouteImport.update({ id: '/matches/', path: '/matches/', getParentRoute: () => UserLayoutRoute } as any)
 const MatchesMatchIdRoute = MatchesMatchIdRouteImport.update({ id: '/matches/$matchId', path: '/matches/$matchId', getParentRoute: () => UserLayoutRoute } as any)
@@ -68,8 +74,11 @@ const AdminTeamsIndexRoute = AdminTeamsIndexRouteImport.update({ id: '/admin/tea
 const AdminTeamsTeamIdRoute = AdminTeamsTeamIdRouteImport.update({ id: '/admin/teams/$teamId', path: '/admin/teams/$teamId', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminVenuesRoute = AdminVenuesRouteImport.update({ id: '/admin/venues', path: '/admin/venues', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminSettingsRoute = AdminSettingsRouteImport.update({ id: '/admin/settings', path: '/admin/settings', getParentRoute: () => AdminLayoutRoute } as any)
-const LogoutRoute = LogoutRouteImport.update({ id: '/logout', path: '/logout', getParentRoute: () => AdminLayoutRoute } as any)
+const LogoutRoute = LogoutRouteImport.update({ id: '/logout', path: '/logout', getParentRoute: () => UserLayoutRoute } as any)
 
+  '/login': typeof LoginRoute
+  '/news/': typeof NewsIndexRoute
+  '/news/$slug': typeof NewsSlugRoute
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
@@ -96,6 +105,9 @@ export interface FileRoutesByFullPath {
   '/logout': typeof LogoutRoute
 }
 
+  '/login': typeof LoginRoute
+  '/news': typeof NewsIndexRoute
+  '/news/$slug': typeof NewsSlugRoute
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/login': typeof AdminLoginRoute
@@ -122,6 +134,9 @@ export interface FileRoutesByTo {
   '/logout': typeof LogoutRoute
 }
 
+  '/login': typeof LoginRoute
+  '/news/': typeof NewsIndexRoute
+  '/news/$slug': typeof NewsSlugRoute
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_user': typeof UserLayoutRoute
@@ -152,6 +167,9 @@ export interface FileRoutesById {
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
+    | '/login'
+    | '/news/'
+    | '/news/$slug'
   fullPaths:
     | '/'
     | '/admin/login'
@@ -177,6 +195,9 @@ export interface FileRouteTypes {
     | '/admin/settings'
     | '/logout'
   fileRoutesByTo: FileRoutesByTo
+    | '/login'
+    | '/news'
+    | '/news/$slug'
   to:
     | '/'
     | '/admin/login'
@@ -201,6 +222,9 @@ export interface FileRouteTypes {
     | '/admin/venues'
     | '/admin/settings'
     | '/logout'
+    | '/login'
+    | '/news/'
+    | '/news/$slug'
   id:
     | '__root__'
     | '/_user'
@@ -234,6 +258,10 @@ export interface RootRouteChildren {
   UserLayoutRoute: typeof UserLayoutRoute
   AdminLayoutRoute: typeof AdminLayoutRoute
 }
+  LoginRoute: typeof LoginRoute
+  NewsIndexRoute: typeof NewsIndexRoute
+  NewsSlugRoute: typeof NewsSlugRoute
+  LogoutRoute: typeof LogoutRoute
 export interface UserLayoutRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminLoginRoute: typeof AdminLoginRoute
@@ -259,15 +287,18 @@ export interface AdminLayoutRouteChildren {
   AdminTeamsTeamIdRoute: typeof AdminTeamsTeamIdRoute
   AdminVenuesRoute: typeof AdminVenuesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
-  LogoutRoute: typeof LogoutRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/login': { id: '/login'; path: '/login'; fullPath: '/login'; preLoaderRoute: typeof LoginRouteImport; parentRoute: typeof UserLayoutRoute }
+    '/news/': { id: '/news/'; path: '/news'; fullPath: '/news/'; preLoaderRoute: typeof NewsIndexRouteImport; parentRoute: typeof UserLayoutRoute }
+    '/news/$slug': { id: '/news/$slug'; path: '/news/$slug'; fullPath: '/news/$slug'; preLoaderRoute: typeof NewsSlugRouteImport; parentRoute: typeof UserLayoutRoute }
     '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/admin/login': { id: '/admin/login'; path: '/admin/login'; fullPath: '/admin/login'; preLoaderRoute: typeof AdminLoginRouteImport; parentRoute: typeof UserLayoutRoute }
     '/matches/': { id: '/matches/'; path: '/matches'; fullPath: '/matches/'; preLoaderRoute: typeof MatchesIndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/matches/$matchId': { id: '/matches/$matchId'; path: '/matches/$matchId'; fullPath: '/matches/$matchId'; preLoaderRoute: typeof MatchesMatchIdRouteImport; parentRoute: typeof UserLayoutRoute }
+    '/logout': { id: '/logout'; path: '/logout'; fullPath: '/logout'; preLoaderRoute: typeof LogoutRouteImport; parentRoute: typeof UserLayoutRoute }
     '/standings/': { id: '/standings/'; path: '/standings'; fullPath: '/standings/'; preLoaderRoute: typeof StandingsIndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/admin/dashboard': { id: '/admin/dashboard'; path: '/admin/dashboard'; fullPath: '/admin/dashboard'; preLoaderRoute: typeof AdminDashboardRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/auctions': { id: '/admin/auctions'; path: '/admin/auctions'; fullPath: '/admin/auctions'; preLoaderRoute: typeof AdminAuctionsRouteImport; parentRoute: typeof AdminLayoutRoute }
@@ -292,6 +323,10 @@ declare module '@tanstack/react-router' {
 
 const userLayoutRouteChildren: UserLayoutRouteChildren = {
   IndexRoute,
+  LoginRoute,
+  NewsIndexRoute,
+  NewsSlugRoute,
+  LogoutRoute,
   AdminLoginRoute,
   MatchesIndexRoute,
   MatchesMatchIdRoute,
@@ -315,7 +350,6 @@ const adminLayoutRouteChildren: AdminLayoutRouteChildren = {
   AdminTeamsTeamIdRoute,
   AdminVenuesRoute,
   AdminSettingsRoute,
-  LogoutRoute,
 }
 const rootRouteChildren: RootRouteChildren = {
   UserLayoutRoute: UserLayoutRoute._addFileChildren(userLayoutRouteChildren),
