@@ -187,6 +187,7 @@ export interface FileRouteTypes {
     | '/admin/auctions'
     | '/admin/managers'
     | '/admin/matches'
+    | '/admin/matches/$matchId'
     | '/admin/news'
     | '/admin/organizers'
     | '/admin/players'
