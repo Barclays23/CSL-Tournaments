@@ -60,7 +60,7 @@ export class AuctionLotService implements IAuctionLotService{
      AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isGoalkeeper:true}).session(session).exec(),
     ]);
     const quotaBlockers=getAuctionNominationQuotaBlockers(season.auctionSettings,{iconPlayers,goalkeepers},{isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper});
-    if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,toError(quotaBlockers[0]));
+    if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,quotaBlockers[0].includes("Icon Player")?"SEASON_ICON_PLAYER_LIMIT":"SEASON_GOALKEEPER_LIMIT");
     created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
    });
   }catch(error){
@@ -140,7 +140,7 @@ export class AuctionLotService implements IAuctionLotService{
      {iconPlayers:seasonIconPlayers,goalkeepers:seasonGoalkeepers},
      {isIconPlayer:nextIcon,isGoalkeeper:nextGoalkeeper},
     );
-    if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,toError(quotaBlockers[0]));
+    if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,quotaBlockers[0].includes("Icon Player")?"SEASON_ICON_PLAYER_LIMIT":"SEASON_GOALKEEPER_LIMIT");
     lot.playerPosition=nextPosition;
     lot.isIconPlayer=nextIcon;
     lot.isGoalkeeper=nextGoalkeeper;
