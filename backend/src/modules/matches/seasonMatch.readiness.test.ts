@@ -17,6 +17,7 @@ test("a single group containing all registered teams is valid", () => {
     groupCount: 1,
     unassignedTeamCount: 0,
     undersizedGroups: [],
+    emptyGroups: [],
   }), []);
 });
 
@@ -25,6 +26,7 @@ test("group assignments are not required when group stage is disabled", () => {
     groupCount: 0,
     unassignedTeamCount: 6,
     undersizedGroups: [],
+    emptyGroups: [],
   }), []);
 });
 
