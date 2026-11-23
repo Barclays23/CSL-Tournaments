@@ -64,7 +64,7 @@ export function PlayersPage() {
     <PageContainer>
       <AdminPageBanner breadcrumb="Admin / Player directory" title="Players" description="Manage permanent player profiles, player status and contact information." actions={<Button onClick={() => setEditing(null)}>Add player</Button>} />
       <div className="mb-5 grid gap-3 md:grid-cols-2">
-        <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search players by name" />
+        <SearchBar value={search} onChange={(value) => { setSearch(value); setPage(1); }} placeholder="Search by player name or mobile number" />
         {isAdmin ? <Select value={status} onChange={(event) => { setStatus(event.target.value as PlayerStatus | ""); setPage(1); }} aria-label="Player status">
           <option value="">Any status</option>
           {PLAYER_STATUSES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -73,7 +73,7 @@ export function PlayersPage() {
       </div>
       {players.loading ? <CardSkeletonGrid /> : null}
       {players.error ? <ErrorState message={players.error} onRetry={players.reload} /> : null}
-      {players.data && players.data.data.length === 0 ? <EmptyState title="No players found" description="Try another name or add a player if you are the admin." /> : null}
+      {players.data && players.data.data.length === 0 ? <EmptyState title="No players found" description="Try another player name or mobile number, or add a player if you are the admin." /> : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {players.data?.data.map((player) => <div key={player._id} className="grid gap-2">
           <PlayerCard player={player} />

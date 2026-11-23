@@ -12,6 +12,7 @@ import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { getSeasons } from "@/services/seasonService";
 import { getSeasonStandings, getSeasonTopScorers } from "@/services/seasonStatisticsService";
 import type { GroupStanding, TopScorer } from "@/types/statistics.types";
+import { getDefaultSeason } from "@/utils/defaultSeason";
 
 export function StandingsPage() {
   const [tab, setTab] = useState("groups");
@@ -20,8 +21,8 @@ export function StandingsPage() {
 
   useEffect(() => {
     if (!seasonId && seasons.data?.data.length) {
-      const active = seasons.data.data.find((season) => season.status === "active");
-      setSeasonId(active?._id ?? seasons.data.data[0]._id);
+      const preferred = getDefaultSeason(seasons.data.data);
+      if (preferred) setSeasonId(preferred._id);
     }
   }, [seasonId, seasons.data]);
 

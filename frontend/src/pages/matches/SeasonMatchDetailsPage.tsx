@@ -68,8 +68,8 @@ type MatchEvent = {
 };
 
 function teamDetails(ref: SeasonMatchTeamRef) {
-  if (typeof ref === "string") return { id: ref, name: "Team", logo: null };
-  return { id: ref._id, name: ref.displayName, logo: ref.logoSnapshot ?? ref.team?.logo ?? null };
+  if (typeof ref === "string") return { id: ref, teamId: null as string | null, name: "Team", logo: null };
+  return { id: ref._id, teamId: ref.team?._id ?? null, name: ref.displayName, logo: ref.logoSnapshot ?? ref.team?.logo ?? null };
 }
 function lotTeamId(lot: AuctionLot) {
   return typeof lot.seasonTeamRef === "string" ? lot.seasonTeamRef : lot.seasonTeamRef?._id ?? "";
@@ -124,8 +124,16 @@ const chipClass =
 const iconBtnClass =
   "inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface/60 text-muted backdrop-blur-md transition-colors hover:bg-glass-strong hover:text-fg";
 
-function TeamSide({ team, side }: { team: ReturnType<typeof teamDetails>; side: "home" | "away" }) {
-  return (
+function TeamSide({
+  team,
+  side,
+  adminMode,
+}: {
+  team: ReturnType<typeof teamDetails>;
+  side: "home" | "away";
+  adminMode: boolean;
+}) {
+  const content = (
     <div
       className={`flex min-w-0 flex-col items-center gap-3 text-center ${
         side === "home" ? "sm:flex-row-reverse sm:justify-start sm:text-right" : "sm:flex-row sm:justify-start sm:text-left"
@@ -134,6 +142,17 @@ function TeamSide({ team, side }: { team: ReturnType<typeof teamDetails>; side: 
       <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-line sm:h-16 sm:w-16" />
       <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">{team.name}</p>
     </div>
+  );
+  if (!team.teamId) return content;
+  return (
+    <Link
+      to={adminMode ? "/admin/teams/$teamId" : "/teams/$teamId"}
+      params={{ teamId: team.teamId }}
+      aria-label={"View " + team.name + " team details"}
+      className="rounded-xl transition hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+    >
+      {content}
+    </Link>
   );
 }
 
@@ -409,7 +428,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId, adminMode = false }:
 
           {/* Teams + score */}
           <div className={`mt-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6 ${match.penaltyShootout ? "pb-20" : "pb-10"}`}>
-            <TeamSide team={home} side="home" />
+            <TeamSide team={home} side="home" adminMode={adminMode} />
             {/* Only the score is in the flow, so it centres on the team row.
                 Status (and penalties) hang below it without shifting it. */}
             <div className="relative flex justify-center">
@@ -429,7 +448,7 @@ export function SeasonMatchDetailsPage({ seasonId, matchId, adminMode = false }:
                 ) : null}
               </div>
             </div>
-            <TeamSide team={away} side="away" />
+            <TeamSide team={away} side="away" adminMode={adminMode} />
           </div>
 
           {match.notes ? <p className="mt-5 text-center text-sm text-muted">{match.notes}</p> : null}

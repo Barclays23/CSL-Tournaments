@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import * as authService from "@/services/authService";
 import type { AdminUser } from "@/types/auth.types";
@@ -24,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const sessionExpiryHandled = useRef(false);
 
   const loadCurrentUser = async () => {
     const response = await authService.getCurrentUser();
@@ -50,11 +51,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const onUnauthorized = () => {
-      if (pathname.startsWith("/admin") && pathname !== "/admin/login") {
-        setUser(null);
-        toast.error("Your admin session has expired. Please log in again.");
-        void navigate({ to: "/admin/login", replace: true });
-      }
+      const currentPath = typeof window !== "undefined" ? window.location.pathname : pathname;
+      if (!currentPath.startsWith("/admin") || currentPath === "/admin/login" || sessionExpiryHandled.current) return;
+      sessionExpiryHandled.current = true;
+      setUser(null);
+      toast.error("Your admin session has expired. Please log in again.");
+      void navigate({ to: "/admin/login", replace: true });
     };
     window.addEventListener("csl-unauthorized", onUnauthorized);
     return () => window.removeEventListener("csl-unauthorized", onUnauthorized);
@@ -69,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loadCurrentUser,
       login: async (email, password) => {
         const response = await authService.login(email, password);
+        sessionExpiryHandled.current = false;
         setUser(response.data);
         toast.success(response.message);
         void navigate({ to: response.data.role === "admin" ? "/admin/dashboard" : "/" });

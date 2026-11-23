@@ -25,6 +25,7 @@ import type { SeasonMatch, SeasonMatchStage, SeasonMatchStatus, SeasonMatchWrite
 import { errorMessage } from "@/utils/errorHandler";
 import { getVenues } from "@/services/venueService";
 import { canEditSeasonMatch } from "@/utils/seasonMatchPermissions";
+import { getDefaultSeason } from "@/utils/defaultSeason";
 
 const TABS: { value: SeasonMatchStatus | ""; label: string }[] = [
   { value: "", label: "All" },
@@ -69,10 +70,7 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
   const seasons = useServiceQuery(() => getSeasons(), []);
   const availableSeasons = seasons.data?.data ?? [];
   const seasonFromUrl = availableSeasons.find((season) => season._id === initialSeasonId);
-  const selectedSeason = seasonFromUrl
-    ?? availableSeasons.find((season) => season.status === "active")
-    ?? [...availableSeasons].sort((a, b) => b.seasonNumber - a.seasonNumber)[0]
-    ?? null;
+  const selectedSeason = seasonFromUrl ?? getDefaultSeason(availableSeasons);
   const seasonId = selectedSeason?._id ?? "";
 
   const groups = useServiceQuery(
@@ -108,8 +106,8 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
     ? "Select a season to manage fixtures."
     : selectedSeason.auctionLifecycleStatus !== "completed"
       ? "Complete the auction before creating or changing fixtures."
-      : !["upcoming", "active"].includes(selectedSeason.status)
-      ? "Fixtures can only be created for upcoming or active seasons."
+      : selectedSeason.status !== "active"
+      ? "Activate the season before creating or changing fixtures."
       : !selectedSeason.matchRules
         ? "Match rules are not configured for this season."
         : eligibleSeasonTeams.length < 2
@@ -230,8 +228,8 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
             match={match}
             groupName={(groups.data?.data ?? []).find((group) => group._id === match.groupRef)?.groupName ?? null}
             managementMode={managementMode}
-            onEdit={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && ["upcoming", "active"].includes(selectedSeason?.status ?? "") && canEditSeasonMatch(match) ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
-            onDelete={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && ["upcoming", "active"].includes(selectedSeason?.status ?? "") ? async (fixture) => {
+            onEdit={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && selectedSeason?.status === "active" && canEditSeasonMatch(match) ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
+            onDelete={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && selectedSeason?.status === "active" ? async (fixture) => {
               const yes = await confirm({ title: "Delete this fixture?", description: "Delete match " + fixture.matchNumber + "?", confirmLabel: "Delete fixture", danger: true });
               if (!yes) return;
               try { await deleteSeasonMatch(seasonId, fixture._id); toast.success("Fixture deleted"); matches.reload(); }

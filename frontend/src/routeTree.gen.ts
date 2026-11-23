@@ -36,6 +36,8 @@ import { Route as LogoutRouteImport } from './routes/logout'
 import { Route as MatchesIndexRouteImport } from './routes/matches/index'
 import { Route as MatchesMatchIdRouteImport } from './routes/matches/$matchId'
 import { Route as StandingsIndexRouteImport } from './routes/standings/index'
+import { Route as PlayersPlayerIdRouteImport } from './routes/players/$playerId'
+import { Route as TeamsTeamIdRouteImport } from './routes/teams/$teamId'
 
 const UserLayoutRoute = createRoute({
   getParentRoute: () => rootRouteImport,
@@ -56,6 +58,8 @@ const AdminLoginRoute = AdminLoginRouteImport.update({ id: '/admin/login', path:
 const MatchesIndexRoute = MatchesIndexRouteImport.update({ id: '/matches/', path: '/matches/', getParentRoute: () => UserLayoutRoute } as any)
 const MatchesMatchIdRoute = MatchesMatchIdRouteImport.update({ id: '/matches/$matchId', path: '/matches/$matchId', getParentRoute: () => UserLayoutRoute } as any)
 const StandingsIndexRoute = StandingsIndexRouteImport.update({ id: '/standings/', path: '/standings/', getParentRoute: () => UserLayoutRoute } as any)
+const PlayersPlayerIdRoute = PlayersPlayerIdRouteImport.update({ id: '/players/$playerId', path: '/players/$playerId', getParentRoute: () => UserLayoutRoute } as any)
+const TeamsTeamIdRoute = TeamsTeamIdRouteImport.update({ id: '/teams/$teamId', path: '/teams/$teamId', getParentRoute: () => UserLayoutRoute } as any)
 
 const AdminDashboardRoute = AdminDashboardRouteImport.update({ id: '/admin/dashboard', path: '/admin/dashboard', getParentRoute: () => AdminLayoutRoute } as any)
 const AdminAuctionsRoute = AdminAuctionsRouteImport.update({ id: '/admin/auctions', path: '/admin/auctions', getParentRoute: () => AdminLayoutRoute } as any)
@@ -85,6 +89,8 @@ export interface FileRoutesByFullPath {
   '/matches/': typeof MatchesIndexRoute
   '/matches/$matchId': typeof MatchesMatchIdRoute
   '/standings/': typeof StandingsIndexRoute
+  '/players/$playerId': typeof PlayersPlayerIdRoute
+  '/teams/$teamId': typeof TeamsTeamIdRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/auctions': typeof AdminAuctionsRoute
   '/admin/managers': typeof AdminManagersRoute
@@ -114,6 +120,8 @@ export interface FileRoutesByTo {
   '/matches': typeof MatchesIndexRoute
   '/matches/$matchId': typeof MatchesMatchIdRoute
   '/standings': typeof StandingsIndexRoute
+  '/players/$playerId': typeof PlayersPlayerIdRoute
+  '/teams/$teamId': typeof TeamsTeamIdRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/auctions': typeof AdminAuctionsRoute
   '/admin/managers': typeof AdminManagersRoute
@@ -146,6 +154,8 @@ export interface FileRoutesById {
   '/matches/': typeof MatchesIndexRoute
   '/matches/$matchId': typeof MatchesMatchIdRoute
   '/standings/': typeof StandingsIndexRoute
+  '/players/$playerId': typeof PlayersPlayerIdRoute
+  '/teams/$teamId': typeof TeamsTeamIdRoute
   '/admin/dashboard': typeof AdminDashboardRoute
   '/admin/auctions': typeof AdminAuctionsRoute
   '/admin/managers': typeof AdminManagersRoute
@@ -176,6 +186,8 @@ export interface FileRouteTypes {
     | '/matches/'
     | '/matches/$matchId'
     | '/standings/'
+    | '/players/$playerId'
+    | '/teams/$teamId'
     | '/admin/dashboard'
     | '/admin/auctions'
     | '/admin/managers'
@@ -204,6 +216,8 @@ export interface FileRouteTypes {
     | '/matches'
     | '/matches/$matchId'
     | '/standings'
+    | '/players/$playerId'
+    | '/teams/$teamId'
     | '/admin/dashboard'
     | '/admin/auctions'
     | '/admin/managers'
@@ -234,6 +248,8 @@ export interface FileRouteTypes {
     | '/matches/'
     | '/matches/$matchId'
     | '/standings/'
+    | '/players/$playerId'
+    | '/teams/$teamId'
     | '/admin/dashboard'
     | '/admin/auctions'
     | '/admin/managers'
@@ -268,6 +284,8 @@ export interface UserLayoutRouteChildren {
   MatchesIndexRoute: typeof MatchesIndexRoute
   MatchesMatchIdRoute: typeof MatchesMatchIdRoute
   StandingsIndexRoute: typeof StandingsIndexRoute
+  PlayersPlayerIdRoute: typeof PlayersPlayerIdRoute
+  TeamsTeamIdRoute: typeof TeamsTeamIdRoute
 }
 export interface AdminLayoutRouteChildren {
   AdminDashboardRoute: typeof AdminDashboardRoute
@@ -299,6 +317,8 @@ declare module '@tanstack/react-router' {
     '/matches/': { id: '/matches/'; path: '/matches'; fullPath: '/matches/'; preLoaderRoute: typeof MatchesIndexRouteImport; parentRoute: typeof UserLayoutRoute }
     '/matches/$matchId': { id: '/matches/$matchId'; path: '/matches/$matchId'; fullPath: '/matches/$matchId'; preLoaderRoute: typeof MatchesMatchIdRouteImport; parentRoute: typeof UserLayoutRoute }
     '/standings/': { id: '/standings/'; path: '/standings'; fullPath: '/standings/'; preLoaderRoute: typeof StandingsIndexRouteImport; parentRoute: typeof UserLayoutRoute }
+    '/players/$playerId': { id: '/players/$playerId'; path: '/players/$playerId'; fullPath: '/players/$playerId'; preLoaderRoute: typeof PlayersPlayerIdRouteImport; parentRoute: typeof UserLayoutRoute }
+    '/teams/$teamId': { id: '/teams/$teamId'; path: '/teams/$teamId'; fullPath: '/teams/$teamId'; preLoaderRoute: typeof TeamsTeamIdRouteImport; parentRoute: typeof UserLayoutRoute }
     '/logout': { id: '/logout'; path: '/logout'; fullPath: '/logout'; preLoaderRoute: typeof LogoutRouteImport; parentRoute: typeof UserLayoutRoute }
     '/admin/dashboard': { id: '/admin/dashboard'; path: '/admin/dashboard'; fullPath: '/admin/dashboard'; preLoaderRoute: typeof AdminDashboardRouteImport; parentRoute: typeof AdminLayoutRoute }
     '/admin/auctions': { id: '/admin/auctions'; path: '/admin/auctions'; fullPath: '/admin/auctions'; preLoaderRoute: typeof AdminAuctionsRouteImport; parentRoute: typeof AdminLayoutRoute }
@@ -331,6 +351,8 @@ const userLayoutRouteChildren: UserLayoutRouteChildren = {
   MatchesIndexRoute,
   MatchesMatchIdRoute,
   StandingsIndexRoute,
+  PlayersPlayerIdRoute,
+  TeamsTeamIdRoute,
 }
 const adminLayoutRouteChildren: AdminLayoutRouteChildren = {
   AdminDashboardRoute,

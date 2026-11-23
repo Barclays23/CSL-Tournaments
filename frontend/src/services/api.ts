@@ -16,6 +16,7 @@ api.interceptors.response.use(
       apiError.status === 401 &&
       typeof window !== "undefined" &&
       !requestUrl.includes("/auth/login") &&
+      !requestUrl.includes("/admin/login") &&
       !window.location.pathname.endsWith("/admin/login")
     ) {
       window.dispatchEvent(new CustomEvent("csl-unauthorized"));

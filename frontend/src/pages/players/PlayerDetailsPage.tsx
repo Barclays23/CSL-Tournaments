@@ -23,8 +23,8 @@ import { errorMessage } from "@/utils/errorHandler";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { isAdminRecord } from "@/utils/forms";
 
-export function PlayerDetailsPage({ playerId }: { playerId: string }) {
-  const isAdmin = true;
+export function PlayerDetailsPage({ playerId, adminMode = false }: { playerId: string; adminMode?: boolean }) {
+  const isAdmin = adminMode;
   const confirm = useConfirm();
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -58,8 +58,8 @@ export function PlayerDetailsPage({ playerId }: { playerId: string }) {
 
   return (
     <PageContainer>
-      <AdminPageBanner breadcrumb="Admin / Players" title={record?.name ?? "Player details"} description="View player profile, auction history and recorded awards." />
-      <Link to="/admin/players" className="text-sm font-semibold text-accent">Back to players</Link>
+      <AdminPageBanner breadcrumb={adminMode ? "Admin / Players" : "Players"} title={record?.name ?? "Player details"} description="View player profile, auction history and recorded awards." />
+      {adminMode ? <Link to="/admin/players" className="text-sm font-semibold text-accent">Back to players</Link> : null}
       <GlassCard className="mt-4 grid gap-6 p-5 sm:grid-cols-[auto_1fr]">
         <Avatar name={record.name} asset={record.profilePic} className="h-28 w-28" />
         <div>

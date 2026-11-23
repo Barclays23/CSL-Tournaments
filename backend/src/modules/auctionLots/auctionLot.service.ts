@@ -10,6 +10,7 @@ import {AuctionLotRepository} from "./auctionLot.repository.js";
 import type {NominatePlayerDto,SellAuctionLotDto,UpdateAuctionLotStatusDto,UpdateAuctionLotDto,AuctionLotResponseDto,AuctionSummaryDto,AuctionTeamSummaryDto,AuctionLotsQueryDto} from "./auctionLot.dto.js";
 import type {AuctionLotEntity,AuctionLotFields,PopulatedAuctionLotEntity,PopulatedAuctionLotTeam} from "./auctionLot.types.js";
 import { canDeletePendingAuctionLot, canUpdateAuctionLot } from "./auctionLot.lifecycle.js";
+import { getAuctionNominationQuotaBlockers } from "../seasons/auction.completion.js";
 export class AuctionLotService implements IAuctionLotService{
  constructor(private readonly lots:AuctionLotRepository){}
  async summary(seasonId:string):Promise<AuctionSummaryDto>{
@@ -54,6 +55,12 @@ export class AuctionLotService implements IAuctionLotService{
     if(playerLock.modifiedCount!==1)throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
     const count=await AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"}}).session(session).exec();
     if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
+    const [iconPlayers,goalkeepers]=await Promise.all([
+     AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isIconPlayer:true}).session(session).exec(),
+     AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isGoalkeeper:true}).session(session).exec(),
+    ]);
+    const quotaBlockers=getAuctionNominationQuotaBlockers(season.auctionSettings,{iconPlayers,goalkeepers},{isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper});
+    if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,quotaBlockers[0].includes("Icon Player")?"SEASON_ICON_PLAYER_LIMIT":"SEASON_GOALKEEPER_LIMIT");
     created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
    });
   }catch(error){
@@ -124,6 +131,16 @@ export class AuctionLotService implements IAuctionLotService{
     const nextPosition=input.playerPosition??lot.playerPosition;
     const nextIcon=input.isIconPlayer??lot.isIconPlayer;
     const nextGoalkeeper=input.isGoalkeeper??lot.isGoalkeeper;
+    const [seasonIconPlayers,seasonGoalkeepers]=await Promise.all([
+     AuctionLotModel.countDocuments({seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isIconPlayer:true,_id:{$ne:lot._id}}).session(session).exec(),
+     AuctionLotModel.countDocuments({seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isGoalkeeper:true,_id:{$ne:lot._id}}).session(session).exec(),
+    ]);
+    const quotaBlockers=getAuctionNominationQuotaBlockers(
+     season.auctionSettings,
+     {iconPlayers:seasonIconPlayers,goalkeepers:seasonGoalkeepers},
+     {isIconPlayer:nextIcon,isGoalkeeper:nextGoalkeeper},
+    );
+    if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,quotaBlockers[0].includes("Icon Player")?"SEASON_ICON_PLAYER_LIMIT":"SEASON_GOALKEEPER_LIMIT");
     lot.playerPosition=nextPosition;
     lot.isIconPlayer=nextIcon;
     lot.isGoalkeeper=nextGoalkeeper;

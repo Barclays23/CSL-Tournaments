@@ -234,6 +234,8 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   const [teamsTab, setTeamsTab] = useState<"registered" | "add">("registered");
   const [teamSearch, setTeamSearch] = useState("");
   const [openManagerTeamId, setOpenManagerTeamId] = useState<string | null>(null);
+  const [recallTarget, setRecallTarget] = useState<SeasonTeam | null>(null);
+  const [recallReason, setRecallReason] = useState("Recalled by tournament administrator after review");
 
   const selected = selectedSeasonQuery.data?.data ?? null;
   useEffect(() => {
@@ -313,6 +315,34 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   }, [seasonFixtures, seasonLots]);
   const awardsEditable = selected?.status === "active" && awardReadinessBlockers.length === 0;
 
+  const eligibleSeasonTeams = registeredTeams.filter((team) => team.status === "registered" || team.status === "active");
+  const expectedSeasonTeams = selected?.auctionSettings?.seasonTeamCount ?? 0;
+  const groupTeamCounts = seasonGroups.map((group) => ({
+    groupName: group.groupName,
+    count: eligibleSeasonTeams.filter((team) => team.groupRef === group._id).length,
+  }));
+  const groupReadinessBlockers = selected?.groupStageEnabled === false ? [] : [
+    ...(seasonGroups.length === 0 ? ["Create at least one group."] : []),
+    ...(eligibleSeasonTeams.filter((team) => !team.groupRef).length > 0 ? [`${eligibleSeasonTeams.filter((team) => !team.groupRef).length} participating team(s) still need a group assignment.`] : []),
+    ...groupTeamCounts.filter((group) => group.count > 0 && group.count < 2).map((group) => `${group.groupName} needs at least two participating teams.`),
+  ];
+  const upcomingReadinessBlockers = [
+    ...(!selected?.auctionSettings || !selected.pointsRules || !selected.standingsTieBreakers?.length || !selected.matchRules
+      ? ["Complete all season rules and auction settings."] : []),
+    ...(eligibleSeasonTeams.length < 2 ? ["Register at least two eligible teams."] : []),
+    ...(expectedSeasonTeams > 0 && eligibleSeasonTeams.length > expectedSeasonTeams
+      ? [`Reduce registrations to the configured limit of ${expectedSeasonTeams} teams.`] : []),
+    ...groupReadinessBlockers,
+  ];
+  const activationReadinessBlockers = [
+    ...(selected?.auctionLifecycleStatus !== "completed" ? ["Complete the auction and validate every team roster."] : []),
+    ...(expectedSeasonTeams > 0 && eligibleSeasonTeams.length !== expectedSeasonTeams
+      ? [`Register exactly ${expectedSeasonTeams} eligible teams (currently ${eligibleSeasonTeams.length}).`] : []),
+    ...groupReadinessBlockers,
+    ...(selected?.auctionLifecycleStatus === "completed" && selected.groupStageEnabled !== false
+      ? groupTeamCounts.filter((group) => group.count === 0).map((group) => `${group.groupName} is empty. Remove the unused group or assign a team before activation.`)
+      : []),
+  ];
   const fixtureCount = fixtures.data?.pagination?.total ?? seasonFixtures.length;
   const dependenciesExist = registeredTeams.length + seasonGroups.length + seasonLots.length + fixtureCount > 0;
   const hasAuctionHistory = seasonLots.length > 0;
@@ -328,6 +358,12 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   const hasChampion = seasonAwards.some((award) => award.awardType === "champions");
   const hasRunnerUp = seasonAwards.some((award) => award.awardType === "runner_up");
   const teamHonoursComplete = hasChampion && hasRunnerUp;
+  const completionReadinessBlockers = [
+    ...(selected?.auctionLifecycleStatus !== "completed" ? ["Complete the season auction before completing the season."] : []),
+    ...awardReadinessBlockers,
+    ...(!hasChampion ? ["Assign the Season Champions award."] : []),
+    ...(!hasRunnerUp ? ["Assign the Runner-up award."] : []),
+  ];
 
   const payload = (form: SeasonFormState): SeasonWrite => ({
     seasonNumber: form.seasonNumber, name: form.name.trim(), year: form.year,
@@ -603,14 +639,35 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
       if (action === "remove") await removeSeasonTeam(selected._id, team._id);
       else if (action === "withdraw") await withdrawSeasonTeam(selected._id, team._id);
       else {
-        const reason = window.prompt("Why is this team being recalled?", "Recalled by tournament administrator after review");
-        if (!reason || reason.trim().length < 3) { toast.error("A recall reason of at least 3 characters is required"); return; }
-        await recallSeasonTeam(selected._id, team._id, reason.trim());
+        setRecallTarget(team);
+        setRecallReason("Recalled by tournament administrator after review");
+        return;
       }
       toast.success(action === "remove" ? "Registration removed" : action === "withdraw" ? "Team withdrawn" : "Team recalled");
       refreshSelected();
     } catch (error) { toast.error(errorMessage(error)); }
     finally { setSaving(false); }
+  };
+
+  const submitRecall = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selected || !recallTarget) return;
+    if (recallReason.trim().length < 3) {
+      toast.error("A recall reason of at least 3 characters is required.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await recallSeasonTeam(selected._id, recallTarget._id, recallReason.trim());
+      toast.success("Team recalled");
+      setRecallTarget(null);
+      setRecallReason("Recalled by tournament administrator after review");
+      refreshSelected();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const availableManagers = (managersQuery.data?.data ?? []).filter((manager) => manager.status === "active");
@@ -686,7 +743,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                     <Badge tone="gold">Auction completed</Badge>
                     <Button size="sm" variant="surface" disabled={saving || hasFixtures} onClick={() => void reopenAuction()}>Reopen Auction</Button>
                   </> : null}
-                  <Button size="sm" disabled={saving || selected.auctionLifecycleStatus !== "completed"} onClick={() => void runLifecycle("active")}>Activate Season</Button>
+                  <Button size="sm" disabled={saving || activationReadinessBlockers.length > 0} onClick={() => void runLifecycle("active")}>Activate Season</Button>
                 </> : null}
                 {selected.status === "active" ? <Button size="sm" disabled={saving} variant="danger" onClick={() => void runLifecycle("complete")}>Complete Season</Button> : null}
                 {selected.status === "completed" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("archive")}>Archive Season</Button> : null}
@@ -694,6 +751,38 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
               </div>
               {selected.status === "draft" && dependenciesExist ? (
                 <p className="relative mt-3 text-xs text-muted">Delete is unavailable because this Draft has linked teams, groups, auction lots or fixtures. Remove the unused setup records first.</p>
+              ) : null}
+              {selected.status === "draft" ? (
+                <div className="relative mt-3">
+                  <Note tone={upcomingReadinessBlockers.length ? "warning" : "muted"}>
+                    <p className="font-semibold text-fg">To move this season to Upcoming</p>
+                    <p className="mt-1">Complete the season rules, register at least two teams within the configured team limit, and finish all required group assignments.</p>
+                    {upcomingReadinessBlockers.length ? <ul className="mt-2 list-disc space-y-0.5 pl-5">{upcomingReadinessBlockers.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="mt-2">The visible setup checks are complete.</p>}
+                  </Note>
+                </div>
+              ) : null}
+              {selected.status === "upcoming" ? (
+                <div className="relative mt-3">
+                  <Note tone={activationReadinessBlockers.length ? "warning" : "muted"}>
+                    <p className="font-semibold text-fg">To activate this season</p>
+                    <p className="mt-1">The auction must be completed, the exact configured number of teams must be eligible, and every participating team must belong to a valid group.</p>
+                    {activationReadinessBlockers.length ? <ul className="mt-2 list-disc space-y-0.5 pl-5">{activationReadinessBlockers.map((item) => <li key={item}>{item}</li>)}</ul> : <p className="mt-2">The visible activation checks are complete.</p>}
+                  </Note>
+                </div>
+              ) : null}
+              {selected.status === "active" ? (
+                <div className="relative mt-3">
+                  <Note tone={completionReadinessBlockers.length ? "warning" : "muted"}>
+                    <p className="font-semibold text-fg">To complete this season</p>
+                    <p className="mt-1">Resolve all fixtures and required audit details, close pending auction work, and assign both Champions and Runner-up honours.</p>
+                    {completionReadinessBlockers.length ? <ul className="mt-2 list-disc space-y-0.5 pl-5">{completionReadinessBlockers.map((item, index) => <li key={item + index}>{item}</li>)}</ul> : <p className="mt-2">The visible completion checks are complete.</p>}
+                  </Note>
+                </div>
+              ) : null}
+              {selected.status === "completed" ? (
+                <div className="relative mt-3">
+                  <Note>Archive this season after its final review. Archived seasons remain available as historical records and are permanently read-only.</Note>
+                </div>
               ) : null}
 
               {/* Configuration */}
@@ -1305,6 +1394,29 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
           submitLabel="Save configuration"
           submitDisabled={!editForm.standingsTieBreakers.length || editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize}
         />
+      </Modal>
+      <Modal
+        open={Boolean(recallTarget)}
+        title="Recall / reinstate team"
+        description={recallTarget ? `Enter the reason for reinstating ${recallTarget.displayName}. This reason will be saved in the team's participation history.` : undefined}
+        onClose={() => setRecallTarget(null)}
+      >
+        <form className="grid gap-3" onSubmit={submitRecall}>
+          <label className="grid gap-1.5 text-sm text-fg">
+            Recall reason
+            <Input
+              autoFocus
+              value={recallReason}
+              onChange={(event) => setRecallReason(event.target.value)}
+              placeholder="Enter a reason for recalling this team"
+              required
+            />
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="surface" disabled={saving} onClick={() => setRecallTarget(null)}>Cancel</Button>
+            <Button type="submit" disabled={saving || recallReason.trim().length < 3}>{saving ? "Saving…" : "Recall team"}</Button>
+          </div>
+        </form>
       </Modal>
     </PageContainer>
   );

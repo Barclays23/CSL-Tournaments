@@ -103,3 +103,32 @@ export function getAuctionCompletionBlockers(
   }
   return [...new Set(blockers)];
 }
+
+export interface AuctionNominationQuotaCounts {
+  iconPlayers: number;
+  goalkeepers: number;
+}
+
+export interface AuctionNominationFlags {
+  isIconPlayer: boolean;
+  isGoalkeeper: boolean;
+}
+
+/** Enforce designation quotas across the whole season before nominations are created or edited. */
+export function getAuctionNominationQuotaBlockers(
+  settings: SeasonAuctionSettings,
+  counts: AuctionNominationQuotaCounts,
+  nomination: AuctionNominationFlags,
+): string[] {
+  const blockers: string[] = [];
+  const iconPlayerLimit = settings.seasonTeamCount * settings.iconPlayerLimit;
+  const goalkeeperLimit = settings.seasonTeamCount * settings.goalkeeperLimit;
+
+  if (nomination.isIconPlayer && counts.iconPlayers >= iconPlayerLimit) {
+    blockers.push(`The season Icon Player quota is full. A maximum of ${iconPlayerLimit} Icon Player nominations are allowed (${settings.iconPlayerLimit} per team × ${settings.seasonTeamCount} teams).`);
+  }
+  if (nomination.isGoalkeeper && counts.goalkeepers >= goalkeeperLimit) {
+    blockers.push(`The season Goalkeeper quota is full. A maximum of ${goalkeeperLimit} Goalkeeper nominations are allowed (${settings.goalkeeperLimit} per team × ${settings.seasonTeamCount} teams).`);
+  }
+  return blockers;
+}
