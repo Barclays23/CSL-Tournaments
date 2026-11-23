@@ -40,9 +40,11 @@ const POSITION_LABEL: Record<string, string> = {
 function GroupStandingsCard({
   group,
   teamId,
+  adminMode,
 }: {
   group: SeasonStandings["groups"][number];
   teamId: string;
+  adminMode: boolean;
 }) {
   return (
     <GlassCard className="p-4">
@@ -210,7 +212,7 @@ export function TeamDetailsPage({ teamId, adminMode = false }: { teamId: string;
             {!standings.loading && !standings.error && standings.data?.data.groups.length ? (
               <div className="grid gap-4">
                 {standings.data.data.groups.map((group) => (
-                  <GroupStandingsCard key={group.groupRef ?? group.groupName} group={group} teamId={teamId} />
+                  <GroupStandingsCard key={group.groupRef ?? group.groupName} group={group} teamId={teamId} adminMode={adminMode} />
                 ))}
               </div>
             ) : null}
