@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Types } from "mongoose";
+import { AppError } from "../../shared/errors/appError.js";
 import { PlayerService } from "./player.service.js";
 import type { IPlayerRepository } from "./player.interfaces.js";
 import type { PlayerEntity, PlayerFields } from "./player.types.js";
@@ -94,4 +95,50 @@ test("PlayerService search matches both player name and normalized mobile number
   const serialized = JSON.stringify(receivedFilter?.$or);
   assert.match(serialized, /98470 12345/);
   assert.match(serialized, /9847012345/);
+});
+
+
+test("PlayerService returns a redacted player profile to public callers", async () => {
+  const record = createPlayerRecord({
+    mobile: "9847012345",
+    email: "amal@example.com",
+    dateOfBirth: new Date("2000-01-02T00:00:00.000Z"),
+    notes: "Private admin note",
+  });
+  const { repository } = createRepository({ findPlayerById: async () => record });
+  const service = new PlayerService(repository);
+
+  const result = await service.getPlayerById(String(record._id), false);
+
+  assert.deepEqual(Object.keys(result).sort(), ["_id", "name", "profilePic", "status"]);
+  assert.equal("email" in result, false);
+  assert.equal("mobile" in result, false);
+  assert.equal("dateOfBirth" in result, false);
+  assert.equal("notes" in result, false);
+});
+
+test("PlayerService exposes full player details only to administrators", async () => {
+  const record = createPlayerRecord({
+    mobile: "9847012345",
+    email: "amal@example.com",
+    dateOfBirth: new Date("2000-01-02T00:00:00.000Z"),
+  });
+  const { repository } = createRepository({ findPlayerById: async () => record });
+  const service = new PlayerService(repository);
+
+  const result = await service.getPlayerById(String(record._id), true);
+
+  assert.equal("email" in result && result.email, "amal@example.com");
+  assert.equal("mobile" in result && result.mobile, "9847012345");
+});
+
+test("PlayerService hides inactive players from public detail requests", async () => {
+  const record = createPlayerRecord({ status: "inactive" });
+  const { repository } = createRepository({ findPlayerById: async () => record });
+  const service = new PlayerService(repository);
+
+  await assert.rejects(
+    () => service.getPlayerById(String(record._id), false),
+    (error: unknown) => error instanceof AppError && error.statusCode === 404,
+  );
 });

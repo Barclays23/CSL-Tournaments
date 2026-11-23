@@ -75,3 +75,39 @@ test("publishing a draft without a date assigns a publication timestamp", async 
   assert.ok(published.publishedAt);
   assert.equal((await service.list({ page: 1, limit: 10 }, false)).items.length, 1);
 });
+
+
+test("news service maps concurrent slug index conflicts to a validation conflict", async () => {
+  const repository = new MemoryNewsRepository();
+  repository.create = async () => {
+    throw Object.assign(new Error("duplicate key"), { code: 11000, keyPattern: { slug: 1 } });
+  };
+  const service = new NewsService(repository);
+
+  await assert.rejects(
+    () => service.create(input),
+    (error: unknown) => error instanceof Error
+      && "statusCode" in error
+      && error.statusCode === 409
+      && "errorCode" in error
+      && error.errorCode === "DUPLICATE_NEWS_SLUG",
+  );
+});
+
+test("news service maps concurrent slug update conflicts to a validation conflict", async () => {
+  const repository = new MemoryNewsRepository();
+  const service = new NewsService(repository);
+  const created = await service.create(input);
+  repository.update = async () => {
+    throw Object.assign(new Error("duplicate key"), { code: 11000, keyPattern: { slug: 1 } });
+  };
+
+  await assert.rejects(
+    () => service.update(created._id, { slug: "occupied-slug" }),
+    (error: unknown) => error instanceof Error
+      && "statusCode" in error
+      && error.statusCode === 409
+      && "errorCode" in error
+      && error.errorCode === "DUPLICATE_NEWS_SLUG",
+  );
+});
