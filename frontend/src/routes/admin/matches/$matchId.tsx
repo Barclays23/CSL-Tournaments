@@ -11,6 +11,6 @@ export const Route = createFileRoute("/admin/matches/$matchId")({
   component: function AdminMatchDetailsRoute() {
     const { matchId } = Route.useParams();
     const { seasonId } = Route.useSearch();
-    return <SeasonMatchDetailsPage seasonId={seasonId!} matchId={matchId} adminMode />;
+    return <SeasonMatchDetailsPage seasonId={seasonId!} matchId={matchId} adminMode={true} />;
   },
 });
