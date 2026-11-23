@@ -9,9 +9,11 @@ import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { Tabs } from "@/components/ui/Tabs";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
+import { useConfirm } from "@/contexts/ConfirmContext";
 import {
   getSeasons,
   getAuctionSummary,
@@ -29,6 +31,7 @@ import type { ApiResponse } from "@/types/api.types";
 import type { AdminPlayer, PublicPlayer } from "@/types/player.types";
 import { formatCurrency } from "@/utils/formatCurrency";
 import { errorMessage } from "@/utils/errorHandler";
+import { getDefaultSeason } from "@/utils/defaultSeason";
 
 const EMPTY_LOTS: ApiResponse<AuctionLot[]> = { success: true, message: "", data: [] };
 const EMPTY_SUMMARY: ApiResponse<null> = { success: true, message: "", data: null };
@@ -42,19 +45,13 @@ const LOT_STATUSES: AuctionLotStatus[] = ["pending", "sold", "unsold", "withdraw
 
 export function AuctionsPage() {
   const isAdmin = true;
+  const confirm = useConfirm();
   const seasons = useServiceQuery(() => getSeasons(), []);
   const [seasonId, setSeasonId] = useState("");
-  const defaultSeasonId = useMemo(() => {
-    const availableSeasons = seasons.data?.data ?? [];
-    const preferredSeason =
-      availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "in_progress")
-      ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "in_progress")
-      ?? availableSeasons.find((season) => season.status === "upcoming" && season.auctionLifecycleStatus === "not_started")
-      ?? availableSeasons.find((season) => season.status === "active" && season.auctionLifecycleStatus === "not_started")
-      ?? availableSeasons.find((season) => season.status === "active")
-      ?? availableSeasons[0];
-    return preferredSeason?._id ?? "";
-  }, [seasons.data]);
+  const defaultSeasonId = useMemo(
+    () => getDefaultSeason(seasons.data?.data ?? [])?._id ?? "",
+    [seasons.data],
+  );
   const selectedSeasonId = seasonId || defaultSeasonId;
 
   const [playerSearch, setPlayerSearch] = useState("");
@@ -88,6 +85,15 @@ export function AuctionsPage() {
 
   const data = summary.data?.data;
   const lotRows = lots.data?.data ?? [];
+  const nominatedLots = (data?.lots ?? []).filter((lot) => lot.auctionStatus !== "withdrawn");
+  const registeredTeamCount = (data?.teams ?? []).filter((team) => team.status === "registered" || team.status === "active").length;
+  const teamRegistrationLimit = data?.season.auctionSettings.seasonTeamCount ?? 0;
+  const playerNominationLimit = data?.season.auctionSettings.playersCount ?? 0;
+  const iconQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.iconPlayerLimit ?? 0);
+  const goalkeeperQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.goalkeeperLimit ?? 0);
+  const nominatedIconCount = nominatedLots.filter((lot) => lot.isIconPlayer).length;
+  const nominatedGoalkeeperCount = nominatedLots.filter((lot) => lot.isGoalkeeper).length;
+
   const playerRows = (players.data?.data ?? []) as Array<PublicPlayer | AdminPlayer>;
   const nominatedPlayerIds = new Set((data?.lots ?? []).map((lot) => typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef._id));
   const availablePlayers = playerRows.filter((player) => !nominatedPlayerIds.has(player._id) && (!playerSearch.trim() || player.name.toLowerCase().includes(playerSearch.trim().toLowerCase())));
@@ -107,6 +113,7 @@ export function AuctionsPage() {
   const [editPrice, setEditPrice] = useState("");
   const [editJersey, setEditJersey] = useState("");
   const [saving, setSaving] = useState(false);
+  const [auctionSection, setAuctionSection] = useState<"lots" | "squads">("lots");
 
   const refresh = () => {
     summary.reload();
@@ -221,7 +228,12 @@ export function AuctionsPage() {
         {canNominate ? <Button onClick={() => setNominateOpen(true)}>Create auction lot (Nominate Player)</Button> : null}
         {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "not_started" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
-            if (!window.confirm("Start the auction? The server will verify the exact configured number of nominated players and registered teams.")) return;
+            const yes = await confirm({
+              title: "Start the auction?",
+              description: "The server will verify the configured team count, nominated player count and season rules before opening bidding.",
+              confirmLabel: "Start auction",
+            });
+            if (!yes) return;
             setSaving(true);
             try {
               await startSeasonAuction(selectedSeasonId);
@@ -234,7 +246,12 @@ export function AuctionsPage() {
         ) : null}
         {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "in_progress" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
-            if (!window.confirm("Complete this season auction? The server will validate every lot, team roster, squad limit, Icon Player limit, Goalkeeper limit and team budget. The auction will remain open if any validation fails.")) return;
+            const yes = await confirm({
+              title: "Complete this season auction?",
+              description: "The server will validate every lot, team roster, squad size, Icon Player and Goalkeeper quota, and team budget. The auction remains open if any check fails.",
+              confirmLabel: "Validate and complete",
+            });
+            if (!yes) return;
             setSaving(true);
             try {
               await completeSeasonAuction(selectedSeasonId);
@@ -247,7 +264,12 @@ export function AuctionsPage() {
         ) : null}
         {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "completed" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
-            if (!window.confirm("Reopen this auction? Existing lot assignments, sale history and fixtures will be preserved.")) return;
+            const yes = await confirm({
+              title: "Reopen this auction?",
+              description: "Existing lot assignments, sale history and fixtures will be preserved. Fixture creation and editing will be locked until the auction is completed again.",
+              confirmLabel: "Reopen auction",
+            });
+            if (!yes) return;
             setSaving(true);
             try {
               await reopenSeasonAuction(selectedSeasonId);
@@ -286,13 +308,17 @@ export function AuctionsPage() {
 
       {data ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {([
-              ["Teams", data.totals.participatingTeams],
-              ["Current lots", data.totals.lots - data.totals.withdrawn],
+              ["Teams registered", `${registeredTeamCount}/${teamRegistrationLimit}`],
+              ["Team slots remaining", Math.max(teamRegistrationLimit - registeredTeamCount, 0)],
+              ["Players nominated", `${nominatedLots.length}/${playerNominationLimit}`],
+              ["Nominations remaining", Math.max(playerNominationLimit - nominatedLots.length, 0)],
+              ["Pending auction lots", data.totals.pending],
               ["Sold", data.totals.sold],
-              ["Pending", data.totals.pending],
               ["Unsold", data.totals.unsold],
+              ["Icon players", `${nominatedIconCount}/${iconQuotaLimit}`],
+              ["Goalkeepers", `${nominatedGoalkeeperCount}/${goalkeeperQuotaLimit}`],
               ["Sold value", formatCurrency(data.totals.totalSoldValue)],
             ] as Array<[string, string | number]>).map(([label, value]) => (
               <GlassCard key={label} className="p-4">
@@ -301,7 +327,18 @@ export function AuctionsPage() {
               </GlassCard>
             ))}
           </div>
+          <div className="mt-5">
+            <Tabs
+              value={auctionSection}
+              onChange={(value) => setAuctionSection(value as "lots" | "squads")}
+              tabs={[
+                { value: "lots", label: "Auction lots" },
+                { value: "squads", label: "Team budgets and squads" },
+              ]}
+            />
+          </div>
 
+          {auctionSection === "squads" ? (
           <section className="mt-7">
             <h2 className="mb-3 font-display text-2xl text-fg">Team budgets and squads</h2>
             <div className="grid gap-3 lg:grid-cols-2">
@@ -352,6 +389,9 @@ export function AuctionsPage() {
             </div>
           </section>
 
+          ) : null}
+
+          {auctionSection === "lots" ? (
           <section className="mt-8">
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="font-display text-2xl text-fg">Auction lots</h2>
@@ -421,7 +461,13 @@ export function AuctionsPage() {
                     </> : null}
                     {canManageAuctionLots && lot.auctionStatus === "pending" && !lot.seasonTeamRef ? (
                         <Button size="sm" variant="danger" disabled={saving} onClick={async () => {
-                          if (!window.confirm("Remove this pending auction lot? The player will become available for nomination again.")) return;
+                          const yes = await confirm({
+                            title: "Remove this pending auction lot?",
+                            description: "The player will become available for nomination again. This action does not delete the player profile.",
+                            confirmLabel: "Remove lot",
+                            danger: true,
+                          });
+                          if (!yes) return;
                           setSaving(true);
                           try {
                             await deletePendingAuctionLot(lot._id);
@@ -436,6 +482,7 @@ export function AuctionsPage() {
               ))}
             </div>
           </section>
+          ) : null}
         </>
       ) : null}
 
@@ -450,6 +497,8 @@ export function AuctionsPage() {
           onSubmit={async (event) => {
             event.preventDefault();
             if (!selectedSeasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
+            if (isIconPlayer && nominatedIconCount >= iconQuotaLimit) { toast.error("The season Icon Player quota is full."); return; }
+            if (isGoalkeeper && nominatedGoalkeeperCount >= goalkeeperQuotaLimit) { toast.error("The season Goalkeeper quota is full."); return; }
             setSaving(true);
             try {
               await nominatePlayer({ seasonId: selectedSeasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
@@ -502,6 +551,10 @@ export function AuctionsPage() {
             <input type="checkbox" checked={isGoalkeeper} onChange={(event) => setIsGoalkeeper(event.target.checked)} />
             Goalkeeper
           </label>
+          <div className="rounded-xl border border-line bg-surface p-3 text-xs text-muted">
+            <p>Season Icon Player quota: <strong className="text-fg">{nominatedIconCount}/{iconQuotaLimit}</strong> · {data?.season.auctionSettings.iconPlayerLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
+            <p className="mt-1">Season Goalkeeper quota: <strong className="text-fg">{nominatedGoalkeeperCount}/{goalkeeperQuotaLimit}</strong> · {data?.season.auctionSettings.goalkeeperLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
+          </div>
           {players.error ? <p className="text-sm text-danger">{players.error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="surface" onClick={() => setNominateOpen(false)}>Cancel</Button>
