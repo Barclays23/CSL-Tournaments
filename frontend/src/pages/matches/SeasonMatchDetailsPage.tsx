@@ -181,7 +181,9 @@ function EventText({
   return <div className={`flex min-w-0 items-center gap-2 ${side === "home" ? "justify-end" : "justify-start"}`}>{side === "home" ? <>{actions}{content}</> : <>{content}{actions}</>}</div>;
 }
 
-export function SeasonMatchDetailsPage({ seasonId, matchId, adminMode = false }: { seasonId: string; matchId: string; adminMode?: boolean }) {
+export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: string; adminMode?: boolean }) {
+  const { seasonId, matchId } = props;
+  const adminMode = props.adminMode ?? false;
   const { isAdmin } = useAuth();
   const confirm = useConfirm();
   const [editing, setEditing] = useState(false);

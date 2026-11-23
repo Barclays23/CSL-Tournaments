@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { RouteErrorPage } from "@/components/ui/RouteErrorPage";
 
 function RootComponent() {
   return (
@@ -19,6 +20,11 @@ function RootComponent() {
   );
 }
 
+
+function RootError({ error, reset }: { error: Error; reset: () => void }) {
+  return <RouteErrorPage error={error} reset={reset} />;
+}
+
 function RootNotFound() {
   return (
     <UserLayout>
@@ -29,5 +35,6 @@ function RootNotFound() {
 
 export const Route = createRootRoute({
   component: RootComponent,
+  errorComponent: RootError,
   notFoundComponent: RootNotFound,
 });
