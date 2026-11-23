@@ -359,6 +359,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   const hasRunnerUp = seasonAwards.some((award) => award.awardType === "runner_up");
   const teamHonoursComplete = hasChampion && hasRunnerUp;
   const completionReadinessBlockers = [
+    ...(selected?.auctionLifecycleStatus !== "completed" ? ["Complete the season auction before completing the season."] : []),
     ...awardReadinessBlockers,
     ...(!hasChampion ? ["Assign the Season Champions award."] : []),
     ...(!hasRunnerUp ? ["Assign the Runner-up award."] : []),
@@ -742,7 +743,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                     <Badge tone="gold">Auction completed</Badge>
                     <Button size="sm" variant="surface" disabled={saving || hasFixtures} onClick={() => void reopenAuction()}>Reopen Auction</Button>
                   </> : null}
-                  <Button size="sm" disabled={saving || selected.auctionLifecycleStatus !== "completed"} onClick={() => void runLifecycle("active")}>Activate Season</Button>
+                  <Button size="sm" disabled={saving || activationReadinessBlockers.length > 0} onClick={() => void runLifecycle("active")}>Activate Season</Button>
                 </> : null}
                 {selected.status === "active" ? <Button size="sm" disabled={saving} variant="danger" onClick={() => void runLifecycle("complete")}>Complete Season</Button> : null}
                 {selected.status === "completed" ? <Button size="sm" disabled={saving} onClick={() => void runLifecycle("archive")}>Archive Season</Button> : null}
