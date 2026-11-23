@@ -18,6 +18,7 @@ import { formatCurrency } from "@/utils/formatCurrency";
 import type { ApiResponse } from "@/types/api.types";
 import type { SeasonStandings, SeasonTeamDashboard } from "@/types/seasonStatistics.types";
 import type { SeasonAward } from "@/types/seasonAward.types";
+import { getDefaultSeason } from "@/utils/defaultSeason";
 
 const EMPTY_DASHBOARD: ApiResponse<SeasonTeamDashboard> = {
   success: true,
@@ -66,7 +67,7 @@ function GroupStandingsCard({
                   <td className="px-2 py-3 tabular text-muted">{row.position}</td>
                   <td className="px-2 py-3">
                     <Link
-                      to="/admin/teams/$teamId"
+                      to={adminMode ? "/admin/teams/$teamId" : "/teams/$teamId"}
                       params={{ teamId: row.team.teamId }}
                       className="flex items-center gap-2 font-semibold text-fg"
                     >
@@ -98,15 +99,15 @@ function GroupStandingsCard({
   );
 }
 
-export function TeamDetailsPage({ teamId }: { teamId: string }) {
+export function TeamDetailsPage({ teamId, adminMode = false }: { teamId: string; adminMode?: boolean }) {
   const team = useServiceQuery(() => getTeamById(teamId), [teamId]);
   const seasons = useServiceQuery(() => getSeasons(), []);
   const [seasonId, setSeasonId] = useState("");
 
   useEffect(() => {
     if (!seasonId && seasons.data?.data.length) {
-      const active = seasons.data.data.find((season) => season.status === "active");
-      setSeasonId(active?._id ?? seasons.data.data[0]._id);
+      const preferred = getDefaultSeason(seasons.data.data);
+      if (preferred) setSeasonId(preferred._id);
     }
   }, [seasonId, seasons.data]);
 
@@ -139,11 +140,11 @@ export function TeamDetailsPage({ teamId }: { teamId: string }) {
   return (
     <PageContainer>
       <AdminPageBanner
-        breadcrumb="Admin / Teams"
+        breadcrumb={adminMode ? "Admin / Teams" : "Teams"}
         title={record.name}
         description="View season-specific team activity, squad information and competition history."
       />
-      <Link to="/admin/teams" className="text-sm font-semibold text-accent">Back to teams</Link>
+      {adminMode ? <Link to="/admin/teams" className="text-sm font-semibold text-accent">Back to teams</Link> : null}
       <GlassCard className="mt-4 overflow-hidden">
         {record.poster ? <img src={record.poster.url} alt="" className="h-48 w-full object-cover" /> : null}
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
@@ -269,9 +270,13 @@ export function TeamDetailsPage({ teamId }: { teamId: string }) {
                 {data.squad.map((player) => (
                   <div key={player.player._id} className="rounded-xl bg-surface p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold text-fg">
+                      <Link
+                        to={adminMode ? "/admin/players/$playerId" : "/players/$playerId"}
+                        params={{ playerId: player.player._id }}
+                        className="font-semibold text-fg hover:text-accent"
+                      >
                         {player.player.name}{player.jerseyNo ? " · #" + player.jerseyNo : ""}
-                      </p>
+                      </Link>
                       <Badge>{player.auctionStatus === "withdrawn" ? "Withdrawn" : "Sold"}</Badge>
                     </div>
                     <p className="mt-1 text-xs text-muted">
