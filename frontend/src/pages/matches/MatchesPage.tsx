@@ -229,7 +229,7 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
             groupName={(groups.data?.data ?? []).find((group) => group._id === match.groupRef)?.groupName ?? null}
             managementMode={managementMode}
             onEdit={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && selectedSeason?.status === "active" && canEditSeasonMatch(match) ? (fixture) => { setEditingMatch(fixture); setOpen(true); } : undefined}
-            onDelete={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && ["upcoming", "active"].includes(selectedSeason?.status ?? "") ? async (fixture) => {
+            onDelete={isAdmin && selectedSeason?.auctionLifecycleStatus === "completed" && selectedSeason?.status === "active" ? async (fixture) => {
               const yes = await confirm({ title: "Delete this fixture?", description: "Delete match " + fixture.matchNumber + "?", confirmLabel: "Delete fixture", danger: true });
               if (!yes) return;
               try { await deleteSeasonMatch(seasonId, fixture._id); toast.success("Fixture deleted"); matches.reload(); }
