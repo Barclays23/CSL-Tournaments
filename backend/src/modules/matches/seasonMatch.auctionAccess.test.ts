@@ -17,6 +17,10 @@ test("fixture creation, schedule, identity and participant changes require compl
   for (const mutation of mutations) assert.equal(requiresAuctionForFixtureMutation(mutation), true);
 });
 
+test("fixture creation accepts Active seasons only; Upcoming is not a live management state", () => {
+  assert.equal(requiresAuctionForFixtureMutation({ status: "live" }), false);
+});
+
 test("match status and penalty-shootout operations do not require completed auction", () => {
   assert.equal(requiresAuctionForFixtureMutation({ status: "live" }), false);
   assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: null }), false);

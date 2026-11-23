@@ -13,6 +13,7 @@ import type { PlayerEntity } from "../players/player.types.js";
 import type { AuctionLotEntity } from "../auctionLots/auctionLot.types.js";
 import { AppError } from "../../shared/errors/appError.js";
 import { getLiveMatchConflictingTeamIds, getPairFixtureError } from "./seasonMatch.fixtureRules.js";
+import { hasRecordedMatchIncidents } from "./seasonMatch.deletion.js";
 
 const population = [
   { path: "homeSeasonTeamRef", select: "displayName logoSnapshot teamRef", populate: { path: "teamRef", select: "name shortName logo" } },
@@ -46,6 +47,40 @@ export class SeasonMatchRepository {
   async findSeasonTeams(seasonId: string): Promise<SeasonTeamEntity[]> {
     return SeasonTeamModel.find({ seasonRef: new Types.ObjectId(seasonId) }).lean<SeasonTeamEntity[]>().exec();
   }
+
+  async getGroupReadiness(seasonId: string): Promise<{
+    groupCount: number;
+    unassignedTeamCount: number;
+    undersizedGroups: string[];
+    emptyGroups: string[];
+  }> {
+    const seasonRef = new Types.ObjectId(seasonId);
+    const [groups, teams] = await Promise.all([
+      GroupModel.find({ seasonRef }).select("_id groupName").lean<Array<{ _id: Types.ObjectId; groupName: string }>>().exec(),
+      SeasonTeamModel.find({ seasonRef, status: { $nin: ["withdrawn", "eliminated", "completed"] } })
+        .select("_id groupRef")
+        .lean<Array<{ _id: Types.ObjectId; groupRef: Types.ObjectId | null }>>()
+        .exec(),
+    ]);
+    const groupIds = new Set(groups.map((group) => String(group._id)));
+    const counts = new Map<string, number>();
+    let unassignedTeamCount = 0;
+    for (const team of teams) {
+      const groupId = team.groupRef ? String(team.groupRef) : "";
+      if (!groupId || !groupIds.has(groupId)) unassignedTeamCount += 1;
+      else counts.set(groupId, (counts.get(groupId) ?? 0) + 1);
+    }
+    return {
+      groupCount: groups.length,
+      unassignedTeamCount,
+      undersizedGroups: groups.filter((group) => {
+        const count = counts.get(String(group._id)) ?? 0;
+        return count > 0 && count < 2;
+      }).map((group) => group.groupName),
+      emptyGroups: groups.filter((group) => (counts.get(String(group._id)) ?? 0) === 0).map((group) => group.groupName),
+    };
+  }
+
   async findPopulatedById(id: string): Promise<PopulatedSeasonMatch | null> { return SeasonMatchModel.findById(id).populate(population).lean<PopulatedSeasonMatch>().exec(); }
   async findByNumber(seasonId: string, number: number): Promise<SeasonMatchEntity | null> { return SeasonMatchModel.findOne({ seasonRef: new Types.ObjectId(seasonId), matchNumber: number }).lean<SeasonMatchEntity>().exec(); }
   async findSeason(id: string): Promise<SeasonEntity | null> { return SeasonModel.findById(id).lean<SeasonEntity>().exec(); }
@@ -297,8 +332,32 @@ export class SeasonMatchRepository {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return false;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
-      const result = await SeasonMatchModel.deleteOne({ _id: new Types.ObjectId(id), seasonRef: existing.seasonRef }).session(session).exec();
-      return result.deletedCount === 1;
+      const current = await SeasonMatchModel.findOne({
+        _id: new Types.ObjectId(id),
+        seasonRef: existing.seasonRef,
+      }).session(session).lean<SeasonMatchEntity>().exec();
+      if (!current) return false;
+      if (hasRecordedMatchIncidents(current)) {
+        throw new AppError(
+          "This match cannot be deleted because it contains recorded goals, cards or penalty-shootout events. Remove or preserve the incident history before deleting the fixture.",
+          409,
+          "MATCH_HAS_EVENTS",
+        );
+      }
+      const result = await SeasonMatchModel.deleteOne({
+        _id: new Types.ObjectId(id),
+        seasonRef: existing.seasonRef,
+        goals: { $size: 0 },
+        $and: [
+          { $or: [{ cards: { $exists: false } }, { cards: { $size: 0 } }] },
+          { $or: [{ penaltyShootout: null }, { penaltyShootout: { $exists: false } }, { "penaltyShootout.kicks": { $size: 0 } }] },
+          { $or: [{ correctionHistory: { $exists: false } }, { correctionHistory: { $size: 0 } }] },
+        ],
+      }).session(session).exec();
+      if (result.deletedCount !== 1) {
+        throw new AppError("This match changed while deletion was being processed. Refresh and check its incident history.", 409, "MATCH_DELETE_CONFLICT");
+      }
+      return true;
     });
   }
 
