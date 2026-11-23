@@ -10,7 +10,10 @@ export class ManagerService implements IManagerService {
 
   async getManagers(query: ManagerQueryDTO, isAdmin: boolean): Promise<PaginatedResult<ManagerResponseDTO>> {
     const filter: ManagerListFilter = {};
-    if (query.search) filter.name = { $regex: query.search, $options: "i" };
+    if (query.search) {
+      const escapedSearch = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.name = { $regex: escapedSearch, $options: "i" };
+    }
     if (isAdmin && query.status) filter.status = query.status;
     else if (!isAdmin) filter.status = "active";
 

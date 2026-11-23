@@ -12,7 +12,10 @@ export class SponsorService implements ISponsorService {
     const filter: SponsorListFilter = {};
     if (isAdmin && query.status) filter.status = query.status;
     else if (!isAdmin) filter.status = "active";
-    if (query.search) filter.name = { $regex: query.search, $options: "i" };
+    if (query.search) {
+      const escapedSearch = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.name = { $regex: escapedSearch, $options: "i" };
+    }
 
     const result = await this._sponsorRepository.findSponsors(filter, page, limit, isAdmin);
     return {

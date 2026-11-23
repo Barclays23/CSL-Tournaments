@@ -4,11 +4,14 @@ import { VenueRepository } from "./venue.repository.js";
 import type { VenueDto, VenueEntity, VenueWriteDto, VenueUpdateDto } from "./venue.types.js";
 export class VenueService {
   constructor(private readonly repo: VenueRepository) {}
-  async list(status: "active" | "inactive" | "all" = "active"): Promise<VenueDto[]> { return (await this.repo.list(status)).map(v => this.map(v)); }
-  async get(id: string): Promise<VenueDto> {
+  async list(status: "active" | "inactive" | "all" = "active", isAdmin = false): Promise<VenueDto[]> {
+    const visibleStatus = isAdmin ? status : "active";
+    return (await this.repo.list(visibleStatus)).map(v => this.map(v));
+  }
+  async get(id: string, isAdmin = false): Promise<VenueDto> {
     this.ensureId(id);
     const venue = await this.repo.findById(id);
-    if (!venue) throw new AppError("Venue not found", 404, "VENUE_NOT_FOUND");
+    if (!venue || (!isAdmin && venue.status !== "active")) throw new AppError("Venue not found", 404, "VENUE_NOT_FOUND");
     return this.map(venue);
   }
   async create(input: VenueWriteDto): Promise<VenueDto> {
@@ -22,9 +25,14 @@ export class VenueService {
     const current = await this.repo.findById(id); if (!current) throw new AppError("Venue not found", 404, "VENUE_NOT_FOUND");
     const name = input.name?.trim() ?? current.name, normalizedName = this.normalize(name);
     if (input.name !== undefined && await this.repo.findByNormalizedName(normalizedName, id)) throw new AppError("A venue with this name already exists", 409, "DUPLICATE_VENUE", { name: "Choose a unique venue name" });
-    const saved = await this.repo.update(id, { name, normalizedName, location: input.location === undefined ? current.location : input.location?.trim() || null, notes: input.notes === undefined ? current.notes : input.notes?.trim() || null, status: input.status ?? current.status });
-    if (!saved) throw new AppError("Venue not found", 404, "VENUE_NOT_FOUND");
-    return this.map(saved);
+    try {
+      const saved = await this.repo.update(id, { name, normalizedName, location: input.location === undefined ? current.location : input.location?.trim() || null, notes: input.notes === undefined ? current.notes : input.notes?.trim() || null, status: input.status ?? current.status });
+      if (!saved) throw new AppError("Venue not found", 404, "VENUE_NOT_FOUND");
+      return this.map(saved);
+    } catch (error) {
+      if ((error as { code?: number }).code === 11000) throw new AppError("A venue with this name already exists", 409, "DUPLICATE_VENUE", { name: "Choose a unique venue name" });
+      throw error;
+    }
   }
   async delete(id: string): Promise<void> {
     this.ensureId(id);

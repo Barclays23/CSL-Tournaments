@@ -21,7 +21,7 @@ export class PlayerController implements IPlayerController {
   getPlayerById = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     try {
       const id = getRequiredRouteParam(request.params.id, "id");
-      const player = await this._playerService.getPlayerById(id);
+      const player = await this._playerService.getPlayerById(id, request.user?.role === "admin");
       response.status(HTTP_STATUS.OK).json(ApiResponse.success(PLAYER_MESSAGES.PLAYER_FETCHED, player));
     } catch (error: unknown) { next(error); }
   };

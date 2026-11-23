@@ -11,7 +11,10 @@ export class TeamService implements ITeamService {
     const filter: TeamListFilter = {};
     if (isAdmin && query.status) filter.status = query.status;
     else if (!isAdmin) filter.status = "active";
-    if (query.search) filter.name = { $regex: query.search, $options: "i" };
+    if (query.search) {
+      const escapedSearch = query.search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.name = { $regex: escapedSearch, $options: "i" };
+    }
 
     const result = await this._teamRepository.findTeams(filter, query.page, query.limit);
     return {
@@ -38,8 +41,12 @@ export class TeamService implements ITeamService {
       throw new AppError("Team name already exists", 409, "DUPLICATE_TEAM", { name: "Team name already exists" });
     }
 
-    const createdTeam = await this._teamRepository.createTeam(input);
-    return this.mapTeamToDTO(createdTeam);
+    try {
+      const createdTeam = await this._teamRepository.createTeam(input);
+      return this.mapTeamToDTO(createdTeam);
+    } catch (error: unknown) {
+      this.handleDuplicateNameError(error);
+    }
   }
 
   async updateTeam(teamId: string, input: TeamUpdateDTO): Promise<TeamDTO> {
@@ -61,9 +68,13 @@ export class TeamService implements ITeamService {
       }
     }
 
-    const updatedTeam = await this._teamRepository.updateTeam(teamId, input);
-    if (!updatedTeam) throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");
-    return this.mapTeamToDTO(updatedTeam);
+    try {
+      const updatedTeam = await this._teamRepository.updateTeam(teamId, input);
+      if (!updatedTeam) throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");
+      return this.mapTeamToDTO(updatedTeam);
+    } catch (error: unknown) {
+      this.handleDuplicateNameError(error);
+    }
   }
 
   async deleteTeam(teamId: string): Promise<void> {
@@ -74,6 +85,13 @@ export class TeamService implements ITeamService {
     }
     const deleted = await this._teamRepository.deleteTeam(teamId);
     if (!deleted) throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");
+  }
+
+  private handleDuplicateNameError(error: unknown): never {
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000) {
+      throw new AppError("Team name already exists", 409, "DUPLICATE_TEAM", { name: "Team name already exists" });
+    }
+    throw error;
   }
 
   private mapTeamToDTO(team: TeamFields & { _id: Types.ObjectId; createdAt: Date; updatedAt: Date }): TeamDTO {

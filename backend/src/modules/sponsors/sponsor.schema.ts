@@ -13,7 +13,10 @@ export const sponsorCreateSchema = z.object({
   status: z.enum(["active", "inactive"]).default("active"),
 }).strict();
 
-export const sponsorUpdateSchema = sponsorCreateSchema.partial().strict();
+export const sponsorUpdateSchema = sponsorCreateSchema.partial().strict().refine(
+  (value) => Object.keys(value).length > 0,
+  "At least one sponsor field is required",
+);
 export const getSponsorsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),

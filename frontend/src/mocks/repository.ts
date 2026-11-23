@@ -455,9 +455,9 @@ export const previewRepository = {
   async getPlayer(id: string) {
     const db = readDb();
     const player = db.players.find((item) => item._id === id);
-    if (!player) fail(404, "Player not found");
-    // Public Player Details includes permanent profile fields and historical profiles too.
-    return ok("Player loaded", presentPlayer(db, player, true));
+    const admin = isAdmin();
+    if (!player || (!admin && player.status !== "active")) fail(404, "Player not found");
+    return ok("Player loaded", presentPlayer(db, player, admin));
   },
   async createPlayer(input: PlayerWrite): Promise<ApiResponse<AdminPlayer>> {
     requireAdmin();

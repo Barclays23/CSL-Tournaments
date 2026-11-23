@@ -999,9 +999,11 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const venue = db.venues.find((item) => item._id === id);
     if (!venue) return fail(404, "Venue not found");
+    if (venue.status !== "active") requireAdmin();
     return ok("Venue fetched", venue as Venue);
   },
   async getVenues(status: "active" | "inactive" | "all" = "active") {
+    if (status !== "active") requireAdmin();
     const db = readSeasonDb();
     const items = db.venues.filter((venue) => status === "all" || venue.status === status).sort((a, b) => a.name.localeCompare(b.name));
     return ok("Venues fetched", items as Venue[]);

@@ -52,7 +52,11 @@ export class NewsService implements INewsService {
       coverImage: input.coverImage ?? null, tags: this.cleanTags(input.tags ?? []),
       status, publishedAt,
     };
-    return this.toResponse(await this.repository.create(data));
+    try {
+      return this.toResponse(await this.repository.create(data));
+    } catch (error: unknown) {
+      this.handleDuplicateSlugError(error);
+    }
   }
 
   async update(id: string, input: UpdateNewsDto): Promise<NewsResponseDto> {
@@ -75,14 +79,27 @@ export class NewsService implements INewsService {
     if (input.publishedAt !== undefined) update.publishedAt = input.publishedAt;
     const nextStatus = update.status ?? current.status;
     if (nextStatus === "published" && !update.publishedAt) update.publishedAt = current.publishedAt ?? new Date();
-    const updated = await this.repository.update(id, update);
-    if (!updated) throw new AppError("News article not found", 404, "NEWS_NOT_FOUND");
-    return this.toResponse(updated);
+    try {
+      const updated = await this.repository.update(id, update);
+      if (!updated) throw new AppError("News article not found", 404, "NEWS_NOT_FOUND");
+      return this.toResponse(updated);
+    } catch (error: unknown) {
+      this.handleDuplicateSlugError(error);
+    }
   }
 
   async delete(id: string): Promise<void> {
     this.ensureId(id);
     if (!(await this.repository.delete(id))) throw new AppError("News article not found", 404, "NEWS_NOT_FOUND");
+  }
+
+  private handleDuplicateSlugError(error: unknown): never {
+    if (typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000) {
+      throw new AppError("A news article with this slug already exists. Choose another title or slug.", 409, "DUPLICATE_NEWS_SLUG", {
+        slug: "This slug is already in use",
+      });
+    }
+    throw error;
   }
 
   private async uniqueSlug(source: string, excludeId?: string): Promise<string> {
