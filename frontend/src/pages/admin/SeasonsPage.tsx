@@ -18,6 +18,7 @@ import { createSeason, getSeasons } from "@/services/seasonService";
 import { SeasonConfigurationForm, type SeasonFormState } from "@/components/forms/SeasonConfigurationForm";
 import type { SeasonStatus, SeasonWrite } from "@/types/season.types";
 import { errorMessage } from "@/utils/errorHandler";
+import { getDefaultSeason } from "@/utils/defaultSeason";
 
 const defaultForm = (seasonNumber = 1): SeasonFormState => ({
   seasonNumber, name: "", year: new Date().getFullYear(), startDate: "", endDate: "", groupStageEnabled: true, homeAndAwayFixtures: false,
@@ -63,15 +64,18 @@ export function SeasonsPage() {
     () => [...new Set((seasons.data?.data ?? []).map((season) => season.year))].sort((a, b) => b - a),
     [seasons.data],
   );
+  const defaultSeasonId = getDefaultSeason(seasons.data?.data ?? [])?._id ?? null;
   const filteredSeasons = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return (seasons.data?.data ?? []).filter((season) => {
-      const matchesSearch = !term || season.name.toLowerCase().includes(term) || String(season.seasonNumber).includes(term);
-      const matchesYear = yearFilter === "all" || String(season.year) === yearFilter;
-      const matchesStatus = statusFilter === "all" || season.status === statusFilter;
-      return matchesSearch && matchesYear && matchesStatus;
-    });
-  }, [seasons.data, search, yearFilter, statusFilter]);
+    return (seasons.data?.data ?? [])
+      .filter((season) => {
+        const matchesSearch = !term || season.name.toLowerCase().includes(term) || String(season.seasonNumber).includes(term);
+        const matchesYear = yearFilter === "all" || String(season.year) === yearFilter;
+        const matchesStatus = statusFilter === "all" || season.status === statusFilter;
+        return matchesSearch && matchesYear && matchesStatus;
+      })
+      .sort((left, right) => Number(right._id === defaultSeasonId) - Number(left._id === defaultSeasonId));
+  }, [seasons.data, search, yearFilter, statusFilter, defaultSeasonId]);
 
   const handleCreate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -148,7 +152,10 @@ export function SeasonsPage() {
                     <span className="mt-0.5 block text-xs text-muted">Edition {season.seasonNumber} · {season.year}</span>
                   </div>
                 </div>
-                <Badge tone={statusTone(season.status)}>{statusLabel(season.status)}</Badge>
+                <div className="flex flex-wrap justify-end gap-1.5">
+                  {season._id === defaultSeasonId ? <Badge tone="accent">Default season</Badge> : null}
+                  <Badge tone={statusTone(season.status)}>{statusLabel(season.status)}</Badge>
+                </div>
               </div>
               <div className="mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-muted">
                 <span>{season.startDate ? season.startDate.slice(0, 10) : "No start date"}</span>
