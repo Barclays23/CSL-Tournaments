@@ -227,7 +227,7 @@ export class SeasonService implements ISeasonService {
     if (!["upcoming", "active"].includes(current.status)) throw new AppError("Auction can only start in Upcoming or Active seasons", 409, "AUCTION_START_NOT_ALLOWED");
     if (current.auctionLifecycleStatus !== "not_started") throw new AppError("Auction has already started or completed", 409, "AUCTION_ALREADY_STARTED");
     const result = await this.repo.startAuctionIfReady(id);
-    if (result.blockers.length) throw new AppError("Auction start is blocked: " + result.blockers.join("; "), 422, "AUCTION_START_BLOCKED",
+    if (result.blockers.length) throw new AppError("Cannot start auction for this season: " + result.blockers.join("; "), 422, "AUCTION_START_BLOCKED",
       Object.fromEntries(result.blockers.map((message, index) => ["blocker." + (index + 1), message])));
     if (!result.season) throw new AppError("Season state changed while starting the auction. Refresh and try again.", 409, "SEASON_STATE_CONFLICT");
     return this.map(result.season);

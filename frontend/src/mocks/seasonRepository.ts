@@ -1173,7 +1173,7 @@ export const seasonPreviewRepository = {
     if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
     if (teams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
     if (currentLots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
-    if (blockers.length) fail(422, "Auction start is blocked: " + blockers.join("; "), "AUCTION_START_BLOCKED");
+    if (blockers.length) fail(422, "Cannot start auction for this season: " + blockers.join("; "), "AUCTION_START_BLOCKED");
     season.auctionLifecycleStatus = "in_progress";
     season.auctionRevision += 1;
     season.updatedAt = now();

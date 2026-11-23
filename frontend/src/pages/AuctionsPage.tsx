@@ -218,7 +218,7 @@ export function AuctionsPage() {
             ))}
           </Select>
         </div>
-        {canNominate ? <Button onClick={() => setNominateOpen(true)}>Create auction lot</Button> : null}
+        {canNominate ? <Button onClick={() => setNominateOpen(true)}>Create auction lot (Nominate Player)</Button> : null}
         {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "not_started" ? (
           <Button variant="surface" disabled={saving} onClick={async () => {
             if (!window.confirm("Start the auction? The server will verify the exact configured number of nominated players and registered teams.")) return;
