@@ -1,6 +1,20 @@
+
+test("season-wide nomination quotas are based on configured teams and per-team designation limits", () => {
+
+  assert.deepEqual(getAuctionNominationQuotaBlockers(settings, { iconPlayers: 3, goalkeepers: 3 }, { isIconPlayer: true, isGoalkeeper: true }), []);
+  const blockers = getAuctionNominationQuotaBlockers(settings, { iconPlayers: 4, goalkeepers: 4 }, { isIconPlayer: true, isGoalkeeper: true });
+  assert.equal(blockers.length, 2);
+  assert.ok(blockers[0].includes("maximum of 4 Icon Player"));
+  assert.ok(blockers[1].includes("maximum of 4 Goalkeeper"));
+});
+
+test("season-wide nomination quota permits ordinary players after designation quotas are full", () => {
+
+  assert.deepEqual(getAuctionNominationQuotaBlockers(settings, { iconPlayers: 4, goalkeepers: 4 }, { isIconPlayer: false, isGoalkeeper: false }), []);
+});
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAuctionCompletionBlockers, getAuctionStartBlockers, type AuctionCompletionLot } from "./auction.completion.js";
+import { getAuctionCompletionBlockers, getAuctionNominationQuotaBlockers, getAuctionStartBlockers, type AuctionCompletionLot } from "./auction.completion.js";
 
 const settings = { currency: "INR" as const, budgetPerTeam: 1000, playersCount: 12, seasonTeamCount: 4, teamSquadSize: 3, iconPlayerLimit: 1, goalkeeperLimit: 1 };
 const teams = [
