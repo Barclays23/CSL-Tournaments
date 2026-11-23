@@ -323,7 +323,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   }));
   const groupReadinessBlockers = selected?.groupStageEnabled === false ? [] : [
     ...(seasonGroups.length === 0 ? ["Create at least one group."] : []),
-    ...(unassignedTeams.length > 0 ? [`${unassignedTeams.length} participating team(s) still need a group assignment.`] : []),
+    ...(eligibleSeasonTeams.filter((team) => !team.groupRef).length > 0 ? [`${eligibleSeasonTeams.filter((team) => !team.groupRef).length} participating team(s) still need a group assignment.`] : []),
     ...groupTeamCounts.filter((group) => group.count > 0 && group.count < 2).map((group) => `${group.groupName} needs at least two participating teams.`),
   ];
   const upcomingReadinessBlockers = [
@@ -343,11 +343,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
       ? groupTeamCounts.filter((group) => group.count === 0).map((group) => `${group.groupName} is empty. Remove the unused group or assign a team before activation.`)
       : []),
   ];
-  const completionReadinessBlockers = [
-    ...awardReadinessBlockers,
-    ...(!hasChampion ? ["Assign the Season Champions award."] : []),
-    ...(!hasRunnerUp ? ["Assign the Runner-up award."] : []),
-  ];
   const fixtureCount = fixtures.data?.pagination?.total ?? seasonFixtures.length;
   const dependenciesExist = registeredTeams.length + seasonGroups.length + seasonLots.length + fixtureCount > 0;
   const hasAuctionHistory = seasonLots.length > 0;
@@ -363,6 +358,11 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   const hasChampion = seasonAwards.some((award) => award.awardType === "champions");
   const hasRunnerUp = seasonAwards.some((award) => award.awardType === "runner_up");
   const teamHonoursComplete = hasChampion && hasRunnerUp;
+  const completionReadinessBlockers = [
+    ...awardReadinessBlockers,
+    ...(!hasChampion ? ["Assign the Season Champions award."] : []),
+    ...(!hasRunnerUp ? ["Assign the Runner-up award."] : []),
+  ];
 
   const payload = (form: SeasonFormState): SeasonWrite => ({
     seasonNumber: form.seasonNumber, name: form.name.trim(), year: form.year,
