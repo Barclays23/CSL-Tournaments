@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
@@ -42,6 +42,92 @@ const POSITIONS: Record<SeasonPlayerPosition, string> = {
   forward: "Forward",
 };
 const LOT_STATUSES: AuctionLotStatus[] = ["pending", "sold", "unsold", "withdrawn"];
+
+/* Static class strings so Tailwind can see them. All colours are theme tokens. */
+const STATUS_PILL: Record<AuctionLotStatus, string> = {
+  pending: "bg-info/15 text-info",
+  sold: "bg-success/15 text-success",
+  unsold: "bg-surface text-muted",
+  withdrawn: "bg-warning/15 text-warning",
+};
+const STATUS_EDGE: Record<AuctionLotStatus, string> = {
+  pending: "border-l-info",
+  sold: "border-l-success",
+  unsold: "border-l-faint",
+  withdrawn: "border-l-warning",
+};
+
+/* ------------------------------------------------------------------ */
+/* Small building blocks                                              */
+/* ------------------------------------------------------------------ */
+
+function Pill({ className = "", children }: { className?: string; children: ReactNode }) {
+  return (
+    <span className={"inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize " + className}>
+      {children}
+    </span>
+  );
+}
+
+function SectionTitle({ title, aside }: { title: string; aside?: ReactNode }) {
+  return (
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        <span className="h-7 w-1.5 rounded-full bg-linear-to-b from-accent to-primary" />
+        <h2 className="font-display text-2xl text-fg">{title}</h2>
+      </div>
+      {aside}
+    </div>
+  );
+}
+
+function ProgressBar({ value, max }: { value: number; max: number }) {
+  const percent = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-surface" role="presentation">
+      <div className="h-full rounded-full bg-linear-to-r from-primary to-accent" style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
+function StatTile({ label, value, current, limit }: { label: string; value: string | number; current?: number; limit?: number }) {
+  return (
+    <div className="rounded-2xl border border-line bg-glass p-4 shadow-glass backdrop-blur-xl">
+      <p className="text-xs font-medium text-muted">{label}</p>
+      <p className="mt-1.5 font-display text-2xl tabular text-fg">{value}</p>
+      {limit !== undefined && current !== undefined ? (
+        <div className="mt-3"><ProgressBar value={current} max={limit} /></div>
+      ) : null}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block text-sm font-medium text-fg">
+      {label}
+      <div className="mt-1 font-normal">{children}</div>
+    </label>
+  );
+}
+
+function CheckField({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-glass px-3 py-2.5 text-sm text-fg">
+      <input
+        type="checkbox"
+        className="h-4 w-4 accent-accent"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+      />
+      {label}
+    </label>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export function AuctionsPage() {
   const isAdmin = true;
@@ -201,13 +287,56 @@ export function AuctionsPage() {
     }
   };
 
+  /* Shared runner for start / complete / reopen so the three buttons behave identically. */
+  const runLifecycle = async (
+    options: { title: string; description: string; confirmLabel: string },
+    action: (id: string) => Promise<unknown>,
+    successMessage: string,
+  ) => {
+    const yes = await confirm(options);
+    if (!yes) return;
+    setSaving(true);
+    try {
+      await action(selectedSeasonId);
+      toast.success(successMessage);
+      refresh();
+      seasons.reload();
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const seasonOpen = Boolean(data && ["upcoming", "active"].includes(data.season.status));
+  const lifecycle = data?.season.auctionLifecycleStatus;
+
+  const statusMessage = !data
+    ? ""
+    : data.season.status === "draft"
+      ? "Move this season to Upcoming from the Seasons page before creating auction lots."
+      : data.season.status === "completed" || data.season.status === "archived"
+        ? "This season is read-only. Auction lot changes are no longer available."
+        : lifecycle === "not_started"
+          ? "Auction setup: create, edit or remove Pending lots. Start the auction after the configured player nominations are ready."
+          : lifecycle === "in_progress"
+            ? "Auction in progress: you can create lots, edit lot details and remove Pending lots. Sold, Unsold and Withdrawn records are protected by auction rules."
+            : "Auction completed. Reopen the auction to make further lot changes.";
+
   return (
     <PageContainer>
-      <AdminPageBanner breadcrumb="Admin / Season operations" title="Auctions" description="Season-wise nominations, player purchases, budgets and squad composition." />
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="w-full max-w-sm">
-          <label className="mb-1.5 block text-sm font-medium text-fg">Season</label>
+      <AdminPageBanner
+        breadcrumb="Admin / Season operations"
+        title="Auctions"
+        description="Season-wise nominations, player purchases, budgets and squad composition."
+      />
+
+      {/* ------------------------- Control bar ------------------------- */}
+      <div className="mb-5 flex flex-col gap-4 rounded-3xl border border-line bg-glass p-4 shadow-glass backdrop-blur-xl sm:flex-row sm:flex-wrap sm:items-end sm:p-5">
+        <div className="w-full sm:max-w-xs">
+          <label htmlFor="auction-season" className="mb-1.5 block text-sm font-semibold text-fg">Season</label>
           <Select
+            id="auction-season"
             value={selectedSeasonId}
             onChange={(event) => {
               setSeasonId(event.target.value);
@@ -225,76 +354,66 @@ export function AuctionsPage() {
             ))}
           </Select>
         </div>
-        {canNominate ? <Button onClick={() => setNominateOpen(true)}>Create auction lot (Nominate Player)</Button> : null}
-        {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "not_started" ? (
-          <Button variant="surface" disabled={saving} onClick={async () => {
-            const yes = await confirm({
-              title: "Start the auction?",
-              description: "The server will verify the configured team count, nominated player count and season rules before opening bidding.",
-              confirmLabel: "Start auction",
-            });
-            if (!yes) return;
-            setSaving(true);
-            try {
-              await startSeasonAuction(selectedSeasonId);
-              toast.success("Auction started");
-              refresh();
-              seasons.reload();
-            } catch (error) { toast.error(errorMessage(error)); }
-            finally { setSaving(false); }
-          }}>Start auction</Button>
-        ) : null}
-        {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "in_progress" ? (
-          <Button variant="surface" disabled={saving} onClick={async () => {
-            const yes = await confirm({
-              title: "Complete this season auction?",
-              description: "The server will validate every lot, team roster, squad size, Icon Player and Goalkeeper quota, and team budget. The auction remains open if any check fails.",
-              confirmLabel: "Validate and complete",
-            });
-            if (!yes) return;
-            setSaving(true);
-            try {
-              await completeSeasonAuction(selectedSeasonId);
-              toast.success("Auction completed successfully");
-              refresh();
-              seasons.reload();
-            } catch (error) { toast.error(errorMessage(error)); }
-            finally { setSaving(false); }
-          }}>Complete auction</Button>
-        ) : null}
-        {isAdmin && data && ["upcoming", "active"].includes(data.season.status) && data.season.auctionLifecycleStatus === "completed" ? (
-          <Button variant="surface" disabled={saving} onClick={async () => {
-            const yes = await confirm({
-              title: "Reopen this auction?",
-              description: "Existing lot assignments, sale history and fixtures will be preserved. Fixture creation and editing will be locked until the auction is completed again.",
-              confirmLabel: "Reopen auction",
-            });
-            if (!yes) return;
-            setSaving(true);
-            try {
-              await reopenSeasonAuction(selectedSeasonId);
-              toast.success("Auction resumed");
-              refresh();
-              seasons.reload();
-            } catch (error) { toast.error(errorMessage(error)); }
-            finally { setSaving(false); }
-          }}>Reopen auction</Button>
-        ) : null}
-        {data?.season.auctionLifecycleStatus === "completed" ? <span className="self-center text-xs font-medium text-success">Auction completed</span> : null}
-        {data?.season.auctionLifecycleStatus === "in_progress" ? <span className="self-center text-xs text-muted">Auction in progress</span> : null}
+
+        <div className="flex flex-wrap items-center gap-2">
+          {canNominate ? <Button onClick={() => setNominateOpen(true)}>Create auction lot (Nominate Player)</Button> : null}
+
+          {isAdmin && seasonOpen && lifecycle === "not_started" ? (
+            <Button
+              variant="surface"
+              disabled={saving}
+              onClick={() => runLifecycle(
+                {
+                  title: "Start the auction?",
+                  description: "The server will verify the configured team count, nominated player count and season rules before opening bidding.",
+                  confirmLabel: "Start auction",
+                },
+                startSeasonAuction,
+                "Auction started",
+              )}
+            >Start auction</Button>
+          ) : null}
+
+          {isAdmin && seasonOpen && lifecycle === "in_progress" ? (
+            <Button
+              variant="surface"
+              disabled={saving}
+              onClick={() => runLifecycle(
+                {
+                  title: "Complete this season auction?",
+                  description: "The server will validate every lot, team roster, squad size, Icon Player and Goalkeeper quota, and team budget. The auction remains open if any check fails.",
+                  confirmLabel: "Validate and complete",
+                },
+                completeSeasonAuction,
+                "Auction completed successfully",
+              )}
+            >Complete auction</Button>
+          ) : null}
+
+          {isAdmin && seasonOpen && lifecycle === "completed" ? (
+            <Button
+              variant="surface"
+              disabled={saving}
+              onClick={() => runLifecycle(
+                {
+                  title: "Reopen this auction?",
+                  description: "Existing lot assignments, sale history and fixtures will be preserved. Fixture creation and editing will be locked until the auction is completed again.",
+                  confirmLabel: "Reopen auction",
+                },
+                reopenSeasonAuction,
+                "Auction resumed",
+              )}
+            >Reopen auction</Button>
+          ) : null}
+
+          {lifecycle === "completed" ? <Pill className="bg-success/15 text-success">Auction completed</Pill> : null}
+          {lifecycle === "in_progress" ? <Pill className="bg-info/15 text-info">Auction in progress</Pill> : null}
+        </div>
       </div>
 
       {isAdmin && data ? (
-        <p className="mb-5 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-muted" role="status">
-          {data.season.status === "draft"
-            ? "Move this season to Upcoming from the Seasons page before creating auction lots."
-            : data.season.status === "completed" || data.season.status === "archived"
-              ? "This season is read-only. Auction lot changes are no longer available."
-              : data.season.auctionLifecycleStatus === "not_started"
-                ? "Auction setup: create, edit or remove Pending lots. Start the auction after the configured player nominations are ready."
-                : data.season.auctionLifecycleStatus === "in_progress"
-                  ? "Auction in progress: you can create lots, edit lot details and remove Pending lots. Sold, Unsold and Withdrawn records are protected by auction rules."
-                  : "Auction completed. Reopen the auction to make further lot changes."}
+        <p className="mb-5 rounded-2xl border border-line bg-glass px-4 py-3 text-sm text-muted backdrop-blur-md" role="status">
+          {statusMessage}
         </p>
       ) : null}
       {!isAdmin ? (
@@ -308,26 +427,21 @@ export function AuctionsPage() {
 
       {data ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-            {([
-              ["Teams registered", `${registeredTeamCount}/${teamRegistrationLimit}`],
-              ["Team slots remaining", Math.max(teamRegistrationLimit - registeredTeamCount, 0)],
-              ["Players nominated", `${nominatedLots.length}/${playerNominationLimit}`],
-              ["Nominations remaining", Math.max(playerNominationLimit - nominatedLots.length, 0)],
-              ["Pending auction lots", data.totals.pending],
-              ["Sold", data.totals.sold],
-              ["Unsold", data.totals.unsold],
-              ["Icon players", `${nominatedIconCount}/${iconQuotaLimit}`],
-              ["Goalkeepers", `${nominatedGoalkeeperCount}/${goalkeeperQuotaLimit}`],
-              ["Sold value", formatCurrency(data.totals.totalSoldValue)],
-            ] as Array<[string, string | number]>).map(([label, value]) => (
-              <GlassCard key={label} className="p-4">
-                <p className="text-xs text-muted">{label}</p>
-                <p className="mt-2 text-xl font-semibold text-fg">{value}</p>
-              </GlassCard>
-            ))}
+          {/* --------------------------- Stats --------------------------- */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
+            <StatTile label="Teams registered" value={`${registeredTeamCount}/${teamRegistrationLimit}`} current={registeredTeamCount} limit={teamRegistrationLimit} />
+            <StatTile label="Team slots remaining" value={Math.max(teamRegistrationLimit - registeredTeamCount, 0)} />
+            <StatTile label="Players nominated" value={`${nominatedLots.length}/${playerNominationLimit}`} current={nominatedLots.length} limit={playerNominationLimit} />
+            <StatTile label="Nominations remaining" value={Math.max(playerNominationLimit - nominatedLots.length, 0)} />
+            <StatTile label="Pending auction lots" value={data.totals.pending} />
+            <StatTile label="Sold" value={data.totals.sold} />
+            <StatTile label="Unsold" value={data.totals.unsold} />
+            <StatTile label="Icon players" value={`${nominatedIconCount}/${iconQuotaLimit}`} current={nominatedIconCount} limit={iconQuotaLimit} />
+            <StatTile label="Goalkeepers" value={`${nominatedGoalkeeperCount}/${goalkeeperQuotaLimit}`} current={nominatedGoalkeeperCount} limit={goalkeeperQuotaLimit} />
+            <StatTile label="Sold value" value={formatCurrency(data.totals.totalSoldValue)} />
           </div>
-          <div className="mt-5">
+
+          <div className="mt-6">
             <Tabs
               value={auctionSection}
               onChange={(value) => setAuctionSection(value as "lots" | "squads")}
@@ -338,154 +452,196 @@ export function AuctionsPage() {
             />
           </div>
 
+          {/* ----------------------- Squads & budgets ----------------------- */}
           {auctionSection === "squads" ? (
-          <section className="mt-7">
-            <h2 className="mb-3 font-display text-2xl text-fg">Team budgets and squads</h2>
-            <div className="grid gap-3 lg:grid-cols-2">
-              {data.teams.map((team) => (
-                <GlassCard key={team.seasonTeamId} className="p-5">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h3 className="font-display text-2xl text-fg">{team.displayName}</h3>
-                      <p className="text-xs text-muted">{team.status}</p>
-                    </div>
-                    <span className="text-sm text-muted">
-                      {team.playersSigned}/{data.season.auctionSettings.teamSquadSize} players
-                    </span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-                    <div><p className="text-muted">Budget</p><p className="font-semibold text-fg">{formatCurrency(team.budget)}</p></div>
-                    <div><p className="text-muted">Spent</p><p className="font-semibold text-fg">{formatCurrency(team.totalSpent)}</p></div>
-                    <div><p className="text-muted">Balance</p><p className="font-semibold text-fg">{formatCurrency(team.balance)}</p></div>
-                    <div><p className="text-muted">Average price</p><p className="font-semibold text-fg">{formatCurrency(team.averagePrice)}</p></div>
-                    <div><p className="text-muted">Icon / Goalkeeper</p><p className="font-semibold text-fg">{team.iconCount} / {team.goalkeeperCount}</p></div>
-                    <div><p className="text-muted">Slots remaining</p><p className="font-semibold text-fg">{team.remainingSlots}</p></div>
-                  </div>
-                  <div className="mt-4 space-y-2">
-                    {team.lots.length ? team.lots.map((lot) => (
-                      <div key={lot._id} className="flex items-center gap-3 rounded-xl bg-surface p-3 text-sm">
-                        <Avatar name={playerNameFor(lot)} asset={playerImageFor(lot)} className="h-10 w-10 shrink-0 rounded-lg" />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-fg">{playerNameFor(lot)}</p>
-                          <p className="truncate text-xs text-muted">
-                            {POSITIONS[lot.playerPosition]}
-                            {lot.jerseyNo ? ` · #${lot.jerseyNo}` : ""}
-                            {lot.isIconPlayer ? " · Icon" : ""}
-                            {lot.isGoalkeeper ? " · Goalkeeper" : ""}
-                          </p>
-                        </div>
-                        <span className="shrink-0 font-medium text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>
-                        {lot.auctionStatus === "withdrawn" ? <span className="rounded-full bg-warning/10 px-2 py-1 text-xs text-warning">Withdrawn</span> : <span className="rounded-full bg-success/10 px-2 py-1 text-xs text-success">Sold</span>}
-                        {canEditAuction && lot.auctionStatus !== "withdrawn" ? (
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(lot)}>Edit</Button>
-                        ) : null}
+            <section className="mt-7">
+              <SectionTitle title="Team budgets and squads" />
+              <div className="grid gap-4 lg:grid-cols-2">
+                {data.teams.map((team) => (
+                  <GlassCard key={team.seasonTeamId} className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-display text-2xl text-fg">{team.displayName}</h3>
+                        <Pill className="mt-1 bg-surface text-muted">{team.status}</Pill>
                       </div>
-                    )) : (
-                      <p className="rounded-xl bg-surface p-3 text-sm text-muted">No players purchased yet.</p>
-                    )}
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          </section>
+                      <div className="text-right">
+                        <p className="font-display text-xl tabular text-fg">
+                          {team.playersSigned}/{data.season.auctionSettings.teamSquadSize}
+                        </p>
+                        <p className="text-xs text-muted">players</p>
+                      </div>
+                    </div>
 
+                    <div className="mt-4 space-y-1.5">
+                      <div className="flex justify-between text-xs text-muted">
+                        <span>Budget used</span>
+                        <span className="tabular">{formatCurrency(team.totalSpent)} / {formatCurrency(team.budget)}</span>
+                      </div>
+                      <ProgressBar value={team.totalSpent} max={team.budget} />
+                    </div>
+
+                    <dl className="mt-4 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+                      {([
+                        ["Balance", formatCurrency(team.balance)],
+                        ["Average price", formatCurrency(team.averagePrice)],
+                        ["Icon / Goalkeeper", `${team.iconCount} / ${team.goalkeeperCount}`],
+                        ["Slots remaining", team.remainingSlots],
+                      ] as Array<[string, string | number]>).map(([label, value]) => (
+                        <div key={label} className="rounded-xl bg-surface p-2.5">
+                          <dt className="text-xs text-muted">{label}</dt>
+                          <dd className="mt-0.5 font-semibold tabular text-fg">{value}</dd>
+                        </div>
+                      ))}
+                    </dl>
+
+                    <div className="mt-4 space-y-2">
+                      {team.lots.length ? team.lots.map((lot) => (
+                        <div
+                          key={lot._id}
+                          className="flex items-center gap-3 rounded-2xl border border-line bg-glass p-3 text-sm backdrop-blur-md"
+                        >
+                          <Avatar name={playerNameFor(lot)} asset={playerImageFor(lot)} className="h-11 w-11 shrink-0 rounded-xl" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-semibold text-fg">{playerNameFor(lot)}</p>
+                            <p className="truncate text-xs text-muted">
+                              {POSITIONS[lot.playerPosition]}
+                              {lot.jerseyNo ? ` · #${lot.jerseyNo}` : ""}
+                              {lot.isIconPlayer ? " · Icon" : ""}
+                              {lot.isGoalkeeper ? " · Goalkeeper" : ""}
+                            </p>
+                          </div>
+                          <span className="shrink-0 font-semibold tabular text-fg">{formatCurrency(lot.purchasePrice ?? 0)}</span>
+                          <Pill className={lot.auctionStatus === "withdrawn" ? STATUS_PILL.withdrawn : STATUS_PILL.sold}>
+                            {lot.auctionStatus === "withdrawn" ? "Withdrawn" : "Sold"}
+                          </Pill>
+                          {canEditAuction && lot.auctionStatus !== "withdrawn" ? (
+                            <Button size="sm" variant="ghost" onClick={() => openEdit(lot)}>Edit</Button>
+                          ) : null}
+                        </div>
+                      )) : (
+                        <p className="rounded-2xl border border-dashed border-line bg-glass p-4 text-center text-sm text-muted">
+                          No players purchased yet.
+                        </p>
+                      )}
+                    </div>
+                  </GlassCard>
+                ))}
+              </div>
+            </section>
           ) : null}
 
+          {/* --------------------------- Lots --------------------------- */}
           {auctionSection === "lots" ? (
-          <section className="mt-8">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="font-display text-2xl text-fg">Auction lots</h2>
-              <span className="text-xs text-muted">{lotRows.length} result(s)</span>
-            </div>
-            <div className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-6">
-              <Input placeholder="Search Player Name" value={playerName} onChange={(event) => setPlayerName(event.target.value)} />
-              <Select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
-                <option value="">All teams</option>
-                {data.teams.map((team) => (
-                  <option key={team.seasonTeamId} value={team.seasonTeamId}>{team.displayName}</option>
-                ))}
-              </Select>
-              <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as AuctionLotStatus | "")}>
-                <option value="">All statuses</option>
-                <option value="pending">Pending</option>
-                <option value="sold">Sold</option>
-                <option value="unsold">Unsold</option>
-                <option value="withdrawn">Withdrawn</option>
-              </Select>
-              <Select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value as SeasonPlayerPosition | "")}>
-                <option value="">All positions</option>
-                {Object.entries(POSITIONS).map(([value, label]) => (
-                  <option key={value} value={value}>{label}</option>
-                ))}
-              </Select>
-              <Select value={iconFilter} onChange={(event) => setIconFilter(event.target.value)}>
-                <option value="">Icon: all</option>
-                <option value="true">Icon players</option>
-                <option value="false">Non-icon players</option>
-              </Select>
-              <Select value={goalkeeperFilter} onChange={(event) => setGoalkeeperFilter(event.target.value)}>
-                <option value="">Goalkeeper: all</option>
-                <option value="true">Goalkeepers</option>
-                <option value="false">Non-goalkeepers</option>
-              </Select>
-            </div>
-            {lots.loading ? <Skeleton className="h-40" /> : null}
-            {lots.error ? <ErrorState message={lots.error} onRetry={lots.reload} /> : null}
-            {!lots.loading && !lots.error && !lotRows.length ? (
-              <GlassCard className="p-5 text-sm text-muted">No auction lots match these filters.</GlassCard>
-            ) : null}
-            <div className="grid gap-3">
-              {lotRows.map((lot) => (
-                <GlassCard key={lot._id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <Avatar name={playerNameFor(lot)} asset={playerImageFor(lot)} className="h-12 w-12 shrink-0 rounded-xl" />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-fg">{playerNameFor(lot)}</h3>
-                        <span className={"rounded-full px-2 py-1 text-xs " + (lot.auctionStatus === "withdrawn" ? "bg-warning/10 text-warning" : "bg-surface text-muted")}>{lot.auctionStatus}</span>
-                        {lot.isIconPlayer ? <span className="rounded-full bg-surface px-2 py-1 text-xs text-gold">Icon</span> : null}
-                        {lot.isGoalkeeper ? <span className="rounded-full bg-surface px-2 py-1 text-xs text-muted">Goalkeeper</span> : null}
+            <section className="mt-7">
+              <SectionTitle title="Auction lots" aside={<Pill className="bg-glass text-muted ring-1 ring-line">{lotRows.length} result(s)</Pill>} />
+
+              <div className="mb-5 grid gap-2 rounded-3xl border border-line bg-glass p-3 shadow-glass backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-6">
+                <Input placeholder="Search Player Name" value={playerName} onChange={(event) => setPlayerName(event.target.value)} />
+                <Select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
+                  <option value="">All teams</option>
+                  {data.teams.map((team) => (
+                    <option key={team.seasonTeamId} value={team.seasonTeamId}>{team.displayName}</option>
+                  ))}
+                </Select>
+                <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as AuctionLotStatus | "")}>
+                  <option value="">All statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="sold">Sold</option>
+                  <option value="unsold">Unsold</option>
+                  <option value="withdrawn">Withdrawn</option>
+                </Select>
+                <Select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value as SeasonPlayerPosition | "")}>
+                  <option value="">All positions</option>
+                  {Object.entries(POSITIONS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </Select>
+                <Select value={iconFilter} onChange={(event) => setIconFilter(event.target.value)}>
+                  <option value="">Icon: all</option>
+                  <option value="true">Icon players</option>
+                  <option value="false">Non-icon players</option>
+                </Select>
+                <Select value={goalkeeperFilter} onChange={(event) => setGoalkeeperFilter(event.target.value)}>
+                  <option value="">Goalkeeper: all</option>
+                  <option value="true">Goalkeepers</option>
+                  <option value="false">Non-goalkeepers</option>
+                </Select>
+              </div>
+
+              {lots.loading ? <Skeleton className="h-40" /> : null}
+              {lots.error ? <ErrorState message={lots.error} onRetry={lots.reload} /> : null}
+              {!lots.loading && !lots.error && !lotRows.length ? (
+                <div className="rounded-2xl border border-dashed border-line bg-glass p-6 text-center text-sm text-muted backdrop-blur-md">
+                  No auction lots match these filters.
+                </div>
+              ) : null}
+
+              <div className="grid gap-3">
+                {lotRows.map((lot) => (
+                  <div
+                    key={lot._id}
+                    className={
+                      "flex flex-col gap-3 rounded-2xl border border-l-4 border-line bg-glass p-4 shadow-glass backdrop-blur-xl " +
+                      "transition-colors hover:bg-glass-strong sm:flex-row sm:items-center sm:justify-between " +
+                      STATUS_EDGE[lot.auctionStatus]
+                    }
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <Avatar name={playerNameFor(lot)} asset={playerImageFor(lot)} className="h-14 w-14 shrink-0 rounded-2xl ring-2 ring-line" />
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-semibold text-fg">{playerNameFor(lot)}</h3>
+                          <Pill className={STATUS_PILL[lot.auctionStatus]}>{lot.auctionStatus}</Pill>
+                          {lot.isIconPlayer ? <Pill className="bg-gold/15 text-gold">Icon</Pill> : null}
+                          {lot.isGoalkeeper ? <Pill className="bg-surface text-muted">Goalkeeper</Pill> : null}
+                        </div>
+                        <p className="mt-1 text-xs text-muted">
+                          {POSITIONS[lot.playerPosition]} · {teamNameFor(lot)}
+                          {lot.jerseyNo ? ` · #${lot.jerseyNo}` : ""}
+                        </p>
                       </div>
-                      <p className="mt-1 text-xs text-muted">
-                        {POSITIONS[lot.playerPosition]} · {teamNameFor(lot)}
-                        {lot.jerseyNo ? ` · #${lot.jerseyNo}` : ""}
-                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <span className="mr-2 font-display text-xl tabular text-fg">
+                        {lot.purchasePrice === null ? "—" : formatCurrency(lot.purchasePrice)}
+                      </span>
+                      {canEditLot(lot) && lot.auctionStatus !== "withdrawn" ? (
+                        <Button size="sm" onClick={() => openEdit(lot)}>Edit lot</Button>
+                      ) : null}
+                      {canManageAuctionLots && lot.auctionStatus === "pending" && !lot.seasonTeamRef ? (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          disabled={saving}
+                          onClick={async () => {
+                            const yes = await confirm({
+                              title: "Remove this pending auction lot?",
+                              description: "The player will become available for nomination again. This action does not delete the player profile.",
+                              confirmLabel: "Remove lot",
+                              danger: true,
+                            });
+                            if (!yes) return;
+                            setSaving(true);
+                            try {
+                              await deletePendingAuctionLot(lot._id);
+                              toast.success("Pending auction lot removed");
+                              refresh();
+                            } catch (error) { toast.error(errorMessage(error)); }
+                            finally { setSaving(false); }
+                          }}
+                        >Remove</Button>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="mr-1 text-sm font-semibold text-fg">
-                      {lot.purchasePrice === null ? "—" : formatCurrency(lot.purchasePrice)}
-                    </span>
-                    {canEditLot(lot) ? <>
-                      {lot.auctionStatus !== "withdrawn" ? <Button size="sm" onClick={() => openEdit(lot)}>Edit lot</Button> : null}
-                    </> : null}
-                    {canManageAuctionLots && lot.auctionStatus === "pending" && !lot.seasonTeamRef ? (
-                        <Button size="sm" variant="danger" disabled={saving} onClick={async () => {
-                          const yes = await confirm({
-                            title: "Remove this pending auction lot?",
-                            description: "The player will become available for nomination again. This action does not delete the player profile.",
-                            confirmLabel: "Remove lot",
-                            danger: true,
-                          });
-                          if (!yes) return;
-                          setSaving(true);
-                          try {
-                            await deletePendingAuctionLot(lot._id);
-                            toast.success("Pending auction lot removed");
-                            refresh();
-                          } catch (error) { toast.error(errorMessage(error)); }
-                          finally { setSaving(false); }
-                        }}>Remove</Button>
-                      ) : null}
-                  </div>
-                </GlassCard>
-              ))}
-            </div>
-          </section>
+                ))}
+              </div>
+            </section>
           ) : null}
         </>
       ) : null}
 
+      {/* ----------------------- Create lot modal ----------------------- */}
       <Modal
         open={nominateOpen}
         title="Create auction lot"
@@ -493,7 +649,7 @@ export function AuctionsPage() {
         onClose={() => setNominateOpen(false)}
       >
         <form
-          className="grid gap-3"
+          className="grid gap-4"
           onSubmit={async (event) => {
             event.preventDefault();
             if (!selectedSeasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
@@ -518,43 +674,53 @@ export function AuctionsPage() {
           }}
         >
           <div className="grid gap-2">
-            <label className="block text-sm text-fg">
-              Search available players
-              <Input className="mt-1" placeholder="Search by player name" value={playerSearch} onChange={(event) => setPlayerSearch(event.target.value)} />
-            </label>
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-line p-2">
+            <Field label="Search available players">
+              <Input placeholder="Search by player name" value={playerSearch} onChange={(event) => setPlayerSearch(event.target.value)} />
+            </Field>
+            <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-line bg-glass p-2 backdrop-blur-md">
               {availablePlayers.map((player) => (
-                <button type="button" key={player._id} onClick={() => setPlayerId(player._id)} aria-pressed={playerId === player._id}
-                  className={"flex w-full items-center gap-3 rounded-xl border p-2 text-left transition " + (playerId === player._id ? "border-accent bg-primary/10" : "border-line hover:bg-surface")}>
+                <button
+                  type="button"
+                  key={player._id}
+                  onClick={() => setPlayerId(player._id)}
+                  aria-pressed={playerId === player._id}
+                  className={
+                    "flex w-full items-center gap-3 rounded-xl border p-2 text-left transition " +
+                    (playerId === player._id ? "border-accent bg-primary/15" : "border-line hover:bg-surface")
+                  }
+                >
                   <Avatar name={player.name} asset={player.profilePic} className="h-10 w-10 shrink-0 rounded-lg" />
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{player.name}</span>
-                  {playerId === player._id ? <span className="text-xs text-accent">Selected</span> : null}
+                  {playerId === player._id ? <Pill className="bg-accent text-accent-fg">Selected</Pill> : null}
                 </button>
               ))}
-              {!availablePlayers.length ? <p className="p-3 text-center text-xs text-muted">{playerRows.length ? "No available players match this search." : "No active players are available."}</p> : null}
+              {!availablePlayers.length ? (
+                <p className="p-3 text-center text-xs text-muted">
+                  {playerRows.length ? "No available players match this search." : "No active players are available."}
+                </p>
+              ) : null}
             </div>
           </div>
-          <label className="block text-sm text-fg">
-            Season position
-            <Select className="mt-1" required value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value as SeasonPlayerPosition | "")}>
+
+          <Field label="Season position">
+            <Select required value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value as SeasonPlayerPosition | "")}>
               <option value="">Select position</option>
               {Object.entries(POSITIONS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </Select>
-          </label>
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input type="checkbox" checked={isIconPlayer} onChange={(event) => setIsIconPlayer(event.target.checked)} />
-            Icon player
-          </label>
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input type="checkbox" checked={isGoalkeeper} onChange={(event) => setIsGoalkeeper(event.target.checked)} />
-            Goalkeeper
-          </label>
-          <div className="rounded-xl border border-line bg-surface p-3 text-xs text-muted">
-            <p>Season Icon Player quota: <strong className="text-fg">{nominatedIconCount}/{iconQuotaLimit}</strong> · {data?.season.auctionSettings.iconPlayerLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
-            <p className="mt-1">Season Goalkeeper quota: <strong className="text-fg">{nominatedGoalkeeperCount}/{goalkeeperQuotaLimit}</strong> · {data?.season.auctionSettings.goalkeeperLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
+          </Field>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <CheckField checked={isIconPlayer} onChange={setIsIconPlayer} label="Icon player" />
+            <CheckField checked={isGoalkeeper} onChange={setIsGoalkeeper} label="Goalkeeper" />
           </div>
+
+          <div className="space-y-1 rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
+            <p>Season Icon Player quota: <strong className="text-fg">{nominatedIconCount}/{iconQuotaLimit}</strong> · {data?.season.auctionSettings.iconPlayerLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
+            <p>Season Goalkeeper quota: <strong className="text-fg">{nominatedGoalkeeperCount}/{goalkeeperQuotaLimit}</strong> · {data?.season.auctionSettings.goalkeeperLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
+          </div>
+
           {players.error ? <p className="text-sm text-danger">{players.error}</p> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="surface" onClick={() => setNominateOpen(false)}>Cancel</Button>
@@ -563,61 +729,59 @@ export function AuctionsPage() {
         </form>
       </Modal>
 
+      {/* ------------------------ Edit lot modal ------------------------ */}
       <Modal
         open={Boolean(editingLot)}
         title="Edit auction lot"
         description="Correct the status, position, icon designation or sale details. Sale limits are recalculated before saving."
         onClose={closeEdit}
       >
-        <form className="grid gap-3" onSubmit={saveLot}>
+        <form className="grid gap-4" onSubmit={saveLot}>
           {editingLot ? (
-            <div className="flex items-center gap-3 rounded-xl bg-surface p-3">
-              <Avatar name={playerNameFor(editingLot)} asset={playerImageFor(editingLot)} className="h-12 w-12 rounded-xl" />
+            <div className="flex items-center gap-3 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md">
+              <Avatar name={playerNameFor(editingLot)} asset={playerImageFor(editingLot)} className="h-14 w-14 rounded-2xl ring-2 ring-line" />
               <div className="min-w-0">
                 <p className="truncate font-semibold text-fg">{playerNameFor(editingLot)}</p>
                 <p className="text-xs text-muted">Lot #{editingLot.lotNumber ?? "—"}</p>
               </div>
             </div>
           ) : null}
-          <label className="block text-sm text-fg">
-            Auction status
-            <Select className="mt-1" value={editStatus} onChange={(event) => setEditStatus(event.target.value as AuctionLotStatus)}>
+
+          <Field label="Auction status">
+            <Select value={editStatus} onChange={(event) => setEditStatus(event.target.value as AuctionLotStatus)}>
               {LOT_STATUSES.map((status) => (
                 <option
-                key={status}
-                value={status}
-                disabled={
-                  editingLot?.auctionStatus === "withdrawn"
-                  || (status === "withdrawn" && editingLot?.auctionStatus !== "sold")
-                  || (data?.season.auctionLifecycleStatus === "not_started" && status !== "pending")
-                }
-              >
-                {status.charAt(0).toUpperCase() + status.slice(1)}
-              </option>
+                  key={status}
+                  value={status}
+                  disabled={
+                    editingLot?.auctionStatus === "withdrawn"
+                    || (status === "withdrawn" && editingLot?.auctionStatus !== "sold")
+                    || (data?.season.auctionLifecycleStatus === "not_started" && status !== "pending")
+                  }
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </option>
               ))}
             </Select>
-          </label>
-          <label className="block text-sm text-fg">
-            Season position
-            <Select className="mt-1" value={editPosition} onChange={(event) => setEditPosition(event.target.value as SeasonPlayerPosition)}>
+          </Field>
+
+          <Field label="Season position">
+            <Select value={editPosition} onChange={(event) => setEditPosition(event.target.value as SeasonPlayerPosition)}>
               {Object.entries(POSITIONS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
             </Select>
-          </label>
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input type="checkbox" checked={editIconPlayer} onChange={(event) => setEditIconPlayer(event.target.checked)} />
-            Icon player
-          </label>
-          <label className="flex items-center gap-2 text-sm text-fg">
-            <input type="checkbox" checked={editGoalkeeper} onChange={(event) => setEditGoalkeeper(event.target.checked)} />
-            Goalkeeper
-          </label>
+          </Field>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <CheckField checked={editIconPlayer} onChange={setEditIconPlayer} label="Icon player" />
+            <CheckField checked={editGoalkeeper} onChange={setEditGoalkeeper} label="Goalkeeper" />
+          </div>
+
           {editStatus === "sold" ? (
             <>
-              <label className="block text-sm text-fg">
-                Assigned season team
-                <Select className="mt-1" required value={editTeamId} onChange={(event) => setEditTeamId(event.target.value)}>
+              <Field label="Assigned season team">
+                <Select required value={editTeamId} onChange={(event) => setEditTeamId(event.target.value)}>
                   <option value="">Select team</option>
                   {data?.teams.map((team) => (
                     <option
@@ -629,26 +793,30 @@ export function AuctionsPage() {
                     </option>
                   ))}
                 </Select>
-              </label>
-              <label className="block text-sm text-fg">
-                Purchase price (INR)
-                <Input className="mt-1" type="number" min="0" step="1" required value={editPrice} onChange={(event) => setEditPrice(event.target.value)} />
-              </label>
-              <label className="block text-sm text-fg">
-                Jersey number (optional)
-                <Input className="mt-1" type="number" min="1" max="99" value={editJersey} onChange={(event) => setEditJersey(event.target.value)} />
-              </label>
+              </Field>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Purchase price (INR)">
+                  <Input type="number" min="0" step="1" required value={editPrice} onChange={(event) => setEditPrice(event.target.value)} />
+                </Field>
+                <Field label="Jersey number (optional)">
+                  <Input type="number" min="1" max="99" value={editJersey} onChange={(event) => setEditJersey(event.target.value)} />
+                </Field>
+              </div>
               {selectedEditTeam ? (
-                <p className="text-xs text-muted">
-                  Estimated balance after this purchase: {formatCurrency(selectedEditTeam.balance + previousPriceOnSelectedTeam - (Number(editPrice) || 0))}
+                <p className="rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
+                  Estimated balance after this purchase:{" "}
+                  <strong className="tabular text-fg">
+                    {formatCurrency(selectedEditTeam.balance + previousPriceOnSelectedTeam - (Number(editPrice) || 0))}
+                  </strong>
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="rounded-lg bg-surface p-3 text-xs text-muted">
+            <p className="rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
               Withdrawn players retain their original team and sale details as history. Sold players can return to Pending or Unsold only if their team has no fixtures.
             </p>
           )}
+
           <div className="flex justify-end gap-2">
             <Button type="button" variant="surface" onClick={closeEdit}>Cancel</Button>
             <Button type="submit" disabled={saving || (editStatus === "sold" && (!editTeamId || editPrice.trim() === ""))}>
