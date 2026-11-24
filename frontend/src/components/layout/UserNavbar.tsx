@@ -50,7 +50,7 @@ export function UserNavbar() {
                   "rounded-full px-3 py-2 text-sm font-medium",
                   active
                     ? "bg-accent text-accent-fg"
-                    : "text-muted hover:text-fg",
+                    : "text-muted hover:bg-accent/20 hover:text-fg",
                 )}
               >
                 {item.label}

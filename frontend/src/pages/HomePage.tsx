@@ -43,6 +43,7 @@ function mapStandings(groups: NonNullable<Awaited<ReturnType<typeof getSeasonSta
 export function HomePage() {
   const { isAdmin } = useAuth();
   const dashboard = useServiceQuery(() => getDashboardSummary(), []);
+  console.log('dashboard :', dashboard)
   const seasons = useServiceQuery(() => getSeasons(), []);
   const activeSeason = seasons.data?.data.find((season) => season.status === "active") ?? seasons.data?.data[0];
   const seasonId = activeSeason?._id ?? "";
@@ -88,11 +89,11 @@ export function HomePage() {
     <PageContainer className="pb-4">
       <section className="relative overflow-hidden rounded-card border border-line">
         <div className="pitch-stripes absolute inset-0" /><div className="pitch-lines absolute inset-0" />
-        <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/90 to-bg/30" />
+        <div className="absolute inset-0 bg-linear-to-r from-bg via-bg/90 to-bg/30" />
         <div className="relative grid min-w-0 gap-8 p-6 sm:p-10 lg:grid-cols-[1.2fr_0.9fr] lg:items-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Village football · Cherukunnu</p>
-            <h1 className="mt-3 max-w-xl font-display text-5xl leading-none text-fg sm:text-7xl">{data?.tournamentName ?? activeSeason?.name ?? "CSL Football Tournament"}</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">CSL Football · Cherukunnu</p>
+            <h1 className="mt-3 max-w-xl font-display text-5xl leading-none text-fg sm:text-7xl">{activeSeason?.name ?? data?.tournamentName ?? "CSL Football Tournament"}</h1>
             <p className="mt-4 max-w-lg text-sm leading-6 text-fg/90">Six teams, one community and every moment of the tournament in one place.</p>
             <p className="mt-3 inline-flex items-center gap-2 text-sm text-gold"><CalendarRange className="h-4 w-4" />{data ? formatDateRange(data.startDate, data.endDate) : activeSeason?.startDate ? formatDateRange(activeSeason.startDate, activeSeason.endDate ?? activeSeason.startDate) : "Season dates"}</p>
             <div className="mt-6 flex flex-wrap gap-2"><Link to="/matches"><Button variant="surface">Fixtures & results</Button></Link><Link to="/standings"><Button>View standings</Button></Link></div>

@@ -39,7 +39,7 @@ export function MobileMenu({
   if (!open || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] lg:hidden">
+    <div className="fixed inset-0 z-100 lg:hidden">
       {/* The backdrop is a separate click target, so clicks outside the panel close it. */}
       <button
         type="button"
