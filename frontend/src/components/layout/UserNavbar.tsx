@@ -104,8 +104,10 @@ export function UserNavbar() {
           )}
           <IconButton
             className="lg:hidden"
-            aria-label="Open menu"
-            onClick={() => setOpen(true)}
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="user-mobile-menu"
+            onClick={() => setOpen((current) => !current)}
           >
             <Menu className="h-5 w-5" />
           </IconButton>
