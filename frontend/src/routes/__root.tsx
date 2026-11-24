@@ -1,4 +1,5 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
+import type { ErrorComponentProps } from "@tanstack/react-router";
 import { ToastProvider } from "@/components/ui/ToastProvider";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -21,8 +22,12 @@ function RootComponent() {
 }
 
 
-function RootError({ error, reset }: { error: Error; reset: () => void }) {
-  return <RouteErrorPage error={error} reset={reset} />;
+function RootError({ error, reset }: ErrorComponentProps) {
+  const normalizedError = error instanceof Error
+    ? error
+    : new Error("An unexpected application error occurred", { cause: error });
+
+  return <RouteErrorPage error={normalizedError} reset={reset} />;
 }
 
 function RootNotFound() {
