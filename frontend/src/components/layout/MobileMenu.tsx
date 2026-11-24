@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { LogIn, LogOut, X } from "lucide-react";
 import { NAV_ITEMS } from "@/components/layout/userNavItems";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,8 @@ export function MobileMenu({
   onClose: () => void;
 }) {
   const { isAuthenticated, isAdmin } = useAuth();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const hash = useRouterState({ select: (state) => state.location.hash });
 
   useEffect(() => {
     if (!open) return;
@@ -62,22 +64,32 @@ export function MobileMenu({
         </div>
 
         <nav className="mt-5 flex flex-col gap-1" aria-label="Mobile">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              to={item.to}
-              hash={"hash" in item ? item.hash : undefined}
-              onClick={onClose}
-              className={cn(
-                "rounded-card border border-transparent px-3 py-1.5 text-lg font-medium text-fg transition-colors hover:border-line hover:bg-glass",
+          {NAV_ITEMS.map((item) => {
+            const active =
+              "hash" in item && item.hash
+                ? pathname === "/" && hash === item.hash
+                : item.to === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.to);
+
+            return (
+              <Link
+                key={item.label}
+                to={item.to}
+                hash={"hash" in item ? item.hash : undefined}
+                onClick={onClose}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "rounded-card border border-transparent px-3 py-1.5 text-lg font-medium transition-colors",
                   active
-                    ? "bg-accent text-accent-fg"
-                    : "text-muted hover:text-fg",
-              )}
-            >
-              {item.label}
-            </Link>
-          ))}
+                    ? "border-accent/30 bg-accent text-accent-fg shadow-sm"
+                    : "text-muted hover:border-line hover:bg-glass hover:text-fg",
+                )}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="mt-auto flex flex-col gap-2 border-t border-line pt-5">
