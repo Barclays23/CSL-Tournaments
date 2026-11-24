@@ -6,6 +6,7 @@ import { NAV_ITEMS } from "@/components/layout/userNavItems";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/cn";
 
 export function MobileMenu({
   open,
@@ -67,7 +68,12 @@ export function MobileMenu({
               to={item.to}
               hash={"hash" in item ? item.hash : undefined}
               onClick={onClose}
-              className="rounded-card border border-transparent px-3 py-1.5 text-lg font-medium text-fg transition-colors hover:border-line hover:bg-glass"
+              className={cn(
+                "rounded-card border border-transparent px-3 py-1.5 text-lg font-medium text-fg transition-colors hover:border-line hover:bg-glass",
+                  active
+                    ? "bg-accent text-accent-fg"
+                    : "text-muted hover:text-fg",
+              )}
             >
               {item.label}
             </Link>
