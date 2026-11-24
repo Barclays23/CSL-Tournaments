@@ -1,13 +1,11 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "@tanstack/react-router";
 import { LogIn, LogOut, X } from "lucide-react";
 import { NAV_ITEMS } from "@/components/layout/userNavItems";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
 import { useAuth } from "@/contexts/AuthContext";
-
-
-
 
 export function MobileMenu({
   open,
@@ -35,30 +33,48 @@ export function MobileMenu({
     };
   }, [open, onClose]);
 
-  if (!open) return null;
-  
-  return (
-    <div className="fixed inset-0 z-50 backdrop-blur-md lg:hidden">
-      <div className="flex h-full flex-col p-5">
-        <div className="flex justify-end">
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] lg:hidden">
+      {/* The backdrop is a separate click target, so clicks outside the panel close it. */}
+      <button
+        type="button"
+        aria-label="Close navigation menu"
+        tabIndex={-1}
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      />
+
+      <aside
+        id="user-mobile-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile navigation"
+        className="absolute inset-y-0 right-0 z-10 flex w-[min(22rem,88vw)] max-w-full flex-col overflow-y-auto overscroll-y-contain border-l border-line bg-surface p-5 shadow-glass"
+      >
+        <div className="flex items-center justify-between border-b border-line pb-4">
+          <span className="font-display text-xl text-fg">CSL Menu</span>
           <IconButton aria-label="Close menu" onClick={onClose}>
             <X className="h-5 w-5" />
           </IconButton>
         </div>
-        <nav className="mt-6 flex flex-col gap-2" aria-label="Mobile">
+
+        <nav className="mt-5 flex flex-col gap-2" aria-label="Mobile">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.label}
               to={item.to}
               hash={"hash" in item ? item.hash : undefined}
               onClick={onClose}
-              className="rounded-card px-3 py-3 text-lg font-medium text-fg"
+              className="rounded-card border border-transparent px-3 py-3 text-lg font-medium text-fg transition-colors hover:border-line hover:bg-glass"
             >
               {item.label}
             </Link>
           ))}
         </nav>
-        <div className="mt-auto flex flex-col gap-2">
+
+        <div className="mt-auto flex flex-col gap-2 border-t border-line pt-5">
           {isAdmin ? (
             <Link to="/admin/dashboard" onClick={onClose}>
               <Button variant="surface" className="w-full">
@@ -82,7 +98,8 @@ export function MobileMenu({
             </Link>
           )}
         </div>
-      </div>
-    </div>
+      </aside>
+    </div>,
+    document.body,
   );
 }
