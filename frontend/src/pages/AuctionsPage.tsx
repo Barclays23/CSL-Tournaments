@@ -170,6 +170,7 @@ export function AuctionsPage() {
   const players = useServiceQuery(() => getPlayers({ limit: 100, status: "active" }), []);
 
   const data = summary.data?.data;
+  const selectedSeason = seasons.data?.data.find((season) => season._id === selectedSeasonId) ?? null;
   const lotRows = lots.data?.data ?? [];
   const nominatedLots = (data?.lots ?? []).filter((lot) => lot.auctionStatus !== "withdrawn");
   const registeredTeamCount = (data?.teams ?? []).filter((team) => team.status === "registered" || team.status === "active").length;
@@ -236,7 +237,7 @@ export function AuctionsPage() {
     setEditStatus(lot.auctionStatus);
     setEditPosition(lot.playerPosition);
     setEditIconPlayer(lot.isIconPlayer);
-    setEditGoalkeeper(lot.isGoalkeeper);
+    setEditGoalkeeper(lot.playerPosition === "goalkeeper");
     setEditTeamId(assignedTeamId || data?.teams[0]?.seasonTeamId || "");
     setEditPrice(lot.purchasePrice === null ? "" : String(lot.purchasePrice));
     setEditJersey(lot.jerseyNo === null ? "" : String(lot.jerseyNo));
@@ -411,6 +412,24 @@ export function AuctionsPage() {
         </div>
       </div>
 
+      {data ? (
+        <GlassCard className="relative mb-5 overflow-hidden border-accent/20 p-5 sm:p-6">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/15 via-transparent to-accent/10" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Selected season</p>
+              <h2 className="mt-1 font-display text-3xl text-fg sm:text-4xl">{data.season.name}</h2>
+              <p className="mt-1 text-sm text-muted">Edition {selectedSeason?.seasonNumber ?? "—"} · {data.season.year}</p>
+              <p className="mt-2 text-xs text-muted">{selectedSeason?.startDate?.slice(0, 10) ?? "Start date not set"} — {selectedSeason?.endDate?.slice(0, 10) ?? "End date not set"}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Pill className="bg-surface text-fg">{data.season.status}</Pill>
+              <Pill className="bg-accent/10 text-fg">{data.season.auctionLifecycleStatus === "not_started" ? "Auction not started" : data.season.auctionLifecycleStatus === "in_progress" ? "Auction in progress" : "Auction completed"}</Pill>
+            </div>
+          </div>
+        </GlassCard>
+      ) : null}
+
       {isAdmin && data ? (
         <p className="mb-5 rounded-2xl border border-line bg-glass px-4 py-3 text-sm text-muted backdrop-blur-md" role="status">
           {statusMessage}
@@ -441,9 +460,15 @@ export function AuctionsPage() {
             <StatTile label="Sold value" value={formatCurrency(data.totals.totalSoldValue)} />
           </div>
 
-          <div className="mt-6">
-            <Tabs
-              value={auctionSection}
+          <div className="mt-6 rounded-2xl border border-line bg-surface/70 p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold text-fg">Choose a view</p>
+                <p className="text-xs text-muted">Switch between auction lots and team budgets/squads.</p>
+              </div>
+              <Pill className="bg-primary/10 text-accent">View switcher</Pill>
+            </div>
+            <Tabs variant="switcher" ariaLabel="Auction page view" value={auctionSection}
               onChange={(value) => setAuctionSection(value as "lots" | "squads")}
               tabs={[
                 { value: "lots", label: "Auction lots" },
@@ -459,10 +484,13 @@ export function AuctionsPage() {
               <div className="grid gap-4 lg:grid-cols-2">
                 {data.teams.map((team) => (
                   <GlassCard key={team.seasonTeamId} className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="font-display text-2xl text-fg">{team.displayName}</h3>
-                        <Pill className="mt-1 bg-surface text-muted">{team.status}</Pill>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar name={team.displayName} asset={team.logoSnapshot} className="h-14 w-14 shrink-0 rounded-xl ring-2 ring-line" />
+                        <div className="min-w-0">
+                          <h3 className="font-display text-2xl text-fg">{team.displayName}</h3>
+                          <Pill className="mt-1 bg-surface text-muted">{team.status}</Pill>
+                        </div>
                       </div>
                       <div className="text-right">
                         <p className="font-display text-xl tabular text-fg">
@@ -703,7 +731,7 @@ export function AuctionsPage() {
           </div>
 
           <Field label="Season position">
-            <Select required value={playerPosition} onChange={(event) => setPlayerPosition(event.target.value as SeasonPlayerPosition | "")}>
+            <Select required value={playerPosition} onChange={(event) => { const next = event.target.value as SeasonPlayerPosition | ""; setPlayerPosition(next); setIsGoalkeeper(next === "goalkeeper"); }}>
               <option value="">Select position</option>
               {Object.entries(POSITIONS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
@@ -713,7 +741,7 @@ export function AuctionsPage() {
 
           <div className="grid gap-2 sm:grid-cols-2">
             <CheckField checked={isIconPlayer} onChange={setIsIconPlayer} label="Icon player" />
-            <CheckField checked={isGoalkeeper} onChange={setIsGoalkeeper} label="Goalkeeper" />
+            <CheckField checked={isGoalkeeper} onChange={(checked) => { setIsGoalkeeper(checked); setPlayerPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "" : current); }} label="Goalkeeper" />
           </div>
 
           <div className="space-y-1 rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
@@ -766,7 +794,7 @@ export function AuctionsPage() {
           </Field>
 
           <Field label="Season position">
-            <Select value={editPosition} onChange={(event) => setEditPosition(event.target.value as SeasonPlayerPosition)}>
+            <Select value={editPosition} onChange={(event) => { const next = event.target.value as SeasonPlayerPosition; setEditPosition(next); setEditGoalkeeper(next === "goalkeeper"); }}>
               {Object.entries(POSITIONS).map(([value, label]) => (
                 <option key={value} value={value}>{label}</option>
               ))}
@@ -775,7 +803,7 @@ export function AuctionsPage() {
 
           <div className="grid gap-2 sm:grid-cols-2">
             <CheckField checked={editIconPlayer} onChange={setEditIconPlayer} label="Icon player" />
-            <CheckField checked={editGoalkeeper} onChange={setEditGoalkeeper} label="Goalkeeper" />
+            <CheckField checked={editGoalkeeper} onChange={(checked) => { setEditGoalkeeper(checked); setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "midfielder" : current); }} label="Goalkeeper" />
           </div>
 
           {editStatus === "sold" ? (

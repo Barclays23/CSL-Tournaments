@@ -35,6 +35,8 @@ export class AuctionLotService implements IAuctionLotService{
  }
  async nominate(input:NominatePlayerDto):Promise<AuctionLotResponseDto>{
   this.id(input.seasonId);this.id(input.playerId);
+  const isGoalkeeper=input.playerPosition==="goalkeeper";
+  if(input.isGoalkeeper!==undefined&&input.isGoalkeeper!==isGoalkeeper)throw new AppError("Goalkeeper designation must match the selected Goalkeeper position.",422,"GOALKEEPER_POSITION_MISMATCH");
   const player=await PlayerModel.findById(input.playerId).lean().exec();
   if(!player||player.status!=="active")throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
   const session=await mongoose.startSession();let created:AuctionLotEntity|null=null;
@@ -59,9 +61,9 @@ export class AuctionLotService implements IAuctionLotService{
      AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isIconPlayer:true}).session(session).exec(),
      AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isGoalkeeper:true}).session(session).exec(),
     ]);
-    const quotaBlockers=getAuctionNominationQuotaBlockers(season.auctionSettings,{iconPlayers,goalkeepers},{isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper});
+    const quotaBlockers=getAuctionNominationQuotaBlockers(season.auctionSettings,{iconPlayers,goalkeepers},{isIconPlayer:!!input.isIconPlayer,isGoalkeeper});
     if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,quotaBlockers[0].includes("Icon Player")?"SEASON_ICON_PLAYER_LIMIT":"SEASON_GOALKEEPER_LIMIT");
-    created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper:!!input.isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
+    created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
    });
   }catch(error){
    if((error as {code?:number}).code===11000)throw new AppError("This player is already nominated in this season",409,"DUPLICATE_SEASON_PLAYER");
@@ -130,7 +132,8 @@ export class AuctionLotService implements IAuctionLotService{
     }
     const nextPosition=input.playerPosition??lot.playerPosition;
     const nextIcon=input.isIconPlayer??lot.isIconPlayer;
-    const nextGoalkeeper=input.isGoalkeeper??lot.isGoalkeeper;
+    const nextGoalkeeper=nextPosition==="goalkeeper";
+    if(input.isGoalkeeper!==undefined&&input.isGoalkeeper!==nextGoalkeeper)throw new AppError("Goalkeeper designation must match the selected Goalkeeper position.",422,"GOALKEEPER_POSITION_MISMATCH");
     const [seasonIconPlayers,seasonGoalkeepers]=await Promise.all([
      AuctionLotModel.countDocuments({seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isIconPlayer:true,_id:{$ne:lot._id}}).session(session).exec(),
      AuctionLotModel.countDocuments({seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isGoalkeeper:true,_id:{$ne:lot._id}}).session(session).exec(),

@@ -207,3 +207,24 @@ test("activation asks the admin to remove every unused group manually", async ()
       && error.fieldErrors?.emptyGroups.includes("Group C") === true,
   );
 });
+
+
+test("Upcoming readiness treats a missing groupStageEnabled flag as enabled and rejects unassigned teams", async () => {
+  const instance = service({
+    countEligibleSeasonTeams: async () => 4,
+    getGroupReadiness: async () => ({ groupCount: 1, unassignedTeamCount: 1, undersizedGroups: [], emptyGroups: [] }),
+  });
+  const legacySeason = {
+    _id: id,
+    status: "draft",
+    auctionLifecycleStatus: "not_started",
+    auctionSettings: { seasonTeamCount: 6 },
+    pointsRules: { win: 3, draw: 1, loss: 0 },
+    standingsTieBreakers: ["points"],
+    matchRules: { groupStageDrawAllowed: true },
+  };
+  await assert.rejects(
+    () => (instance as unknown as { validateReadiness: (season: unknown, requireAuctionCompleted: boolean) => Promise<void> }).validateReadiness(legacySeason, false),
+    (error: unknown) => error instanceof AppError && error.errorCode === "SEASON_GROUPS_INCOMPLETE",
+  );
+});

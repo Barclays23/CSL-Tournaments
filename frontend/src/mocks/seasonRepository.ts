@@ -9,6 +9,7 @@ import type { MockAuctionLot, MockSeason, MockSeasonAward, MockSeasonMatch, Mock
 import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 import { createMockObjectId } from "@/mocks/objectId";
+import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
   assertMockShootoutScore,
@@ -27,6 +28,11 @@ function seasonById(db: SeasonMockDatabase, id: string): MockSeason {
   const season = db.seasons.find((item) => item._id === id);
   if (!season) return fail(404, "Season not found");
   return season;
+}
+function assertActiveSeasonForMatchOperations(season: MockSeason, action: string): void {
+  if (season.status !== "active") {
+    fail(409, `${action} is available only while the season is Active.`, "SEASON_NOT_ACTIVE");
+  }
 }
 function presentAward(db: SeasonMockDatabase, award: MockSeasonAward): SeasonAward {
   return {
@@ -497,7 +503,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived season matches are read-only", "SEASON_CLOSED");
+    assertActiveSeasonForMatchOperations(season, "Match status changes");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
 
@@ -571,7 +577,7 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
-    if (!["upcoming", "active"].includes(season.status)) fail(409, "Only Upcoming or Active season matches can be rescheduled", "SEASON_CLOSED");
+    assertActiveSeasonForMatchOperations(season, "Match rescheduling");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled", "MATCH_NOT_POSTPONED");
@@ -624,7 +630,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons cannot be corrected", "SEASON_CLOSED");
+    assertActiveSeasonForMatchOperations(season, "Completed match corrections");
     if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season", "SEASON_RULES_UNAVAILABLE");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
@@ -712,7 +718,7 @@ export const seasonPreviewRepository = {
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction and validate every team roster before creating or changing fixtures.", "AUCTION_NOT_COMPLETED");
-    if (!["upcoming", "active"].includes(season.status)) fail(409, "Fixtures can only be created for Upcoming or Active seasons");
+    assertActiveSeasonForMatchOperations(season, "Fixture creation");
     if (!season.matchRules) fail(409, "Match rules are unavailable for this historical season");
     if (db.matches.some((match) => match.seasonRef === seasonId && match.matchNumber === input.matchNumber)) {
       fail(409, "Match number already exists in this season");
@@ -723,6 +729,21 @@ export const seasonPreviewRepository = {
     if (!home || !away) return fail(422, "Both teams must be participating in this season");
     if (["withdrawn", "eliminated", "completed"].includes(home.status) || ["withdrawn", "eliminated", "completed"].includes(away.status)) {
       return fail(422, "Both teams must be participating in this season");
+    }
+    if (season.groupStageEnabled !== false) {
+      const participatingTeams = db.seasonTeams.filter((team) =>
+        team.seasonRef === seasonId && !["withdrawn", "eliminated", "completed"].includes(team.status),
+      );
+      const groupBlockers = getMockFixtureGroupReadinessBlockers({
+        groupStageEnabled: season.groupStageEnabled,
+        groups: db.groups.filter((group) => group.seasonRef === seasonId),
+        participatingTeams,
+      });
+      if (groupBlockers.length) {
+        fail(409, "Group-stage setup is incomplete: " + groupBlockers.join("; "), "SEASON_GROUPS_INCOMPLETE", {
+          groups: groupBlockers.join("; "),
+        });
+      }
     }
     if (input.stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
     validateMockPair(db, season, input.stage, input.stage === "group" ? input.groupRef ?? null : null, input.roundNumber, input.homeSeasonTeamRef, input.awaySeasonTeamRef);
@@ -775,7 +796,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    assertActiveSeasonForMatchOperations(season, "Fixture editing");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     if (match.status === "completed") fail(409, "Completed fixtures can only be changed through the audited correction workflow.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
@@ -860,9 +881,14 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found");
+    if (hasMockMatchIncidents(match)) {
+      fail(409, "This match cannot be deleted because it contains recorded goals, cards, penalty-shootout events or correction history.", "MATCH_HAS_EVENTS");
+    }
+    assertActiveSeasonForMatchOperations(season, "Fixture deletion");
     if (season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction before deleting fixtures.", "AUCTION_NOT_COMPLETED");
-    if (!["upcoming", "active"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
-    const index = db.matches.findIndex((match) => match._id === matchId && match.seasonRef === seasonId);
+    const index = db.matches.findIndex((item) => item._id === matchId && item.seasonRef === seasonId);
     if (index < 0) return fail(404, "Season fixture not found");
     db.matches.splice(index, 1);
     commitSeasonDb(db);
@@ -872,7 +898,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
@@ -897,7 +923,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
@@ -924,7 +950,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only");
+    assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
@@ -940,7 +966,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
@@ -958,7 +984,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
@@ -979,7 +1005,7 @@ export const seasonPreviewRepository = {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
-    if (["completed", "archived"].includes(season.status)) fail(409, "Completed and archived seasons are read-only", "SEASON_CLOSED");
+    assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
@@ -1484,6 +1510,8 @@ export const seasonPreviewRepository = {
     if (!["upcoming", "active"].includes(season.status) || !["not_started", "in_progress"].includes(season.auctionLifecycleStatus)) fail(409, "Auction nominations are available only before or during an Upcoming or Active season auction.", "SEASON_NOT_AUCTION_READY");
     if (season.status === "completed" || season.status === "archived") fail(409, "Auction is closed for this season");
     const player = playerById(db, input.playerId);
+    const isGoalkeeper = input.playerPosition === "goalkeeper";
+    if (input.isGoalkeeper !== undefined && input.isGoalkeeper !== isGoalkeeper) fail(422, "Goalkeeper designation must match the selected Goalkeeper position.", "GOALKEEPER_POSITION_MISMATCH");
     if (player.status !== "active") fail(422, "Only active players can be nominated");
     if (db.auctionLots.some((lot) => lot.seasonRef === season._id && lot.playerRef === player._id)) fail(409, "This player has already been nominated in this season");
     const seasonLots = db.auctionLots.filter((lot) => lot.seasonRef === season._id && lot.auctionStatus !== "withdrawn");
@@ -1492,7 +1520,7 @@ export const seasonPreviewRepository = {
     const lot: MockAuctionLot = {
       _id: newId(), seasonRef: season._id, seasonTeamRef: null, playerRef: player._id,
       lotNumber: seasonLots.length + 1, auctionStatus: "pending", purchasePrice: null,
-      playerPosition: input.playerPosition, isIconPlayer: input.isIconPlayer, isGoalkeeper: Boolean(input.isGoalkeeper),
+      playerPosition: input.playerPosition, isIconPlayer: input.isIconPlayer, isGoalkeeper,
       jerseyNo: null, nominatedAt: date, soldAt: null, createdAt: date, updatedAt: date,
     };
     db.auctionLots.push(lot);
@@ -1552,7 +1580,8 @@ export const seasonPreviewRepository = {
 
     const nextPosition = input.playerPosition ?? lot.playerPosition;
     const nextIconStatus = input.isIconPlayer ?? lot.isIconPlayer;
-    const nextGoalkeeperStatus = input.isGoalkeeper ?? lot.isGoalkeeper;
+    const nextGoalkeeperStatus = nextPosition === "goalkeeper";
+    if (input.isGoalkeeper !== undefined && input.isGoalkeeper !== nextGoalkeeperStatus) fail(422, "Goalkeeper designation must match the selected Goalkeeper position.", "GOALKEEPER_POSITION_MISMATCH");
     if (input.auctionStatus === "sold") {
       const selectedSeasonTeamId = input.seasonTeamId ?? (lot.auctionStatus === "sold" ? lot.seasonTeamRef : null);
       const purchasePrice = input.purchasePrice ?? (lot.auctionStatus === "sold" ? lot.purchasePrice : null);

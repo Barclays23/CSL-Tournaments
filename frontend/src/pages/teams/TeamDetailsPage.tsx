@@ -403,7 +403,7 @@ export function TeamDetailsPage({ teamId, adminMode = false }: { teamId: string;
                     >
                       <Avatar
                         name={player.player.name}
-                        asset={player.profilePic}
+                        asset={player.player.profilePic}
                         className="h-14 w-14 shrink-0 rounded-2xl ring-2 ring-line transition group-hover:ring-accent"
                       />
                       <div className="min-w-0 flex-1">
@@ -440,7 +440,7 @@ export function TeamDetailsPage({ teamId, adminMode = false }: { teamId: string;
                 <div className="space-y-2">
                   {data.managers.map((manager) => (
                     <div key={manager._id} className="flex items-center gap-3 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md">
-                      <Avatar name={manager.name} className="h-10 w-10 rounded-xl" />
+                      <Avatar name={manager.name} asset={manager.profilePic} className="h-10 w-10 rounded-xl" />
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-fg">{manager.name}</p>
                         <p className="text-xs text-muted">{manager.role ?? "Manager"}</p>

@@ -349,7 +349,7 @@ export class SeasonService implements ISeasonService {
     if (eligibleTeamCount > season.auctionSettings.seasonTeamCount) {
       throw new AppError("Registered participating teams exceed the configured team limit", 422, "SEASON_TEAM_LIMIT");
     }
-    if (season.groupStageEnabled) {
+    if (season.groupStageEnabled !== false) {
       const readiness = await this.repo.getGroupReadiness(String(season._id));
       const errors: Record<string, string> = {};
       if (readiness.groupCount === 0) errors.groups = "Create at least one season-scoped Group";
