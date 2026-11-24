@@ -460,13 +460,9 @@ export function AuctionsPage() {
             <StatTile label="Sold value" value={formatCurrency(data.totals.totalSoldValue)} />
           </div>
 
-          <div className="mt-6 rounded-2xl border border-line bg-surface/70 p-3">
+          <div className="mt-6 rounded-2xl borde border-lin bg-surfac p-1">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <p className="text-sm font-semibold text-fg">Choose a view</p>
-                <p className="text-xs text-muted">Switch between auction lots and team budgets/squads.</p>
-              </div>
-              <Pill className="bg-primary/10 text-accent">View switcher</Pill>
+              <Pill className="bg-primary/10 text-accent">Switch Tabs</Pill>
             </div>
             <Tabs variant="switcher" ariaLabel="Auction page view" value={auctionSection}
               onChange={(value) => setAuctionSection(value as "lots" | "squads")}
@@ -486,7 +482,7 @@ export function AuctionsPage() {
                   <GlassCard key={team.seasonTeamId} className="p-5">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
-                        <Avatar name={team.displayName} asset={team.logoSnapshot} className="h-14 w-14 shrink-0 rounded-xl ring-2 ring-line" />
+                        <Avatar name={team.displayName} asset={team.logoSnapshot} className="h-14 w-14 shrink-0 rounded-xl ring-0 ring-line" />
                         <div className="min-w-0">
                           <h3 className="font-display text-2xl text-fg">{team.displayName}</h3>
                           <Pill className="mt-1 bg-surface text-muted">{team.status}</Pill>
@@ -543,7 +539,7 @@ export function AuctionsPage() {
                             {lot.auctionStatus === "withdrawn" ? "Withdrawn" : "Sold"}
                           </Pill>
                           {canEditAuction && lot.auctionStatus !== "withdrawn" ? (
-                            <Button size="sm" variant="ghost" onClick={() => openEdit(lot)}>Edit</Button>
+                            <Button size="sm" variant="accent" onClick={() => openEdit(lot)}>Edit</Button>
                           ) : null}
                         </div>
                       )) : (
