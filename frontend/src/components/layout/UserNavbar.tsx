@@ -36,7 +36,7 @@ export function UserNavbar() {
             <Link to="/logout" onClick={()=>setAccountOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-danger hover:bg-danger/10"><LogOut className="h-4 w-4" />Log out</Link>
           </div> : null}
         </div> : <Link to="/login" className="hidden sm:inline-flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-semibold text-accent-fg"><LogIn className="h-4 w-4" />Login</Link>}
-        <IconButton className="lg:hidden" aria-label="Open menu" onClick={()=>setOpen(true)}><Menu className="h-5 w-5" /></IconButton>
+        <IconButton className="lg:hidden" aria-label="Open menu" aria-expanded={open} aria-controls="user-mobile-menu" onClick={()=>setOpen(true)}><Menu className="h-5 w-5" /></IconButton>
       </div>
     </div>
     <MobileMenu open={open} onClose={()=>setOpen(false)} />
