@@ -84,12 +84,12 @@ export function HomePage() {
     [historicalSeason?._id],
   );
 
-  return <div>
+  return <div className="min-w-0 w-full">
     <PageContainer className="pb-4">
       <section className="relative overflow-hidden rounded-card border border-line">
         <div className="pitch-stripes absolute inset-0" /><div className="pitch-lines absolute inset-0" />
         <div className="absolute inset-0 bg-gradient-to-r from-bg via-bg/90 to-bg/30" />
-        <div className="relative grid gap-8 p-6 sm:p-10 lg:grid-cols-[1.2fr_0.9fr] lg:items-center">
+        <div className="relative grid min-w-0 gap-8 p-6 sm:p-10 lg:grid-cols-[1.2fr_0.9fr] lg:items-center">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">Village football · Cherukunnu</p>
             <h1 className="mt-3 max-w-xl font-display text-5xl leading-none text-fg sm:text-7xl">{data?.tournamentName ?? activeSeason?.name ?? "CSL Football Tournament"}</h1>
@@ -116,7 +116,7 @@ export function HomePage() {
         <StatCard icon={Users} label="Active players" value={data.activePlayers} />
       </section> : null}
 
-      <section className="mt-10 grid gap-8 lg:grid-cols-2">
+      <section className="mt-10 grid min-w-0 gap-8 lg:grid-cols-2">
         <div><div className="mb-4 flex items-end justify-between"><h2 className="font-display text-3xl text-fg">Upcoming fixtures</h2><Link to="/matches" className="text-sm font-semibold text-accent">All fixtures</Link></div>
           <div className="grid gap-3">{upcoming.map((match)=><SeasonFixtureCard key={match._id} match={match} />)}{!matches.loading && !upcoming.length ? <p className="text-sm text-muted">No upcoming fixtures.</p> : null}</div>
         </div>
@@ -127,7 +127,7 @@ export function HomePage() {
 
       <section className="mt-10">
         <div className="mb-4 flex items-end justify-between"><h2 className="font-display text-3xl text-fg">Standings preview</h2><Link to="/standings" className="text-sm font-semibold text-accent">Full standings</Link></div>
-        {standings.loading ? <Skeleton className="h-48" /> : standings.error ? <ErrorState message={standings.error} onRetry={standings.reload} /> : standingsGroups.length ? <div className="grid gap-4 md:grid-cols-2">{standingsGroups.slice(0,2).map((group)=><GlassCard key={group.groupName} className="p-3"><h3 className="mb-2 font-display text-2xl text-fg">{group.groupName}</h3><StandingsTable group={{...group,rows:group.rows.slice(0,3)}} /></GlassCard>)}</div> : <p className="text-sm text-muted">Standings will appear when the season data is available.</p>}
+        {standings.loading ? <Skeleton className="h-48" /> : standings.error ? <ErrorState message={standings.error} onRetry={standings.reload} /> : standingsGroups.length ? <div className="grid min-w-0 gap-4 md:grid-cols-2">{standingsGroups.slice(0,2).map((group)=><GlassCard key={group.groupName} className="min-w-0 max-w-full p-3"><h3 className="mb-2 font-display text-2xl text-fg">{group.groupName}</h3><StandingsTable group={{...group,rows:group.rows.slice(0,3)}} /></GlassCard>)}</div> : <p className="text-sm text-muted">Standings will appear when the season data is available.</p>}
       </section>
 
       <section className="mt-10">

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { LogIn, LogOut, X } from "lucide-react";
 import { NAV_ITEMS } from "@/components/layout/userNavItems";
@@ -16,6 +17,24 @@ export function MobileMenu({
   onClose: () => void;
 }) {
   const { isAuthenticated, isAdmin } = useAuth();
+
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
+
   if (!open) return null;
   
   return (

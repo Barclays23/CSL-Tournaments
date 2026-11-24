@@ -121,10 +121,10 @@ export function StandingsPage() {
       <div className="mt-5">
         {tab === "groups" ? (
           standings.loading ? <Skeleton className="h-64" /> : standings.error ? <ErrorState message={standings.error} onRetry={standings.reload} /> : groups.length ? (
-            <div className="grid gap-4">
+            <div className="grid min-w-0 gap-4">
               {groups.map((group) => (
-                <GlassCard key={group.groupName} className="p-4">
-                  <div className="mb-2 flex items-center justify-between">
+                <GlassCard key={group.groupName} className="min-w-0 max-w-full p-4">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <h2 className="font-display text-3xl text-fg">{group.groupName}</h2>
                     <p className="text-xs text-muted">Highlighted sides are in the top two</p>
                   </div>
@@ -134,7 +134,7 @@ export function StandingsPage() {
             </div>
           ) : <p className="py-8 text-center text-sm text-muted">No standings are available for this season yet.</p>
         ) : scorers.loading ? <Skeleton className="h-64" /> : scorers.error ? <ErrorState message={scorers.error} onRetry={scorers.reload} /> : (
-          <div className="grid gap-3">
+          <div className="grid min-w-0 gap-3">
             {topScorers.map((scorer) => <TopScorerCard key={scorer.player._id} scorer={scorer} />)}
             {!topScorers.length ? <p className="py-8 text-center text-sm text-muted">No goals have been recorded for this season yet.</p> : null}
           </div>
