@@ -99,7 +99,7 @@ function SidebarContent({ collapsed, onMobileClose }: SidebarContentProps) {
                 collapsed && "justify-center px-2",
                 active
                   ? "bg-accent text-accent-fg shadow-sm"
-                  : "text-muted hover:bg-surface hover:text-fg",
+                  : "text-muted hover:bg-warning/20 hover:text-fg",
               )}
             >
               <Icon className="h-5 w-5 shrink-0" />
@@ -173,7 +173,7 @@ export function AdminSidebar({
     <>
       <aside
         className={cn(
-          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-glass transition-[width] duration-200 md:flex",
+          "sticky top-0 hidden h-screen shrink-0 flex-col border-r border-line bg-success-fg transition-[width] duration-200 md:flex",
           collapsed ? "w-20" : "w-72",
         )}
       >
@@ -188,7 +188,7 @@ export function AdminSidebar({
             onClick={onMobileClose}
             className="absolute inset-0 bg-bg/75 backdrop-blur-sm"
           />
-          <aside className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-line bg-glass-strong shadow-glass">
+          <aside className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-line bg-success-fg/5 shadow-glass">
             <SidebarContent collapsed={false} onMobileClose={onMobileClose} />
           </aside>
         </div>
