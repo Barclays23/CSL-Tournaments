@@ -2,6 +2,7 @@ import { getFixtureGroupReadinessBlockers } from "./seasonMatch.readiness.js";
 import {Types} from "mongoose";
 import {getPairFixtureError} from "./seasonMatch.fixtureRules.js";
 import {requiresAuctionForFixtureMutation} from "./seasonMatch.auctionAccess.js";
+import {hasRecordedMatchIncidents} from "./seasonMatch.deletion.js";
 import {assertStageMatchesResolved,groupStageQualifiers,qualifiedTeamsForStage} from "./seasonMatch.qualification.js";
 import {isKickoffWithinSeasonDateWindow,isSeasonReadOnly} from "../seasons/season.rules.js";
 import {assertPenaltyShootoutScore,calculateCompletedMatchWinner} from "./seasonMatch.completionRules.js";
@@ -60,7 +61,7 @@ export class SeasonMatchService implements ISeasonMatchService{
  async create(seasonId:string,input:CreateSeasonMatchDto):Promise<SeasonMatchResponseDto>{
   this.id(seasonId,"season");const season=await this.repo.findSeason(seasonId);if(!season||season.status!=="active")throw new AppError("Fixtures can only be created after the season has been activated",409,"SEASON_NOT_FIXTURE_READY");
   if(season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction and validate every team roster before creating fixtures.",409,"AUCTION_NOT_COMPLETED");
-  if(season.groupStageEnabled){
+  if(season.groupStageEnabled !== false){
    const readiness=await this.repo.getGroupReadiness(seasonId);
    const blockers=getFixtureGroupReadinessBlockers(true,readiness);
    if(blockers.length)throw new AppError("Assign every participating team to a valid group before creating fixtures.",409,"SEASON_GROUPS_INCOMPLETE",{
@@ -68,7 +69,7 @@ export class SeasonMatchService implements ISeasonMatchService{
    });
   }
   if(!season.matchRules)throw new AppError("Match rules are unavailable for this historical season",409,"SEASON_RULES_UNAVAILABLE");
-  if(input.stage==="group"&&!season.groupStageEnabled)throw new AppError("Group-stage fixtures are disabled for this season",409,"GROUP_STAGE_DISABLED");
+  if(input.stage==="group"&&season.groupStageEnabled===false)throw new AppError("Group-stage fixtures are disabled for this season",409,"GROUP_STAGE_DISABLED");
   this.assertKickoffWithinSeason(season,input.kickoffAt);
   if(await this.repo.findByNumber(seasonId,input.matchNumber))throw new AppError("Match number already exists in this season",409,"DUPLICATE_MATCH_NUMBER");
   const homeId=input.homeSeasonTeamRef,awayId=input.awaySeasonTeamRef;
@@ -146,7 +147,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   await this.validateKnockoutQualification(String(existing.seasonRef),stage,homeId,awayId,season);
   const kickoffAt=input.kickoffAt??existing.kickoffAt;
   this.assertKickoffWithinSeason(season,kickoffAt);
-  if(stage==="group"&&!season.groupStageEnabled)throw new AppError("Group-stage fixtures are disabled for this season",409,"GROUP_STAGE_DISABLED");
+  if(stage==="group"&&season.groupStageEnabled===false)throw new AppError("Group-stage fixtures are disabled for this season",409,"GROUP_STAGE_DISABLED");
   const teamsChanged=homeId!==String(existing.homeSeasonTeamRef)||awayId!==String(existing.awaySeasonTeamRef);
   const structureChanged=stage!==existing.stage||groupId!==(existing.groupRef?String(existing.groupRef):null);
   if((teamsChanged||structureChanged)&&(existing.goals.length>0||(existing.resolutionHistory??[]).length>0))throw new AppError("Participating teams, stage and group cannot be changed after goal or resolution history has been recorded",409,"MATCH_HAS_HISTORY");
@@ -253,7 +254,7 @@ export class SeasonMatchService implements ISeasonMatchService{
   return this.map(populated);
  }
 
- async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(season.status!=="active")throw new AppError("Fixtures can only be deleted while the season is Active.",409,"SEASON_NOT_ACTIVE");if(season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction before deleting fixtures.",409,"AUCTION_NOT_COMPLETED");const deleted=await this.repo.delete(id);if(!deleted)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");}
+ async delete(id:string):Promise<void>{this.id(id,"match");const existing=await this.repo.findById(id);if(!existing)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");if(hasRecordedMatchIncidents(existing))throw new AppError("This match cannot be deleted because it contains recorded goals, cards, penalty-shootout events or correction history.",409,"MATCH_HAS_EVENTS");const season=await this.repo.findSeason(String(existing.seasonRef));if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");if(season.status!=="active")throw new AppError("Fixtures can only be deleted while the season is Active.",409,"SEASON_NOT_ACTIVE");if(season.auctionLifecycleStatus!=="completed")throw new AppError("Complete the auction before deleting fixtures.",409,"AUCTION_NOT_COMPLETED");const deleted=await this.repo.delete(id);if(!deleted)throw new AppError("Match not found",404,"MATCH_NOT_FOUND");}
 
  async addCard(id:string,input:SeasonMatchCardDto):Promise<SeasonMatchResponseDto>{
   const match=await this.getExisting(id);this.assertCardManagementAllowed(match);
@@ -288,7 +289,7 @@ export class SeasonMatchService implements ISeasonMatchService{
    this.repo.findByStage(seasonId,"semi_final"),
   ]);
   let groupQualifiers=new Set<string>();
-  if(season.groupStageEnabled){
+  if(season.groupStageEnabled !== false){
    if(!season.pointsRules)throw new AppError("Season points rules are required to validate group qualification",409,"SEASON_POINTS_RULES_UNAVAILABLE");
    if(!groupMatches.length||groupMatches.some(match=>!["completed","cancelled","abandoned"].includes(match.status)))throw new AppError("All group-stage fixtures must be resolved before knockout qualification can be confirmed",409,"GROUP_STAGE_NOT_COMPLETE");
    groupQualifiers=groupStageQualifiers(teams,groupMatches,season.pointsRules,2);
