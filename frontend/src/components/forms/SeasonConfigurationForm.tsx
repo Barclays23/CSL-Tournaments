@@ -262,7 +262,7 @@ export function SeasonConfigurationForm({
 }: SeasonConfigurationFormProps) {
   return (
     <form className="grid gap-4" onSubmit={onSubmit}>
-      <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+      <div className="space-y-4">
         <SeasonConfigurationFields {...fields} />
       </div>
       <div className="flex justify-end border-t border-line pt-3">
