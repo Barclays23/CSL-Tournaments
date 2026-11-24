@@ -60,14 +60,14 @@ export function MobileMenu({
           </IconButton>
         </div>
 
-        <nav className="mt-5 flex flex-col gap-2" aria-label="Mobile">
+        <nav className="mt-5 flex flex-col gap-1" aria-label="Mobile">
           {NAV_ITEMS.map((item) => (
             <Link
               key={item.label}
               to={item.to}
               hash={"hash" in item ? item.hash : undefined}
               onClick={onClose}
-              className="rounded-card border border-transparent px-3 py-3 text-lg font-medium text-fg transition-colors hover:border-line hover:bg-glass"
+              className="rounded-card border border-transparent px-3 py-1.5 text-lg font-medium text-fg transition-colors hover:border-line hover:bg-glass"
             >
               {item.label}
             </Link>
