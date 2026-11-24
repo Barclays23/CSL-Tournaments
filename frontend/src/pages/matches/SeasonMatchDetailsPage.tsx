@@ -139,7 +139,7 @@ function TeamSide({
         side === "home" ? "sm:flex-row-reverse sm:justify-start sm:text-right" : "sm:flex-row sm:justify-start sm:text-left"
       }`}
     >
-      <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-1 ring-line sm:h-16 sm:w-16" />
+      <Avatar name={team.name} asset={team.logo} className="h-14 w-14 shrink-0 rounded-xl ring-0 ring-line sm:h-16 sm:w-16" />
       <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">{team.name}</p>
     </div>
   );
