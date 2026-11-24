@@ -51,7 +51,7 @@ export function MobileMenu({
         role="dialog"
         aria-modal="true"
         aria-label="Mobile navigation"
-        className="absolute inset-y-0 right-0 z-10 flex w-[min(22rem,88vw)] max-w-full flex-col overflow-y-auto overscroll-y-contain border-l border-line bg-surface p-5 shadow-glass"
+        className="absolute inset-y-0 left-0 z-10 flex w-[min(22rem,88vw)] max-w-full flex-col overflow-y-auto overscroll-y-contain border border-line bg-success-fg/50 p-3 shadow-glass"
       >
         <div className="flex items-center justify-between border-b border-line pb-4">
           <span className="font-display text-xl text-fg">CSL Menu</span>
