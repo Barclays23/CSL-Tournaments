@@ -24,6 +24,7 @@ import {
   createSeasonGroup, deleteSeasonGroup, getSeasonGroups, getSeasonMatches, updateSeasonGroup,
 } from "@/services/seasonMatchService";
 import { errorMessage } from "@/utils/errorHandler";
+import { canEditSeasonTeamManagers } from "@/utils/seasonTeamPermissions";
 import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from "@/types/season.types";
 import { SeasonConfigurationForm, type SeasonFormState } from "@/components/forms/SeasonConfigurationForm";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
@@ -867,7 +868,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                 <SectionHeader
                   icon={Users}
                   title="Participating teams"
-                  hint="Season-only registrations and managers. Assign groups in Season groups."
+                  hint="Team registration closes at activation. Managers can be reassigned until completion, including after fixtures exist. Group assignments lock after the first fixture."
                   aside={<Badge tone={teamCap > 0 && slotsLeft === 0 ? "accent" : "info"}>{registeredTeams.length} / {teamCap} slots</Badge>}
                 />
 
@@ -918,7 +919,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                           const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
                           return home === team._id || away === team._id;
                         });
-                        const managersLocked = saving || !["draft", "upcoming", "active"].includes(selected.status);
+                        const managersLocked = saving || !canEditSeasonTeamManagers(selected.status);
                         const withdrawn = team.status === "withdrawn";
                         const open = openManagerTeamId === team._id;
                         return (
@@ -949,7 +950,9 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                   type="button"
                                   aria-expanded={open}
                                   onClick={() => setOpenManagerTeamId(open ? null : team._id)}
-                                  className={"inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition " + (open ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/50 text-muted hover:border-accent hover:text-fg")}
+                                  disabled={managersLocked}
+                                  title={managersLocked ? "Manager assignments are read-only after season completion." : "Assign or change this team’s managers"}
+                                  className={"inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition disabled:cursor-not-allowed disabled:opacity-50 " + (open ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/50 text-muted hover:border-accent hover:text-fg")}
                                 >
                                   Managers
                                   <ChevronDown className={"h-3.5 w-3.5 transition-transform " + (open ? "rotate-180" : "")} />
