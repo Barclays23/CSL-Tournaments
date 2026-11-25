@@ -361,7 +361,7 @@ export function AuctionsPage() {
 
           {isAdmin && seasonOpen && lifecycle === "not_started" ? (
             <Button
-              variant="surface"
+              variant="accent"
               disabled={saving}
               onClick={() => runLifecycle(
                 {
@@ -377,7 +377,7 @@ export function AuctionsPage() {
 
           {isAdmin && seasonOpen && lifecycle === "in_progress" ? (
             <Button
-              variant="surface"
+              variant="accent"
               disabled={saving}
               onClick={() => runLifecycle(
                 {
