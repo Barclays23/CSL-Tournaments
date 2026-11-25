@@ -16,7 +16,8 @@ export function AdminRoute({ children }: { children: ReactNode }) {
   }, [isAdmin, isLoading, navigate, user]);
 
   if (isLoading || !isAdmin) {
-    return <PageContainer><LoadingSpinner label="Checking administrator session" /></PageContainer>;
+    return <LoadingSpinner mode="page" label="Checking administrator session" />;
   }
+
   return <>{children}</>;
 }
