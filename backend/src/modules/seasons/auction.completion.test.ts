@@ -81,6 +81,17 @@ test("auction completion requires every eligible team to be assigned to a valid 
     .some((message) => message.includes("Team B") && message.includes("Season Group")));
 });
 
+test("auction completion blocks unfilled configured team registration slots", () => {
+  const partialTeams = teams.slice(0, 3).map((team) => ({ ...team, groupRef: "group-a" }));
+  const blockers = getAuctionCompletionBlockers(
+    settings,
+    partialTeams,
+    validLots(),
+    { groupStageEnabled: true, groupIds: ["group-a"] },
+  );
+  assert.ok(blockers.some((message) => message.includes("Registered eligible teams must exactly match the configured season team count")));
+});
+
 test("auction completion skips group assignment validation when the group stage is disabled", () => {
   const noGroups = teams.map((team) => ({ ...team, groupRef: null }));
   assert.deepEqual(getAuctionCompletionBlockers(settings, noGroups, validLots(), { groupStageEnabled: false, groupIds: [] }), []);
