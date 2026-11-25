@@ -740,7 +740,7 @@ export const seasonPreviewRepository = {
         participatingTeams,
       });
       if (groupBlockers.length) {
-        fail(409, "Group-stage setup is incomplete: " + groupBlockers.join("; "), "SEASON_GROUPS_INCOMPLETE", {
+        fail(409, "Season Group-stage setup is incomplete: " + groupBlockers.join("; "), "SEASON_GROUPS_INCOMPLETE", {
           groups: groupBlockers.join("; "),
         });
       }

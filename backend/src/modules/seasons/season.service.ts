@@ -358,7 +358,7 @@ export class SeasonService implements ISeasonService {
       if (requireAuctionCompleted && readiness.emptyGroups.length > 0) {
         errors.emptyGroups = "Remove unused groups before activating the season: " + readiness.emptyGroups.join(", ");
       }
-      if (Object.keys(errors).length) throw new AppError("Group-stage setup is incomplete", 422, "SEASON_GROUPS_INCOMPLETE", errors);
+      if (Object.keys(errors).length) throw new AppError("Season Groups-stage setup is incomplete", 422, "SEASON_GROUPS_INCOMPLETE", errors);
     }
   }
 

@@ -871,7 +871,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   aside={<Badge tone={teamCap > 0 && slotsLeft === 0 ? "accent" : "info"}>{registeredTeams.length} / {teamCap} slots</Badge>}
                 />
 
-                {/* slot meter */}
+                {/* slot meter for team registration*/}
                 <div className="mb-4">
                   <div className="flex gap-1" role="img" aria-label={registeredTeams.length + " of " + teamCap + " team slots filled"}>
                     {Array.from({ length: Math.min(Math.max(teamCap, 1), 24) }, (_, index) => (
@@ -1079,14 +1079,29 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   aside={<Badge tone={assignableTeams.length > 0 && unassignedTeams.length === 0 ? "accent" : "info"}>{assignedTeamCount} / {assignableTeams.length} assigned</Badge>}
                 />
 
+                {/* slot meter for the season groups assignment */}
                 {assignableTeams.length > 0 ? (
                   <div className={panel + " mb-4 p-3"}>
                     <div className="flex items-center justify-between gap-2 text-xs">
-                      <span className="font-semibold text-fg">{unassignedTeams.length ? unassignedTeams.length + " team(s) waiting for a group" : "Every team has a group"}</span>
+                      <span className="font-semibold text-fg">
+                        {unassignedTeams.length ? `${unassignedTeams.length} team(s) waiting for a group` : "Every team has a group"}
+                      </span>
                       <span className="tabular text-muted">{assignedTeamCount} of {assignableTeams.length}</span>
                     </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line" role="progressbar" aria-valuemin={0} aria-valuemax={assignableTeams.length} aria-valuenow={assignedTeamCount} aria-label="Teams assigned to groups">
-                      <div className="h-full rounded-full bg-accent transition-all duration-300" style={{ width: (assignableTeams.length ? (assignedTeamCount / assignableTeams.length) * 100 : 0) + "%" }} />
+                    <div
+                      className="mt-2 flex gap-1"
+                      role="img"
+                      aria-label={`${assignedTeamCount} of ${assignableTeams.length} teams assigned to groups`}
+                    >
+                      {Array.from({ length: Math.min(assignableTeams.length, 24) }, (_, index) => (
+                        <span
+                          key={index}
+                          className={
+                            "h-1.5 flex-1 rounded-full transition-colors duration-300 " +
+                            (index < assignedTeamCount ? "bg-accent" : "bg-line")
+                          }
+                        />
+                      ))}
                     </div>
                   </div>
                 ) : null}
