@@ -24,6 +24,7 @@ import {
   createSeasonGroup, deleteSeasonGroup, getSeasonGroups, getSeasonMatches, updateSeasonGroup,
 } from "@/services/seasonMatchService";
 import { errorMessage } from "@/utils/errorHandler";
+import { canEditSeasonTeamManagers, canToggleSeasonTeamManagerAssignment, getSeasonTeamManagerOptions } from "@/utils/seasonTeamPermissions";
 import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from "@/types/season.types";
 import { SeasonConfigurationForm, type SeasonFormState } from "@/components/forms/SeasonConfigurationForm";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
@@ -219,7 +220,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   const navigate = useNavigate();
   const selectedSeasonQuery = useServiceQuery(() => getSeasonById(seasonId), [seasonId]);
   const permanentTeams = useServiceQuery(() => getTeams(), []);
-  const managersQuery = useServiceQuery(() => getManagers({ page: 1, limit: 100, status: "active" }), []);
+  const managersQuery = useServiceQuery(() => getManagers({ page: 1, limit: 100 }), []);
   const selectedSeasonId = seasonId;
   const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<SeasonFormState>(() => defaultForm());
@@ -670,7 +671,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
     }
   };
 
-  const availableManagers = (managersQuery.data?.data ?? []).filter((manager) => manager.status === "active");
+  const managerDirectory = managersQuery.data?.data ?? [];
   const groupsLocked = !preActivation || hasFixtures || selected?.groupStageEnabled === false;
   const assignableTeams = registeredTeams.filter((team) => team.status !== "withdrawn");
   const unassignedTeams = assignableTeams.filter((team) => !team.groupRef);
@@ -867,7 +868,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                 <SectionHeader
                   icon={Users}
                   title="Participating teams"
-                  hint="Season-only registrations and managers. Assign groups in Season groups."
+                  hint="Team registration closes at activation. Managers can be reassigned until completion, including after fixtures exist. Group assignments lock after the first fixture."
                   aside={<Badge tone={teamCap > 0 && slotsLeft === 0 ? "accent" : "info"}>{registeredTeams.length} / {teamCap} slots</Badge>}
                 />
 
@@ -918,7 +919,13 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                           const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
                           return home === team._id || away === team._id;
                         });
-                        const managersLocked = saving || !["draft", "upcoming", "active"].includes(selected.status);
+                        const managersLocked = saving || !canEditSeasonTeamManagers(selected.status);
+                        const managersAssignedElsewhere = registeredTeams
+                          .filter((otherTeam) => otherTeam._id !== team._id)
+                          .flatMap((otherTeam) => otherTeam.managerRefs);
+                        const teamManagerOptions = getSeasonTeamManagerOptions(
+                          managerDirectory, team.managerRefs, managersAssignedElsewhere,
+                        );
                         const withdrawn = team.status === "withdrawn";
                         const open = openManagerTeamId === team._id;
                         return (
@@ -949,7 +956,9 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                   type="button"
                                   aria-expanded={open}
                                   onClick={() => setOpenManagerTeamId(open ? null : team._id)}
-                                  className={"inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition " + (open ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/50 text-muted hover:border-accent hover:text-fg")}
+                                  disabled={managersLocked}
+                                  title={managersLocked ? "Manager assignments are read-only after season completion." : "Assign or change this team’s managers"}
+                                  className={"inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition disabled:cursor-not-allowed disabled:opacity-50 " + (open ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/50 text-muted hover:border-accent hover:text-fg")}
                                 >
                                   Managers
                                   <ChevronDown className={"h-3.5 w-3.5 transition-transform " + (open ? "rotate-180" : "")} />
@@ -964,17 +973,20 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                               <div className="border-t border-line bg-surface/30 px-3 py-3">
                                 <p className="mb-2 text-xs font-semibold text-fg">Assign managers <span className="font-normal text-muted">· tap to add or remove</span></p>
                                 <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
-                                  {availableManagers.filter((manager) => team.managerRefs.includes(manager._id) || !registeredTeams.some((otherTeam) => otherTeam._id !== team._id && otherTeam.managerRefs.includes(manager._id))).map((manager) => (
-                                    <Chip
-                                      key={manager._id}
-                                      selected={team.managerRefs.includes(manager._id)}
-                                      disabled={managersLocked}
-                                      onClick={() => void assignManagers(team, team.managerRefs.includes(manager._id) ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
-                                    >
-                                      {manager.name}
-                                    </Chip>
-                                  ))}
-                                  {!availableManagers.length ? <span className="text-xs text-muted">No active managers available.</span> : null}
+                                  {teamManagerOptions.map((manager) => {
+                                    const assigned = team.managerRefs.includes(manager._id);
+                                    return (
+                                      <Chip
+                                        key={manager._id}
+                                        selected={assigned}
+                                        disabled={!canToggleSeasonTeamManagerAssignment(selected.status, manager.status, assigned) || saving}
+                                        onClick={() => void assignManagers(team, assigned ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
+                                      >
+                                        {manager.name}{manager.status !== "active" ? " (Inactive)" : ""}
+                                      </Chip>
+                                    );
+                                  })}
+                                  {!teamManagerOptions.some((manager) => manager.status === "active") ? <span className="text-xs text-muted">No active managers available to add.</span> : null}
                                 </div>
                                 {preActivation && linked ? <p className="mt-2 flex items-center gap-1 text-xs text-muted"><Lock className="h-3 w-3" /> Has auction or fixture history. Use withdrawal after activation.</p> : null}
                               </div>

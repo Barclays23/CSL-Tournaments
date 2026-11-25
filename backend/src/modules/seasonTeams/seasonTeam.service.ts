@@ -4,6 +4,7 @@ import type { ISeasonTeamService } from "./seasonTeam.interfaces.js";
 import type { SeasonTeamResponseDto, UpdateSeasonTeamDto } from "./seasonTeam.dto.js";
 import { SeasonTeamRepository } from "./seasonTeam.repository.js";
 import { getSeasonTeamWithdrawalBlockers } from "./seasonTeam.withdrawal.rules.js";
+import { canAssignSeasonTeamManagers, canAssignSeasonTeamGroups, MANAGER_ASSIGNMENT_SEASON_STATUSES } from "./seasonTeam.assignment.rules.js";
 
 export class SeasonTeamService implements ISeasonTeamService {
   constructor(private readonly repository: SeasonTeamRepository) {}
@@ -24,7 +25,10 @@ export class SeasonTeamService implements ISeasonTeamService {
       await session.withTransaction(async () => {
         const season = await this.repository.findSeasonState(seasonId, session);
         if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-        if (!await this.repository.lockSeason(seasonId, ["draft", "upcoming", "active"], session)) {
+        if (input.managerIds !== undefined && !canAssignSeasonTeamManagers(season.status)) {
+          throw new AppError("Manager assignments are allowed until the season is completed", 409, "MANAGER_ASSIGNMENT_CLOSED");
+        }
+        if (!await this.repository.lockSeason(seasonId, MANAGER_ASSIGNMENT_SEASON_STATUSES, session)) {
           throw new AppError("Season participation is read-only", 409, "SEASON_CLOSED");
         }
 
@@ -59,11 +63,9 @@ export class SeasonTeamService implements ISeasonTeamService {
           if (input.groupId !== null && !season.groupStageEnabled) {
             throw new AppError("Group assignment is unavailable because group-stage play is disabled for this season", 409, "GROUP_STAGE_DISABLED");
           }
-          if (await this.repository.countFixtures(seasonId, session) > 0) {
-            throw new AppError("Group assignment is locked after fixtures exist. Use an audited correction workflow for a genuine correction.", 409, "GROUP_ASSIGNMENT_LOCKED");
-          }
-          if (season.status === "active") {
-            throw new AppError("Group assignment is frozen after activation", 409, "GROUP_ASSIGNMENT_LOCKED");
+          const fixtureCount = await this.repository.countFixtures(seasonId, session);
+          if (!canAssignSeasonTeamGroups(season.status, fixtureCount)) {
+            throw new AppError("Group assignment is locked after fixtures exist or the season becomes active. Use an audited correction workflow for a genuine correction.", 409, "GROUP_ASSIGNMENT_LOCKED");
           }
           if (input.groupId === null) {
             patch.groupRef = null;
