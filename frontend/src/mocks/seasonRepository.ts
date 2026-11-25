@@ -1200,12 +1200,7 @@ export const seasonPreviewRepository = {
     if (!Number.isInteger(settings.seasonTeamCount) || settings.seasonTeamCount < 2) blockers.push("Season team limit must be at least two teams");
     if (!Number.isInteger(settings.teamSquadSize) || settings.teamSquadSize < 1) blockers.push("Team squad size must be a positive whole number");
     if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
-    blockers.push(...getMockAuctionSetupBlockers(
-      settings.seasonTeamCount,
-      teams,
-      season.groupStageEnabled !== false,
-      db.groups.filter((group) => group.seasonRef === id).map((group) => group._id),
-    ));
+    if (teams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
     if (currentLots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
     if (blockers.length) fail(422, "Cannot start auction for this season: " + blockers.join("; "), "AUCTION_START_BLOCKED");
     season.auctionLifecycleStatus = "in_progress";
@@ -1223,6 +1218,12 @@ export const seasonPreviewRepository = {
     const teams = db.seasonTeams.filter((team) => team.seasonRef === id && ["registered", "active"].includes(team.status));
     const allLots = db.auctionLots.filter((lot) => lot.seasonRef === id);
     const lots = allLots.filter((lot) => lot.auctionStatus !== "withdrawn");
+    const setupBlockers = getMockAuctionSetupBlockers(
+      season.auctionSettings.seasonTeamCount,
+      teams,
+      season.groupStageEnabled !== false,
+      db.groups.filter((group) => group.seasonRef === id).map((group) => group._id),
+    );
     const blockers: string[] = [];
     if (!Number.isFinite(settings.budgetPerTeam) || settings.budgetPerTeam < 0) blockers.push("Team budget setting must be zero or greater");
     if (!Number.isInteger(settings.playersCount) || settings.playersCount < 1) blockers.push("Season player limit must be a positive whole number");
@@ -1231,7 +1232,7 @@ export const seasonPreviewRepository = {
     if (!Number.isInteger(settings.iconPlayerLimit) || settings.iconPlayerLimit < 0 || settings.iconPlayerLimit > settings.teamSquadSize) blockers.push("Icon Player limit must be between zero and the team squad size");
     if (!Number.isInteger(settings.goalkeeperLimit) || settings.goalkeeperLimit < 0 || settings.goalkeeperLimit > settings.teamSquadSize) blockers.push("Goalkeeper limit must be between zero and the team squad size");
     if (settings.playersCount !== settings.seasonTeamCount * settings.teamSquadSize) blockers.push("Configured playersCount must equal seasonTeamCount multiplied by teamSquadSize");
-    if (teams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
+    blockers.push(...setupBlockers);
     if (lots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");
     if (lots.some((lot) => lot.auctionStatus === "pending")) blockers.push("Pending auction lots remain");
     if (lots.some((lot) => lot.auctionStatus === "unsold")) blockers.push("Unsold players must be assigned to a team");

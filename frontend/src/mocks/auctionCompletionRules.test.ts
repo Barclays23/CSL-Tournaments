@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { getMockAuctionSetupBlockers } from "./auctionCompletionRules.js";
 
-const teams = [
+const teams: Array<{ _id: string; displayName: string; groupRef: string | null }> = [
   { _id: "team-a", displayName: "Team A", groupRef: "group-a" },
   { _id: "team-b", displayName: "Team B", groupRef: "group-a" },
   { _id: "team-c", displayName: "Team C", groupRef: "group-b" },

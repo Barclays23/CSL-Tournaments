@@ -67,7 +67,7 @@ test("completion rejects duplicate jersey numbers and invalid configuration", ()
 
 test("auction completion requires every eligible team to be assigned to a valid season group", () => {
   const groupReadiness = { groupStageEnabled: true, groupIds: ["group-a", "group-b"] };
-  const assignedTeams = teams.map((team, index) => ({ ...team, groupRef: index < 2 ? "group-a" : "group-b" }));
+  const assignedTeams: Array<typeof teams[number] & { groupRef: string | null }> = teams.map((team, index) => ({ ...team, groupRef: index < 2 ? "group-a" : "group-b" }));
   assert.deepEqual(getAuctionCompletionBlockers(settings, assignedTeams, validLots(), groupReadiness), []);
 
   const unassignedTeams = assignedTeams.map((team) => ({ ...team }));
