@@ -859,9 +859,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
               <StatTile label="Fixtures" value={fixtureCount} icon={CalendarDays} />
             </div>
 
-            <div className="grid items-start gap-5 lg:grid-cols-5">
-              {/* ───── Left column ───── */}
-              <div className="space-y-5 lg:col-span-2">
               {/* ───── Teams ───── */}
               <GlassCard className="p-5 sm:p-6">
                 <SectionHeader
@@ -1069,30 +1066,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                 )}
               </GlassCard>
 
-
-                <GlassCard className="p-5 sm:p-6">
-                  <SectionHeader icon={Lock} title="Setup status & locks" hint="Live dependency counts and lock rules." />
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      ["Season teams", registeredTeams.length],
-                      ["Groups", seasonGroups.length],
-                      ["Auction lots", seasonLots.length],
-                      ["Fixtures", fixtureCount],
-                    ].map(([label, value]) => (
-                      <div key={label} className={panel + " px-3 py-2"}>
-                        <p className="text-xs text-muted">{label}</p>
-                        <p className="font-display text-lg tabular text-fg">{value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <ul className="mt-4 space-y-1.5 text-xs text-muted">
-                    <li className="flex gap-2"><Lock className="mt-0.5 h-3 w-3 shrink-0 text-accent" />Auction rules lock on the first auction lot.</li>
-                    <li className="flex gap-2"><Lock className="mt-0.5 h-3 w-3 shrink-0 text-accent" />Points, tiebreakers, match rules and group format lock on the first fixture.</li>
-                    <li className="flex gap-2"><Lock className="mt-0.5 h-3 w-3 shrink-0 text-accent" />Completed and Archived seasons are read-only. Archived seasons can never be deleted.</li>
-                  </ul>
-                </GlassCard>
-              </div>
-
+            <div className="grid items-start gap-5 lg:grid-cols-5">
               {/* ───── Season groups ───── */}
               <GlassCard className="p-5 sm:p-6 lg:col-span-3">
                 <SectionHeader
@@ -1272,6 +1246,28 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   </div>
                 ) : null}
               </GlassCard>
+
+                <GlassCard className="p-5 sm:p-6 lg:col-span-2">
+                  <SectionHeader icon={Lock} title="Setup status & locks" hint="Live dependency counts and lock rules." />
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      ["Season teams", registeredTeams.length],
+                      ["Groups", seasonGroups.length],
+                      ["Auction lots", seasonLots.length],
+                      ["Fixtures", fixtureCount],
+                    ].map(([label, value]) => (
+                      <div key={label} className={panel + " px-3 py-2"}>
+                        <p className="text-xs text-muted">{label}</p>
+                        <p className="font-display text-lg tabular text-fg">{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <ul className="mt-4 space-y-1.5 text-xs text-muted">
+                    <li className="flex gap-2"><Lock className="mt-0.5 h-3 w-3 shrink-0 text-accent" />Auction rules lock on the first auction lot.</li>
+                    <li className="flex gap-2"><Lock className="mt-0.5 h-3 w-3 shrink-0 text-accent" />Points, tiebreakers, match rules and group format lock on the first fixture.</li>
+                    <li className="flex gap-2"><Lock className="mt-0.5 h-3 w-3 shrink-0 text-accent" />Completed and Archived seasons are read-only. Archived seasons can never be deleted.</li>
+                  </ul>
+                </GlassCard>
             </div>
 
             {/* ───── Awards ───── */}
