@@ -224,10 +224,11 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
             </div>
             {selectedSeason && selectedSeason.status !== "active" ? (
               <Link
-                to="/admin/seasons"
+                to="/admin/seasons/$seasonId"
+                params={{ seasonId: selectedSeason._id }}
                 className="shrink-0 text-sm font-semibold text-accent underline-offset-4 hover:underline"
               >
-                Go to Seasons
+                Go to Selected Season
               </Link>
             ) : null}
           </div>
