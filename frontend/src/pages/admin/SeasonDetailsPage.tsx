@@ -29,7 +29,7 @@ import type { Season, SeasonPatch, SeasonStatus, SeasonWrite, SeasonTeam } from 
 import { SeasonConfigurationForm, type SeasonFormState } from "@/components/forms/SeasonConfigurationForm";
 import type { SeasonGroup } from "@/types/seasonMatch.types";
 import {
-  Award, CalendarDays, Check, Layers3, Lock, Medal, Plus, Search, ChevronDown, Settings2, ShieldCheck, Trophy, UserPlus, Users, X,
+  Award, CalendarDays, Check, Layers3, Lock, Medal, Plus, Search, Settings2, ShieldCheck, Trophy, UserPlus, Users, X,
 } from "lucide-react";
 
 /* ───────────────────────── helpers ───────────────────────── */
@@ -234,7 +234,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   const [completionBlockers, setCompletionBlockers] = useState<string[]>([]);
   const [teamsTab, setTeamsTab] = useState<"registered" | "add">("registered");
   const [teamSearch, setTeamSearch] = useState("");
-  const [openManagerTeamId, setOpenManagerTeamId] = useState<string | null>(null);
   const [recallTarget, setRecallTarget] = useState<SeasonTeam | null>(null);
   const [recallReason, setRecallReason] = useState("Recalled by tournament administrator after review");
 
@@ -245,7 +244,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
     setGroupDrafts({});
     setNewGroupName("");
     setNewGroupOrder(1);
-    setOpenManagerTeamId(null);
     setRegistrationIds([]);
     setTeamSearch("");
     setTeamsTab("registered");
@@ -871,6 +869,8 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   hint="Team registration closes at activation. Managers can be reassigned until completion, including after fixtures exist. Group assignments lock after the first fixture."
                   aside={<Badge tone={teamCap > 0 && slotsLeft === 0 ? "accent" : "info"}>{registeredTeams.length} / {teamCap} slots</Badge>}
                 />
+                {managersQuery.loading ? <p className="mb-3 text-xs text-muted">Loading manager options…</p> : null}
+                {managersQuery.error ? <ErrorState message={"Could not load managers: " + managersQuery.error} onRetry={managersQuery.reload} /> : null}
 
                 {/* slot meter for team registration*/}
                 <div className="mb-4">
@@ -927,7 +927,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                           managerDirectory, team.managerRefs, managersAssignedElsewhere,
                         );
                         const withdrawn = team.status === "withdrawn";
-                        const open = openManagerTeamId === team._id;
                         return (
                           <li key={team._id} className={panel + " overflow-hidden"}>
                             <div className="flex flex-wrap items-center gap-3 p-3">
@@ -952,27 +951,24 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 </div>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <button
-                                  type="button"
-                                  aria-expanded={open}
-                                  onClick={() => setOpenManagerTeamId(open ? null : team._id)}
-                                  disabled={managersLocked}
-                                  title={managersLocked ? "Manager assignments are read-only after season completion." : "Assign or change this team’s managers"}
-                                  className={"inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-xs font-medium backdrop-blur-md transition disabled:cursor-not-allowed disabled:opacity-50 " + (open ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/50 text-muted hover:border-accent hover:text-fg")}
-                                >
-                                  Managers
-                                  <ChevronDown className={"h-3.5 w-3.5 transition-transform " + (open ? "rotate-180" : "")} />
-                                </button>
+
                                 {preActivation && !withdrawn ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team, "remove")}>Remove</Button> : null}
                                 {selected.status === "active" && ["registered", "active"].includes(team.status) ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team, "withdraw")}>Withdraw</Button> : null}
                                 {selected.status === "active" && withdrawn ? <Button size="sm" disabled={saving} onClick={() => void manageSeasonTeam(team, "recall")}>Recall / Reinstate</Button> : null}
                               </div>
                             </div>
 
-                            {open ? (
-                              <div className="border-t border-line bg-surface/30 px-3 py-3">
-                                <p className="mb-2 text-xs font-semibold text-fg">Assign managers <span className="font-normal text-muted">· tap to add or remove</span></p>
-                                <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
+                            <div className="border-t border-line bg-surface/30 px-3 py-3">
+                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-xs font-semibold text-fg">Manage team managers</p>
+                                <span className="text-xs text-muted">Select to add · select again to remove</span>
+                              </div>
+                              {managersQuery.error ? (
+                                <p className="text-xs text-danger">Manager options could not be loaded. Retry the manager list above.</p>
+                              ) : managersQuery.loading ? (
+                                <p className="text-xs text-muted">Loading manager options…</p>
+                              ) : (
+                                <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
                                   {teamManagerOptions.map((manager) => {
                                     const assigned = team.managerRefs.includes(manager._id);
                                     return (
@@ -986,11 +982,11 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                       </Chip>
                                     );
                                   })}
-                                  {!teamManagerOptions.some((manager) => manager.status === "active") ? <span className="text-xs text-muted">No active managers available to add.</span> : null}
+                                  {!teamManagerOptions.length ? <span className="text-xs text-muted">No eligible managers are available for this team. Create or activate managers, or remove an existing assignment from another team.</span> : null}
                                 </div>
-                                {preActivation && linked ? <p className="mt-2 flex items-center gap-1 text-xs text-muted"><Lock className="h-3 w-3" /> Has auction or fixture history. Use withdrawal after activation.</p> : null}
-                              </div>
-                            ) : null}
+                              )}
+                              {!canEditSeasonTeamManagers(selected.status) ? <p className="mt-2 text-xs text-muted">Manager assignments are read-only after the season is completed.</p> : null}
+                            </div>
                           </li>
                         );
                       })}
