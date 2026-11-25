@@ -65,6 +65,27 @@ test("completion rejects duplicate jersey numbers and invalid configuration", ()
   assert.ok(blockers.some((message) => message.includes("playersCount")));
 });
 
+test("auction completion requires every eligible team to be assigned to a valid season group", () => {
+  const groupReadiness = { groupStageEnabled: true, groupIds: ["group-a", "group-b"] };
+  const assignedTeams = teams.map((team, index) => ({ ...team, groupRef: index < 2 ? "group-a" : "group-b" }));
+  assert.deepEqual(getAuctionCompletionBlockers(settings, assignedTeams, validLots(), groupReadiness), []);
+
+  const unassignedTeams = assignedTeams.map((team) => ({ ...team }));
+  unassignedTeams[2].groupRef = null;
+  const unassignedBlockers = getAuctionCompletionBlockers(settings, unassignedTeams, validLots(), groupReadiness);
+  assert.ok(unassignedBlockers.some((message) => message.includes("Team C") && message.includes("Season Group")));
+
+  const invalidGroupTeams = assignedTeams.map((team) => ({ ...team }));
+  invalidGroupTeams[1].groupRef = "group-from-another-season";
+  assert.ok(getAuctionCompletionBlockers(settings, invalidGroupTeams, validLots(), groupReadiness)
+    .some((message) => message.includes("Team B") && message.includes("Season Group")));
+});
+
+test("auction completion skips group assignment validation when the group stage is disabled", () => {
+  const noGroups = teams.map((team) => ({ ...team, groupRef: null }));
+  assert.deepEqual(getAuctionCompletionBlockers(settings, noGroups, validLots(), { groupStageEnabled: false, groupIds: [] }), []);
+});
+
 test("season-wide nomination quotas are based on configured teams and per-team designation limits", () => {
 
   assert.deepEqual(getAuctionNominationQuotaBlockers(settings, { iconPlayers: 3, goalkeepers: 3 }, { isIconPlayer: true, isGoalkeeper: true }), []);

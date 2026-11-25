@@ -4,6 +4,12 @@ export interface AuctionCompletionTeam {
   _id: unknown;
   status: string;
   displayName?: string;
+  groupRef?: unknown;
+}
+
+export interface AuctionCompletionGroupReadiness {
+  groupStageEnabled: boolean;
+  groupIds: unknown[];
 }
 
 export interface AuctionCompletionLot {
@@ -49,6 +55,7 @@ export function getAuctionCompletionBlockers(
   settings: SeasonAuctionSettings,
   teams: AuctionCompletionTeam[],
   lots: AuctionCompletionLot[],
+  groupReadiness?: AuctionCompletionGroupReadiness,
 ): string[] {
   const blockers: string[] = [];
   if (!Number.isFinite(settings.budgetPerTeam) || settings.budgetPerTeam < 0) blockers.push("Team budget setting must be zero or greater");
@@ -64,6 +71,14 @@ export function getAuctionCompletionBlockers(
   const eligibleTeams = teams.filter((team) => ELIGIBLE_TEAM_STATUSES.has(team.status));
   const eligibleIds = new Set(eligibleTeams.map((team) => id(team._id)));
   const allTeamIds = new Set(teams.map((team) => id(team._id)));
+  if (groupReadiness?.groupStageEnabled) {
+    const validGroupIds = new Set(groupReadiness.groupIds.map((groupId) => id(groupId)).filter(Boolean));
+    const unassignedTeams = eligibleTeams.filter((team) => !id(team.groupRef) || !validGroupIds.has(id(team.groupRef)));
+    if (unassignedTeams.length) {
+      const labels = unassignedTeams.map((team) => team.displayName?.trim() || ("Team " + id(team._id)));
+      blockers.push("Assign every participating team to a valid Season Group before completing the auction: " + labels.join(", "));
+    }
+  }
   if (eligibleTeams.length !== settings.seasonTeamCount) blockers.push("Registered eligible teams must exactly match the configured season team count");
   const currentLots = lots.filter((lot) => lot.auctionStatus !== "withdrawn");
   if (currentLots.length !== settings.playersCount) blockers.push("Current non-withdrawn auction lots must exactly match the configured player count");

@@ -382,7 +382,7 @@ export function AuctionsPage() {
               onClick={() => runLifecycle(
                 {
                   title: "Complete this season auction?",
-                  description: "The server will validate every lot, team roster, squad size, Icon Player and Goalkeeper quota, and team budget. The auction remains open if any check fails.",
+                  description: "The server will verify every configured team slot is filled, every participating team belongs to a Season Group (when group stage is enabled), and all lot, roster, quota and budget rules pass. The auction remains open if any check fails.",
                   confirmLabel: "Validate and complete",
                 },
                 completeSeasonAuction,
