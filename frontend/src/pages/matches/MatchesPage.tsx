@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { SeasonMatchForm } from "@/components/forms/SeasonMatchForm";
 import { SearchBar } from "@/components/forms/SearchBar";
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
 import { SeasonFixtureCard } from "@/components/matches/SeasonFixtureCard";
 import { Button } from "@/components/ui/Button";
+import { GlassCard } from "@/components/ui/GlassCard";
 import { Drawer } from "@/components/ui/Drawer";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -104,16 +105,27 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
   const activeVenueCount = (venues.data?.data ?? []).filter((venue) => venue.status === "active").length;
   const fixtureBlockReason = !selectedSeason
     ? "Select a season to manage fixtures."
-    : selectedSeason.auctionLifecycleStatus !== "completed"
-      ? "Complete the auction before creating or changing fixtures."
-      : selectedSeason.status !== "active"
+    : selectedSeason.status !== "active"
       ? "Activate the season before creating or changing fixtures."
-      : !selectedSeason.matchRules
-        ? "Match rules are not configured for this season."
-        : eligibleSeasonTeams.length < 2
-          ? "At least two eligible participating teams are required."
-          : !venues.loading && activeVenueCount === 0
-            ? "Create at least one active venue before creating fixtures."
+      : selectedSeason.auctionLifecycleStatus !== "completed"
+        ? "Complete the auction before creating or changing fixtures."
+        : !selectedSeason.matchRules
+          ? "Match rules are not configured for this season."
+          : eligibleSeasonTeams.length < 2
+            ? "At least two eligible participating teams are required."
+            : !venues.loading && activeVenueCount === 0
+              ? "Create at least one active venue before creating fixtures."
+              : null;
+  const fixtureManagementHint = !selectedSeason
+    ? null
+    : selectedSeason.status === "upcoming"
+      ? "This season is Upcoming. Fixture creation, editing and deletion are available only in an Active season. Complete the auction and activate this season from the Seasons page. Existing fixtures remain available for viewing."
+      : selectedSeason.status === "draft"
+        ? "This season is still in Draft. Complete its configuration, move it to Upcoming, finish the auction, then activate it before managing fixtures."
+        : selectedSeason.status === "completed" || selectedSeason.status === "archived"
+          ? "This season is read-only. Fixture creation, editing and deletion are available only while the season is Active."
+          : selectedSeason.auctionLifecycleStatus !== "completed"
+            ? "The auction must be completed before fixtures can be created, edited or deleted. Existing fixtures remain available for viewing."
             : null;
   const fixtureCreationAllowed = Boolean(!seasons.loading && !seasonTeams.loading && !venues.loading && !fixtureBlockReason);
   const canCreateFixture = Boolean(isAdmin && fixtureCreationAllowed);
@@ -202,6 +214,24 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
             </div>
           </div>
         </section>
+      ) : null}
+      {managementMode && isAdmin && fixtureManagementHint ? (
+        <GlassCard className="mb-5 border border-info/30 bg-info/5 p-4" role="status">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-semibold text-fg">Fixture management is currently unavailable</p>
+              <p className="mt-1 text-sm leading-6 text-muted">{fixtureManagementHint}</p>
+            </div>
+            {selectedSeason && selectedSeason.status !== "active" ? (
+              <Link
+                to="/admin/seasons"
+                className="shrink-0 text-sm font-semibold text-accent underline-offset-4 hover:underline"
+              >
+                Go to Seasons
+              </Link>
+            ) : null}
+          </div>
+        </GlassCard>
       ) : null}
       <Tabs tabs={TABS} value={status} onChange={(value) => { setStatus(value as SeasonMatchStatus | ""); setPage(1); }} />
       <div className="my-4 grid gap-3 md:grid-cols-3">
