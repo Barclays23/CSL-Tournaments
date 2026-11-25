@@ -787,6 +787,13 @@ export function AuctionsPage() {
                 </option>
               ))}
             </Select>
+            <p className="mt-1 text-xs leading-relaxed text-muted">
+              {data?.season.auctionLifecycleStatus === "not_started"
+                ? "The auction has not started yet. Lots must remain Pending. You can mark a lot as Sold, Unsold or Withdrawn and record its sale details once the auction is In Progress."
+                : data?.season.auctionLifecycleStatus === "in_progress"
+                  ? "The auction is In Progress, so you can update this lot's status. A team and purchase price are required when marking it as Sold. Withdrawn is available only for a previously sold lot."
+                  : "Lot status changes are locked after the auction is completed. Reopen the auction to make further lot changes."}
+            </p>
           </Field>
 
           <Field label="Season position">
@@ -817,6 +824,9 @@ export function AuctionsPage() {
                     </option>
                   ))}
                 </Select>
+                <p className="mt-1 text-xs leading-relaxed text-muted">
+                  Team assignment and changes to the assigned team are available only while the auction is In Progress and this lot is marked Sold. Teams that are withdrawn, eliminated or completed cannot receive a player.
+                </p>
               </Field>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Purchase price (INR)">
