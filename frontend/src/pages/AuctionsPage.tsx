@@ -771,6 +771,19 @@ export function AuctionsPage() {
             </div>
           ) : null}
 
+          <Field label="Season position">
+            <Select value={editPosition} onChange={(event) => { const next = event.target.value as SeasonPlayerPosition; setEditPosition(next); setEditGoalkeeper(next === "goalkeeper"); }}>
+              {Object.entries(POSITIONS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </Select>
+          </Field>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <CheckField checked={editIconPlayer} onChange={setEditIconPlayer} label="Icon player" />
+            <CheckField checked={editGoalkeeper} onChange={(checked) => { setEditGoalkeeper(checked); setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "midfielder" : current); }} label="Goalkeeper" />
+          </div>          
+
           <Field label="Auction status">
             <Select value={editStatus} onChange={(event) => setEditStatus(event.target.value as AuctionLotStatus)}>
               {LOT_STATUSES.map((status) => (
@@ -795,19 +808,6 @@ export function AuctionsPage() {
                   : "Lot status changes are locked after the auction is completed. Reopen the auction to make further lot changes."}
             </p>
           </Field>
-
-          <Field label="Season position">
-            <Select value={editPosition} onChange={(event) => { const next = event.target.value as SeasonPlayerPosition; setEditPosition(next); setEditGoalkeeper(next === "goalkeeper"); }}>
-              {Object.entries(POSITIONS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </Select>
-          </Field>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <CheckField checked={editIconPlayer} onChange={setEditIconPlayer} label="Icon player" />
-            <CheckField checked={editGoalkeeper} onChange={(checked) => { setEditGoalkeeper(checked); setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "midfielder" : current); }} label="Goalkeeper" />
-          </div>
 
           {editStatus === "sold" ? (
             <>
