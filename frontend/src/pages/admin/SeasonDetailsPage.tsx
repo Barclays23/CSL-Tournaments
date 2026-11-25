@@ -909,9 +909,16 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                 {/* Registered Teams List */}
                 {activeTeamsTab === "registered" ? (
                   <>
-                    {seasonTeams.loading ? <Skeleton className="h-20" /> : null}
+                    {seasonTeams.loading ? (
+                      <div className="grid gap-4 md:grid-cols-2" aria-busy="true">
+                        <Skeleton className="h-48 rounded-card" />
+                        <Skeleton className="h-48 rounded-card" />
+                      </div>
+                    ) : null}
                     {seasonTeams.error ? <ErrorState message={seasonTeams.error} onRetry={seasonTeams.reload} /> : null}
-                    <ul className="space-y-2">
+
+                    {/* 2 teams per row on md+ */}
+                    <ul className="grid items-start gap-4 md:grid-cols-2">
                       {registeredTeams.map((team) => {
                         const linked = seasonLots.some((lot) => typeof lot.seasonTeamRef === "object" && lot.seasonTeamRef?._id === team._id) || seasonFixtures.some((match) => {
                           const home = typeof match.homeSeasonTeamRef === "object" ? match.homeSeasonTeamRef._id : match.homeSeasonTeamRef;
@@ -925,106 +932,232 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                           managerDirectory, team.managerRefs, managersAssignedElsewhere,
                         );
                         const withdrawn = team.status === "withdrawn";
-                        return (
-                          <li key={team._id} className={panel + " group overflow-hidden transition duration-200 hover:border-accent/40 hover:bg-surface/30"}>
-                            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-                              <div className="flex min-w-0 flex-1 items-center gap-3">
-                                <Avatar
-                                  name={team.displayName}
-                                  asset={team.team?.logo ?? team.logoSnapshot}
-                                  className={"h-14 w-14 shrink-0 rounded-2xl border border-line bg-surface/70 object-cover shadow-sm " + (withdrawn ? "grayscale opacity-60" : "transition-transform duration-200 group-hover:scale-[1.03]")}
-                                />
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className={"min-w-0 wrap-break-word text-sm font-semibold leading-tight " + (withdrawn ? "text-muted" : "text-fg")}>{team.displayName}</p>
-                                    {preActivation && linked ? <Lock className="h-3.5 w-3.5 shrink-0 text-faint" aria-label="Has auction or fixture history" /> : null}
-                                  </div>
-                                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                                    <Badge tone={withdrawn ? "danger" : "accent"} className="px-2 py-0.5 text-[10px] uppercase tracking-wide">{team.status}</Badge>
-                                    {team.group ? <Badge tone="neutral" className="px-2 py-0.5 text-[10px]">{team.group.groupName}</Badge> : null}
-                                    <span className="text-[11px] text-muted">{team.managers.length} {team.managers.length === 1 ? "manager" : "managers"}</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        const canRemove = preActivation && !withdrawn;
+                        const canWithdraw = selected.status === "active" && ["registered", "active"].includes(team.status);
+                        const canRecall = selected.status === "active" && withdrawn;
+                        const shownManagers = team.managers.slice(0, 4);
+                        const extraManagers = team.managers.length - shownManagers.length;
 
-                                {preActivation && !withdrawn ? <Button size="sm" variant="danger" disabled={saving || linked} onClick={() => void manageSeasonTeam(team, "remove")}>Remove</Button> : null}
-                                {selected.status === "active" && ["registered", "active"].includes(team.status) ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team, "withdraw")}>Withdraw</Button> : null}
-                                {selected.status === "active" && withdrawn ? <Button size="sm" disabled={saving} onClick={() => void manageSeasonTeam(team, "recall")}>Recall / Reinstate</Button> : null}
+                        return (
+                          <li
+                            key={team._id}
+                            className={
+                              "relative overflow-hidden rounded-card border bg-glass shadow-glass backdrop-blur-xl transition duration-200 " +
+                              (withdrawn ? "border-danger/30" : "border-line hover:border-accent/50")
+                            }
+                          >
+                            {/* Crest banner: pitch stripes fading out, with the logo overlapping the edge */}
+                            <div className="relative h-20 overflow-hidden">
+                              <div
+                                aria-hidden="true"
+                                className={"pitch-stripes absolute inset-0 " + (withdrawn ? "opacity-20 grayscale" : "opacity-50")}
+                              />
+                              <div
+                                aria-hidden="true"
+                                className="absolute inset-0 bg-linear-to-b from-transparent to-glass-strong"
+                              />
+                              <div className="relative flex items-start justify-between gap-2 p-3">
+                                <Badge tone={withdrawn ? "danger" : "accent"} className="px-2 py-0.5 text-[10px] uppercase tracking-wide">{team.status}</Badge>
+                                {canRemove || (preActivation && linked) ? (
+                                  <div className="flex items-center gap-1.5">
+                                    {preActivation && linked ? (
+                                      <span
+                                        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-line bg-glass-strong backdrop-blur-md"
+                                        title="Has auction or fixture history"
+                                      >
+                                        <Lock className="h-3.5 w-3.5 text-muted" aria-label="Has auction or fixture history" />
+                                      </span>
+                                    ) : null}
+                                    {canRemove ? (
+                                      <button
+                                        type="button"
+                                        disabled={saving || linked}
+                                        title={linked ? "Can't remove: team has auction or fixture history" : "Remove team from season"}
+                                        aria-label={"Remove " + team.displayName + " from season"}
+                                        onClick={() => void manageSeasonTeam(team, "remove")}
+                                        className="inline-flex h-6 items-center gap-1 rounded-full border border-danger/40 bg-bg px-2 text-[11px] font-semibold text-danger backdrop-blur-md transition-colors hover:bg-danger hover:text-danger-fg disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:bg-glass-strong disabled:hover:text-danger"
+                                      >
+                                        <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8h5.8l.6-8" />
+                                        </svg>
+                                        Remove
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                ) : null}
                               </div>
                             </div>
 
-                            <div className="border-t border-line bg-surface/25 px-4 py-4">
-                              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                                <div>
-                                  <p className="text-xs font-semibold text-fg">Team managers</p>
-                                  <p className="mt-0.5 text-[11px] text-muted">Select a manager to assign or remove them from this team.</p>
+                            <div className="relative px-4 pb-4 sm:px-5">
+                              <div className="-mt-9 flex items-end gap-3">
+                                <Avatar
+                                  name={team.displayName}
+                                  asset={team.team?.logo ?? team.logoSnapshot}
+                                  className={"h-18 w-18 shrink-0 rounded-2xl border-2 border-surface bg-surface object-cover shadow-glass " + (withdrawn ? "grayscale opacity-60" : "")}
+                                />
+                                <div className="min-w-0 flex-1 pb-1">
+                                  <p className={"wrap-break-word font-display text-lg leading-tight " + (withdrawn ? "text-muted" : "text-fg")}>
+                                    {team.displayName}
+                                  </p>
+                                  {team.group ? <p className="mt-0.5 text-xs text-muted">{team.group.groupName}</p> : null}
                                 </div>
-                                <Badge tone="neutral" className="px-2 py-0.5 text-[10px]">{team.managers.length} assigned</Badge>
                               </div>
-                              {team.managers.length ? (
-                                <div className="mb-3 flex flex-wrap gap-2">
-                                  {team.managers.map((manager) => (
-                                    <span key={manager._id} className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-surface/70 py-1 pl-1 pr-3 shadow-sm">
-                                      <Avatar name={manager.name} asset={manager.profilePic} className="h-7 w-7 shrink-0 border border-line bg-surface object-cover" />
-                                      <span className="max-w-48 truncate text-xs font-medium text-fg">{manager.name}</span>
-                                      {manager.role ? <span className="hidden border-l border-line pl-2 text-[10px] text-muted sm:inline">{manager.role}</span> : null}
-                                    </span>
-                                  ))}
+
+                              {/* Manager avatar stack */}
+                              <div className="mt-4 flex items-center justify-between gap-3 rounded-control border border-line bg-surface/40 px-3 py-2.5 backdrop-blur-md">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  {team.managers.length ? (
+                                    <div className="flex shrink-0 -space-x-2">
+                                      {shownManagers.map((manager) => (
+                                        <Avatar
+                                          key={manager._id}
+                                          name={manager.name}
+                                          asset={manager.profilePic}
+                                          className="h-8 w-8 rounded-full border-2 border-surface bg-surface object-cover"
+                                        />
+                                      ))}
+                                      {extraManagers > 0 ? (
+                                        <span className="tabular flex h-8 w-8 items-center justify-center rounded-full border-2 border-surface bg-primary text-[11px] font-semibold text-primary-fg">
+                                          +{extraManagers}
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                  <p className="min-w-0 truncate text-xs text-muted">
+                                    {team.managers.length
+                                      ? team.managers.map((manager) => manager.name).join(", ")
+                                      : "No managers assigned yet"}
+                                  </p>
                                 </div>
-                              ) : (
-                                <p className="mb-3 rounded-xl border border-dashed border-line bg-surface/40 px-3 py-2 text-xs text-muted">No managers assigned to this team yet.</p>
-                              )}
-                              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Available managers</p>
-                                <span className="text-[11px] text-muted">Tap to add · tap again to remove</span>
+                                <span className="tabular shrink-0 text-xs font-semibold text-fg">
+                                  {team.managers.length} {team.managers.length === 1 ? "manager" : "managers"}
+                                </span>
                               </div>
-                              {managersQuery.error ? (
-                                <p className="text-xs text-danger">Manager options could not be loaded. Retry the manager list above.</p>
-                              ) : managersQuery.loading ? (
-                                <p className="text-xs text-muted">Loading manager options…</p>
-                              ) : (
-                                <div className="flex max-h-40 flex-wrap gap-1.5 overflow-y-auto pb-1" aria-label={"Managers for " + team.displayName}>
-                                  {teamManagerOptions.map((manager) => {
-                                    const assigned = team.managerRefs.includes(manager._id);
-                                    return (
-                                      <Chip
-                                        key={manager._id}
-                                        selected={assigned}
-                                        disabled={!canToggleSeasonTeamManagerAssignment(selected.status, manager.status, assigned) || saving}
-                                        onClick={() => void assignManagers(team, assigned ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
-                                      >
-                                        <Avatar name={manager.name} asset={manager.profilePic} className="h-7 w-7 shrink-0 border border-line bg-surface object-cover" />
-                                        <span className="max-w-40 truncate">{manager.name}</span>
-                                        {manager.status !== "active" ? <span className="text-[10px] text-muted">(Inactive)</span> : null}
-                                      </Chip>
-                                    );
-                                  })}
-                                  {!teamManagerOptions.length ? <span className="text-xs text-muted">No eligible managers are available for this team. Create or activate managers, or remove an existing assignment from another team.</span> : null}
+
+                              {/* Actions */}
+                              {canWithdraw || canRecall ? (
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  {canWithdraw ? <Button size="sm" variant="danger" disabled={saving} onClick={() => void manageSeasonTeam(team, "withdraw")}>Withdraw</Button> : null}
+                                  {canRecall ? <Button size="sm" disabled={saving} onClick={() => void manageSeasonTeam(team, "recall")}>Recall / Reinstate</Button> : null}
                                 </div>
-                              )}
-                              {!canEditSeasonTeamManagers(selected.status) ? <p className="mt-2 text-xs text-muted">Manager assignments are read-only after the season is completed.</p> : null}
+                              ) : null}
+
+                              {/* Collapsible manager assignment */}
+                              <details className="group/mgr mt-3">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-control border border-line bg-surface/50 px-3 py-2 text-sm font-semibold text-fg backdrop-blur-md transition-colors hover:border-accent/60 [&::-webkit-details-marker]:hidden">
+                                  <span>Manage managers</span>
+                                  <svg
+                                    aria-hidden="true"
+                                    viewBox="0 0 16 16"
+                                    className="h-4 w-4 text-muted transition-transform duration-200 group-open/mgr:rotate-180 motion-reduce:transition-none"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="2"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                  >
+                                    <path d="M4 6l4 4 4-4" />
+                                  </svg>
+                                </summary>
+
+                                <div className="mt-3 space-y-3">
+                                  {team.managers.length ? (
+                                    <div className="flex flex-wrap gap-2">
+                                      {team.managers.map((manager) => (
+                                        <span key={manager._id} className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-surface/70 py-1 pl-1 pr-3 backdrop-blur-md">
+                                          <Avatar name={manager.name} asset={manager.profilePic} className="h-7 w-7 shrink-0 border border-line bg-surface object-cover" />
+                                          <span className="max-w-32 truncate text-xs font-medium text-fg">{manager.name}</span>
+                                          {manager.role ? <span className="hidden border-l border-line pl-2 text-[10px] text-muted sm:inline">{manager.role}</span> : null}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : null}
+
+                                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                    <p className="text-xs font-semibold text-fg">Available managers</p>
+                                    <span className="text-[11px] text-faint">Tap to add · tap again to remove</span>
+                                  </div>
+
+                                  {managersQuery.error ? (
+                                    <p className="text-xs text-danger">Manager options could not be loaded. Retry the manager list above.</p>
+                                  ) : managersQuery.loading ? (
+                                    <div className="flex items-center gap-2 text-xs text-muted" role="status">
+                                      <span aria-hidden="true" className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-accent motion-reduce:animate-none" />
+                                      Loading manager options…
+                                    </div>
+                                  ) : (
+                                    <div
+                                      className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto rounded-control border border-line bg-surface/40 p-2"
+                                      aria-label={"Managers for " + team.displayName}
+                                    >
+                                      {teamManagerOptions.map((manager) => {
+                                        const assigned = team.managerRefs.includes(manager._id);
+                                        return (
+                                          <Chip
+                                            key={manager._id}
+                                            selected={assigned}
+                                            disabled={!canToggleSeasonTeamManagerAssignment(selected.status, manager.status, assigned) || saving}
+                                            onClick={() => void assignManagers(team, assigned ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
+                                          >
+                                            <Avatar name={manager.name} asset={manager.profilePic} className="h-7 w-7 shrink-0 border border-line bg-surface object-cover" />
+                                            <span className="max-w-32 truncate">{manager.name}</span>
+                                            {manager.status !== "active" ? <span className="text-[10px] text-muted">(Inactive)</span> : null}
+                                          </Chip>
+                                        );
+                                      })}
+                                      {!teamManagerOptions.length ? (
+                                        <span className="p-1 text-xs text-muted">
+                                          No eligible managers are available for this team. Create or activate managers, or remove an existing assignment from another team.
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  )}
+
+                                  {!canEditSeasonTeamManagers(selected.status) ? (
+                                    <p className="text-xs text-muted">Manager assignments are read-only after the season is completed.</p>
+                                  ) : null}
+                                </div>
+                              </details>
                             </div>
                           </li>
                         );
                       })}
                     </ul>
+
                     {!registeredTeams.length && !seasonTeams.loading ? (
-                      <div className="rounded-xl border border-dashed border-line px-4 py-6 text-center">
+                      <div className="rounded-card border border-dashed border-line bg-glass px-4 py-10 text-center shadow-glass backdrop-blur-xl">
                         <p className="text-sm text-muted">No teams are registered in this season yet.</p>
-                        {preActivation ? <Button className="mt-3" size="sm" onClick={() => setTeamsTab("add")}><Plus className="h-4 w-4" /> Add teams</Button> : null}
+                        {preActivation ? (
+                          <Button className="mt-4" size="sm" onClick={() => setTeamsTab("add")}>
+                            <Plus className="h-4 w-4" /> Add teams
+                          </Button>
+                        ) : null}
                       </div>
                     ) : null}
                   </>
                 ) : (
-                  <div>
-                    <div className="relative mb-3">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
-                      <Input className="pl-9" aria-label="Search permanent teams" placeholder="Search teams…" value={teamSearch} onChange={(event) => setTeamSearch(event.target.value)} />
+                  <div className="space-y-4">
+                    {/* Search */}
+                    <div className="flex items-center gap-3 rounded-card border border-line bg-glass p-2 shadow-glass backdrop-blur-xl">
+                      <div className="relative min-w-0 flex-1">
+                        <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                        <Input
+                          className="border-transparent bg-transparent pl-10"
+                          aria-label="Search permanent teams"
+                          placeholder="Search teams…"
+                          value={teamSearch}
+                          onChange={(event) => setTeamSearch(event.target.value)}
+                        />
+                      </div>
+                      <span className="tabular hidden shrink-0 rounded-full border border-line bg-surface/60 px-3 py-1 text-xs text-muted sm:inline">
+                        {candidateTeams.length} available
+                      </span>
                     </div>
+
+                    {/* Crest tile picker */}
                     {allCandidates.length ? (
                       candidateTeams.length ? (
-                        <div className="grid max-h-80 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                        <div className="grid max-h-[26rem] grid-cols-2 gap-3 overflow-y-auto p-1 sm:grid-cols-3 lg:grid-cols-4">
                           {candidateTeams.map((team) => {
                             const checked = registrationIds.includes(team._id);
                             const blocked = !checked && registrationIds.length >= slotsLeft;
@@ -1036,24 +1169,39 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 aria-checked={checked}
                                 disabled={blocked}
                                 onClick={() => toggleTeam(team._id, registrationIds, setRegistrationIds)}
-                                className={"flex items-center gap-2.5 rounded-xl border p-2.5 text-left text-sm backdrop-blur-md transition disabled:cursor-not-allowed disabled:opacity-45 " +
-                                  (checked ? "border-accent bg-accent/10 text-fg" : "border-line bg-surface/40 text-fg hover:border-accent/60")}
+                                className={
+                                  "group relative flex flex-col items-center gap-2.5 rounded-card border px-3 pb-3 pt-5 text-center backdrop-blur-xl transition duration-200 disabled:cursor-not-allowed disabled:opacity-45 " +
+                                  (checked
+                                    ? "border-accent bg-accent/10 shadow-glass ring-1 ring-accent"
+                                    : "border-line bg-glass hover:-translate-y-0.5 hover:border-accent/60 motion-reduce:transform-none")
+                                }
                               >
-                                <TeamAvatar name={team.name} />
-                                <span className="min-w-0 flex-1 truncate font-medium">{team.name}</span>
-                                <span className={"flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition " + (checked ? "border-accent bg-accent text-accent-fg" : "border-line text-transparent")}>
+                                <span
+                                  className={
+                                    "absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full border transition " +
+                                    (checked ? "border-accent bg-accent text-accent-fg" : "border-line bg-surface/50 text-transparent")
+                                  }
+                                >
                                   <Check className="h-3 w-3" />
                                 </span>
+                                <TeamAvatar name={team.name} />
+                                <span className="line-clamp-2 min-h-10 text-sm font-semibold leading-5 text-fg">{team.name}</span>
                               </button>
                             );
                           })}
                         </div>
-                      ) : <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-xs text-muted">No teams match your search.</p>
-                    ) : <p className="rounded-xl border border-dashed border-line px-3 py-4 text-center text-xs text-muted">All active teams are already registered in this season.</p>}
+                      ) : (
+                        <p className="rounded-card border border-dashed border-line bg-glass px-3 py-8 text-center text-xs text-muted backdrop-blur-xl">No teams match your search.</p>
+                      )
+                    ) : (
+                      <p className="rounded-card border border-dashed border-line bg-glass px-3 py-8 text-center text-xs text-muted backdrop-blur-xl">All active teams are already registered in this season.</p>
+                    )}
 
-                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface/40 p-3 backdrop-blur-md">
+                    {/* Floating selection bar */}
+                    <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-full border border-line bg-glass-strong py-2 pl-5 pr-2 shadow-glass backdrop-blur-xl">
                       <p className="text-xs text-muted">
-                        <span className="font-semibold tabular text-fg">{registrationIds.length}</span> selected · {Math.max(slotsLeft - registrationIds.length, 0)} slot(s) left
+                        <span className="tabular font-display text-base text-fg">{registrationIds.length}</span>
+                        <span className="ml-1.5">selected · {Math.max(slotsLeft - registrationIds.length, 0)} slot(s) left</span>
                       </p>
                       <div className="flex gap-2">
                         {registrationIds.length ? <Button size="sm" variant="surface" disabled={saving} onClick={() => setRegistrationIds([])}>Clear</Button> : null}
