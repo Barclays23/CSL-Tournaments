@@ -391,7 +391,7 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
               <p className="font-semibold text-fg">Fixture management is currently unavailable</p>
               <p className="mt-1 text-sm leading-6 text-muted">{fixtureManagementHint}</p>
             </div>
-            {selectedSeason.status !== "active" ? (
+            {selectedSeason && selectedSeason.status !== "active" ? (
               <Link
                 to="/admin/seasons"
                 className="shrink-0 text-sm font-semibold text-accent underline-offset-4 hover:underline"
