@@ -52,7 +52,7 @@ const STATUS_PILL: Record<AuctionLotStatus, string> = {
   withdrawn: "bg-warning/15 text-warning",
 };
 const STATUS_EDGE: Record<AuctionLotStatus, string> = {
-  pending: "border-l-info",
+  pending: "border-l-info/50",
   sold: "border-l-success",
   unsold: "border-l-faint",
   withdrawn: "border-l-warning",
