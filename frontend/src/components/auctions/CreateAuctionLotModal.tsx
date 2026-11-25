@@ -178,6 +178,7 @@ export function CreateAuctionLotModal({
                   </p>
                 </div>
               ) : null}
+            </div>
             </>
           ) : (
             <div className="flex items-center justify-between gap-2 rounded-xl border border-accent/20 bg-accent/5 px-3 py-2.5">
