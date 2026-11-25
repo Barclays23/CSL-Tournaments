@@ -141,15 +141,21 @@ export class SeasonRepository implements ISeasonRepository {
         ).exec();
         if (lock.matchedCount !== 1) return;
 
-        const [teams, lots] = await Promise.all([
-          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName").session(session).lean().exec(),
+        const [teams, lots, groups] = await Promise.all([
+          SeasonTeamModel.find({ seasonRef: season._id }).select("_id status displayName groupRef").session(session).lean().exec(),
           AuctionLotModel.find({ seasonRef: season._id }).select("auctionStatus seasonTeamRef purchasePrice isIconPlayer isGoalkeeper jerseyNo soldAt").session(session).lean().exec(),
+          season.groupStageEnabled === false
+            ? Promise.resolve([])
+            : GroupModel.find({ seasonRef: season._id }).select("_id").session(session).lean().exec(),
         ]);
         if (!season.auctionSettings) {
           result = { season: null, blockers: ["Auction settings are missing from this season"] };
           return;
         }
-        const blockers = getAuctionCompletionBlockers(season.auctionSettings, teams, lots);
+        const blockers = getAuctionCompletionBlockers(season.auctionSettings, teams, lots, {
+          groupStageEnabled: season.groupStageEnabled !== false,
+          groupIds: groups.map((group) => group._id),
+        });
         if (blockers.length) {
           result = { season: null, blockers };
           return;
