@@ -1,14 +1,15 @@
 import { useMemo, useState } from "react";
-import type { FormEvent, ReactNode } from "react";
+import type { FormEvent } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
+import { CreateAuctionLotModal } from "@/components/auctions/CreateAuctionLotModal";
+import { EditAuctionLotModal } from "@/components/auctions/EditAuctionLotModal";
 import { Avatar } from "@/components/ui/Avatar";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { Modal } from "@/components/ui/Modal";
 import { Tabs } from "@/components/ui/Tabs";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -99,29 +100,6 @@ function StatTile({ label, value, current, limit }: { label: string; value: stri
         <div className="mt-3"><ProgressBar value={current} max={limit} /></div>
       ) : null}
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <label className="block text-sm font-medium text-fg">
-      {label}
-      <div className="mt-1 font-normal">{children}</div>
-    </label>
-  );
-}
-
-function CheckField({ checked, onChange, label }: { checked: boolean; onChange: (value: boolean) => void; label: string }) {
-  return (
-    <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-line bg-glass px-3 py-2.5 text-sm text-fg">
-      <input
-        type="checkbox"
-        className="h-4 w-4 accent-accent"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      {label}
-    </label>
   );
 }
 
@@ -665,200 +643,95 @@ export function AuctionsPage() {
         </>
       ) : null}
 
-      {/* ----------------------- Create lot modal ----------------------- */}
-      <Modal
+      <CreateAuctionLotModal
         open={nominateOpen}
-        title="Create auction lot"
-        description="Create a Pending auction lot by selecting an active player. You can prepare, edit or remove Pending lots before starting the auction."
         onClose={() => setNominateOpen(false)}
-      >
-        <form
-          className="grid gap-4"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!selectedSeasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
-            if (isIconPlayer && nominatedIconCount >= iconQuotaLimit) { toast.error("The season Icon Player quota is full."); return; }
-            if (isGoalkeeper && nominatedGoalkeeperCount >= goalkeeperQuotaLimit) { toast.error("The season Goalkeeper quota is full."); return; }
-            setSaving(true);
-            try {
-              await nominatePlayer({ seasonId: selectedSeasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
-              toast.success("Player nominated");
-              setNominateOpen(false);
-              setPlayerId("");
-              setPlayerSearch("");
-              setPlayerPosition("");
-              setIsIconPlayer(false);
-              setIsGoalkeeper(false);
-              refresh();
-            } catch (error) {
-              toast.error(errorMessage(error));
-            } finally {
-              setSaving(false);
-            }
-          }}
-        >
-          <div className="grid gap-2">
-            <Field label="Search available players">
-              <Input placeholder="Search by player name" value={playerSearch} onChange={(event) => setPlayerSearch(event.target.value)} />
-            </Field>
-            <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-line bg-glass p-2 backdrop-blur-md">
-              {availablePlayers.map((player) => (
-                <button
-                  type="button"
-                  key={player._id}
-                  onClick={() => setPlayerId(player._id)}
-                  aria-pressed={playerId === player._id}
-                  className={
-                    "flex w-full items-center gap-3 rounded-xl border p-2 text-left transition " +
-                    (playerId === player._id ? "border-accent bg-primary/15" : "border-line hover:bg-surface")
-                  }
-                >
-                  <Avatar name={player.name} asset={player.profilePic} className="h-10 w-10 shrink-0 rounded-lg" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{player.name}</span>
-                  {playerId === player._id ? <Pill className="bg-accent text-accent-fg">Selected</Pill> : null}
-                </button>
-              ))}
-              {!availablePlayers.length ? (
-                <p className="p-3 text-center text-xs text-muted">
-                  {playerRows.length ? "No available players match this search." : "No active players are available."}
-                </p>
-              ) : null}
-            </div>
-          </div>
+        onSubmit={async (event) => {
+          event.preventDefault();
+          if (!selectedSeasonId || !playerId || !playerPosition) { toast.error("Select a player and season position."); return; }
+          if (isIconPlayer && nominatedIconCount >= iconQuotaLimit) { toast.error("The season Icon Player quota is full."); return; }
+          if (isGoalkeeper && nominatedGoalkeeperCount >= goalkeeperQuotaLimit) { toast.error("The season Goalkeeper quota is full."); return; }
+          setSaving(true);
+          try {
+            await nominatePlayer({ seasonId: selectedSeasonId, playerId, playerPosition, isIconPlayer, isGoalkeeper });
+            toast.success("Player nominated");
+            setNominateOpen(false);
+            setPlayerId("");
+            setPlayerSearch("");
+            setPlayerPosition("");
+            setIsIconPlayer(false);
+            setIsGoalkeeper(false);
+            refresh();
+          } catch (error) {
+            toast.error(errorMessage(error));
+          } finally {
+            setSaving(false);
+          }
+        }}
+        availablePlayers={availablePlayers}
+        totalActivePlayers={playerRows.length}
+        playersError={players.error}
+        playerSearch={playerSearch}
+        onPlayerSearchChange={setPlayerSearch}
+        playerId={playerId}
+        onPlayerSelect={setPlayerId}
+        playerPosition={playerPosition}
+        onPlayerPositionChange={(next) => {
+          setPlayerPosition(next);
+          setIsGoalkeeper(next === "goalkeeper");
+        }}
+        isIconPlayer={isIconPlayer}
+        onIconPlayerChange={setIsIconPlayer}
+        isGoalkeeper={isGoalkeeper}
+        onGoalkeeperChange={(checked) => {
+          setIsGoalkeeper(checked);
+          setPlayerPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "" : current);
+        }}
+        positions={POSITIONS}
+        nominatedIconCount={nominatedIconCount}
+        iconQuotaLimit={iconQuotaLimit}
+        iconPlayerLimit={data?.season.auctionSettings.iconPlayerLimit ?? 0}
+        nominatedGoalkeeperCount={nominatedGoalkeeperCount}
+        goalkeeperQuotaLimit={goalkeeperQuotaLimit}
+        goalkeeperLimit={data?.season.auctionSettings.goalkeeperLimit ?? 0}
+        teamRegistrationLimit={teamRegistrationLimit}
+        saving={saving}
+      />
 
-          <Field label="Season position">
-            <Select required value={playerPosition} onChange={(event) => { const next = event.target.value as SeasonPlayerPosition | ""; setPlayerPosition(next); setIsGoalkeeper(next === "goalkeeper"); }}>
-              <option value="">Select position</option>
-              {Object.entries(POSITIONS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </Select>
-          </Field>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <CheckField checked={isIconPlayer} onChange={setIsIconPlayer} label="Icon player" />
-            <CheckField checked={isGoalkeeper} onChange={(checked) => { setIsGoalkeeper(checked); setPlayerPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "" : current); }} label="Goalkeeper" />
-          </div>
-
-          <div className="space-y-1 rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
-            <p>Season Icon Player quota: <strong className="text-fg">{nominatedIconCount}/{iconQuotaLimit}</strong> · {data?.season.auctionSettings.iconPlayerLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
-            <p>Season Goalkeeper quota: <strong className="text-fg">{nominatedGoalkeeperCount}/{goalkeeperQuotaLimit}</strong> · {data?.season.auctionSettings.goalkeeperLimit ?? 0} per team × {teamRegistrationLimit} teams</p>
-          </div>
-
-          {players.error ? <p className="text-sm text-danger">{players.error}</p> : null}
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="surface" onClick={() => setNominateOpen(false)}>Cancel</Button>
-            <Button type="submit" disabled={saving || !playerId || !playerPosition}>{saving ? "Saving…" : "Create lot"}</Button>
-          </div>
-        </form>
-      </Modal>
-
-      {/* ------------------------ Edit lot modal ------------------------ */}
-      <Modal
+      <EditAuctionLotModal
         open={Boolean(editingLot)}
-        title="Edit auction lot"
-        description="Correct the status, position, icon designation or sale details. Sale limits are recalculated before saving."
         onClose={closeEdit}
-      >
-        <form className="grid gap-4" onSubmit={saveLot}>
-          {editingLot ? (
-            <div className="flex items-center gap-3 rounded-2xl border border-line bg-glass p-3 backdrop-blur-md">
-              <Avatar name={playerNameFor(editingLot)} asset={playerImageFor(editingLot)} className="h-14 w-14 rounded-2xl ring-2 ring-line" />
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-fg">{playerNameFor(editingLot)}</p>
-                <p className="text-xs text-muted">Lot #{editingLot.lotNumber ?? "—"}</p>
-              </div>
-            </div>
-          ) : null}
-
-          <Field label="Season position">
-            <Select value={editPosition} onChange={(event) => { const next = event.target.value as SeasonPlayerPosition; setEditPosition(next); setEditGoalkeeper(next === "goalkeeper"); }}>
-              {Object.entries(POSITIONS).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </Select>
-          </Field>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <CheckField checked={editIconPlayer} onChange={setEditIconPlayer} label="Icon player" />
-            <CheckField checked={editGoalkeeper} onChange={(checked) => { setEditGoalkeeper(checked); setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "midfielder" : current); }} label="Goalkeeper" />
-          </div>          
-
-          <Field label="Auction status">
-            <Select value={editStatus} onChange={(event) => setEditStatus(event.target.value as AuctionLotStatus)}>
-              {LOT_STATUSES.map((status) => (
-                <option
-                  key={status}
-                  value={status}
-                  disabled={
-                    editingLot?.auctionStatus === "withdrawn"
-                    || (status === "withdrawn" && editingLot?.auctionStatus !== "sold")
-                    || (data?.season.auctionLifecycleStatus === "not_started" && status !== "pending")
-                  }
-                >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </option>
-              ))}
-            </Select>
-            <p className="mt-1 text-xs leading-relaxed text-muted">
-              {data?.season.auctionLifecycleStatus === "not_started"
-                ? "The auction has not started yet. Lots must remain Pending. You can mark a lot as Sold, Unsold or Withdrawn and record its sale details once the auction is In Progress."
-                : data?.season.auctionLifecycleStatus === "in_progress"
-                  ? "The auction is In Progress, so you can update this lot's status. A team and purchase price are required when marking it as Sold. Withdrawn is available only for a previously sold lot."
-                  : "Lot status changes are locked after the auction is completed. Reopen the auction to make further lot changes."}
-            </p>
-          </Field>
-
-          {editStatus === "sold" ? (
-            <>
-              <Field label="Assigned season team">
-                <Select required value={editTeamId} onChange={(event) => setEditTeamId(event.target.value)}>
-                  <option value="">Select team</option>
-                  {data?.teams.map((team) => (
-                    <option
-                      key={team.seasonTeamId}
-                      value={team.seasonTeamId}
-                      disabled={["withdrawn", "eliminated", "completed"].includes(team.status)}
-                    >
-                      {team.displayName} · balance {formatCurrency(team.balance)}
-                    </option>
-                  ))}
-                </Select>
-                <p className="mt-1 text-xs leading-relaxed text-muted">
-                  Team assignment and changes to the assigned team are available only while the auction is In Progress and this lot is marked Sold. Teams that are withdrawn, eliminated or completed cannot receive a player.
-                </p>
-              </Field>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Purchase price (INR)">
-                  <Input type="number" min="0" step="1" required value={editPrice} onChange={(event) => setEditPrice(event.target.value)} />
-                </Field>
-                <Field label="Jersey number (optional)">
-                  <Input type="number" min="1" max="99" value={editJersey} onChange={(event) => setEditJersey(event.target.value)} />
-                </Field>
-              </div>
-              {selectedEditTeam ? (
-                <p className="rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
-                  Estimated balance after this purchase:{" "}
-                  <strong className="tabular text-fg">
-                    {formatCurrency(selectedEditTeam.balance + previousPriceOnSelectedTeam - (Number(editPrice) || 0))}
-                  </strong>
-                </p>
-              ) : null}
-            </>
-          ) : (
-            <p className="rounded-2xl border border-line bg-surface p-3 text-xs text-muted">
-              Withdrawn players retain their original team and sale details as history. Sold players can return to Pending or Unsold only if their team has no fixtures.
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="surface" onClick={closeEdit}>Cancel</Button>
-            <Button type="submit" disabled={saving || (editStatus === "sold" && (!editTeamId || editPrice.trim() === ""))}>
-              {saving ? "Saving…" : "Save changes"}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+        onSubmit={saveLot}
+        lot={editingLot}
+        playerName={editingLot ? playerNameFor(editingLot) : ""}
+        playerImage={editingLot ? playerImageFor(editingLot) : null}
+        lifecycleStatus={data?.season.auctionLifecycleStatus ?? "not_started"}
+        statuses={LOT_STATUSES}
+        positions={POSITIONS}
+        editStatus={editStatus}
+        onStatusChange={setEditStatus}
+        editPosition={editPosition}
+        onPositionChange={setEditPosition}
+        editIconPlayer={editIconPlayer}
+        onIconPlayerChange={setEditIconPlayer}
+        editGoalkeeper={editGoalkeeper}
+        onGoalkeeperChange={(checked) => {
+          setEditGoalkeeper(checked);
+          setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "midfielder" : current);
+        }}
+        teams={data?.teams ?? []}
+        editTeamId={editTeamId}
+        onTeamChange={setEditTeamId}
+        editPrice={editPrice}
+        onPriceChange={setEditPrice}
+        editJersey={editJersey}
+        onJerseyChange={setEditJersey}
+        selectedTeam={selectedEditTeam ?? null}
+        estimatedBalance={selectedEditTeam
+          ? selectedEditTeam.balance + previousPriceOnSelectedTeam - (Number(editPrice) || 0)
+          : null}
+        saving={saving}
+      />
     </PageContainer>
   );
 }
