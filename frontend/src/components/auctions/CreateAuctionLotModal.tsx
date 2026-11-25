@@ -132,6 +132,7 @@ export function CreateAuctionLotModal({
           </div>
 
           {!playerId ? (
+            <>
             <div className="relative mb-3">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
               <Input
@@ -177,8 +178,7 @@ export function CreateAuctionLotModal({
                   </p>
                 </div>
               ) : null}
-            </div>
-  
+            </>
           ) : (
             <div className="flex items-center justify-between gap-2 rounded-xl border border-accent/20 bg-accent/5 px-3 py-2.5">
               <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
