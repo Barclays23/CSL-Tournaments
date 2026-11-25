@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { AdminPageBanner } from "@/components/admin/AdminPageBanner";
@@ -711,7 +711,10 @@ export function AuctionsPage() {
         editStatus={editStatus}
         onStatusChange={setEditStatus}
         editPosition={editPosition}
-        onPositionChange={setEditPosition}
+        onPositionChange={(next) => {
+          setEditPosition(next);
+          setEditGoalkeeper(next === "goalkeeper");
+        }}
         editIconPlayer={editIconPlayer}
         onIconPlayerChange={setEditIconPlayer}
         editGoalkeeper={editGoalkeeper}
