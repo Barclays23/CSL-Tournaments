@@ -285,7 +285,7 @@ export function EditAuctionLotModal({
                 </div>
                 <p className="shrink-0 text-lg font-semibold tabular text-fg">₹{estimatedBalance.toLocaleString("en-IN")}</p>
               </div>
-            )}
+            ) : null}
           </>
         ) : (
           <div className="rounded-2xl border border-line bg-surface/50 p-3 text-xs leading-relaxed text-muted">
