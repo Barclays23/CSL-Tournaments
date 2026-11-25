@@ -936,7 +936,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 />
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <p className={"min-w-0 break-words text-sm font-semibold leading-tight " + (withdrawn ? "text-muted" : "text-fg")}>{team.displayName}</p>
+                                    <p className={"min-w-0 wrap-break-word text-sm font-semibold leading-tight " + (withdrawn ? "text-muted" : "text-fg")}>{team.displayName}</p>
                                     {preActivation && linked ? <Lock className="h-3.5 w-3.5 shrink-0 text-faint" aria-label="Has auction or fixture history" /> : null}
                                   </div>
                                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -967,7 +967,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                   {team.managers.map((manager) => (
                                     <span key={manager._id} className="inline-flex max-w-full items-center gap-2 rounded-full border border-line bg-surface/70 py-1 pl-1 pr-3 shadow-sm">
                                       <Avatar name={manager.name} asset={manager.profilePic} className="h-7 w-7 shrink-0 border border-line bg-surface object-cover" />
-                                      <span className="max-w-[12rem] truncate text-xs font-medium text-fg">{manager.name}</span>
+                                      <span className="max-w-48 truncate text-xs font-medium text-fg">{manager.name}</span>
                                       {manager.role ? <span className="hidden border-l border-line pl-2 text-[10px] text-muted sm:inline">{manager.role}</span> : null}
                                     </span>
                                   ))}
@@ -995,7 +995,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                         onClick={() => void assignManagers(team, assigned ? team.managerRefs.filter((id) => id !== manager._id) : [...team.managerRefs, manager._id])}
                                       >
                                         <Avatar name={manager.name} asset={manager.profilePic} className="h-7 w-7 shrink-0 border border-line bg-surface object-cover" />
-                                        <span className="max-w-[10rem] truncate">{manager.name}</span>
+                                        <span className="max-w-40 truncate">{manager.name}</span>
                                         {manager.status !== "active" ? <span className="text-[10px] text-muted">(Inactive)</span> : null}
                                       </Chip>
                                     );
