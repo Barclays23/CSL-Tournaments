@@ -906,6 +906,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   </div>
                 ) : null}
 
+                {/* Registered Teams List */}
                 {activeTeamsTab === "registered" ? (
                   <>
                     {seasonTeams.loading ? <Skeleton className="h-20" /> : null}
