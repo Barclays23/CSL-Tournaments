@@ -29,7 +29,7 @@ import {
   updateSeasonMatchGoal,
   updateSeasonMatchCard,
 } from "@/services/seasonMatchService";
-import { getSeasonTeams, getAuctionLots } from "@/services/seasonService";
+import { getSeasonById, getSeasonTeams, getAuctionLots } from "@/services/seasonService";
 import { getVenues } from "@/services/venueService";
 import type { SeasonMatch, SeasonMatchCardType, SeasonMatchTeamRef, SeasonMatchWrite, SeasonMatchCorrectionWrite } from "@/types/seasonMatch.types";
 import type { AuctionLot } from "@/types/season.types";
@@ -206,11 +206,26 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
   const [savingCorrection, setSavingCorrection] = useState(false);
 
   const matchQuery = useServiceQuery(() => getSeasonMatchById(seasonId, matchId), [seasonId, matchId]);
+  const seasonQuery = useServiceQuery(() => getSeasonById(seasonId), [seasonId]);
   const teamsQuery = useServiceQuery(() => getSeasonTeams(seasonId), [seasonId]);
   const groupsQuery = useServiceQuery(() => import("@/services/seasonMatchService").then(({ getSeasonGroups }) => getSeasonGroups(seasonId)), [seasonId]);
   const venuesQuery = useServiceQuery(() => getVenues("all"), []);
   const lotsQuery = useServiceQuery(() => getAuctionLots({ seasonId, auctionStatus: "sold" }), [seasonId]);
   const match = matchQuery.data?.data;
+  const selectedSeason = seasonQuery.data?.data;
+  const canManageActiveSeason = isAdmin && selectedSeason?.status === "active";
+  const canChangeFixtures = canManageActiveSeason && selectedSeason?.auctionLifecycleStatus === "completed";
+  const fixtureManagementHint = !selectedSeason
+    ? null
+    : selectedSeason.status === "upcoming"
+      ? "This season is Upcoming. Fixture details can only be created, edited or deleted after the season becomes Active. Complete the auction and activate the season from the Seasons page. You can still view this match and its history."
+      : selectedSeason.status === "draft"
+        ? "This season is still in Draft. Complete the season setup, move it to Upcoming, finish the auction, and activate it before managing fixtures."
+        : selectedSeason.status === "completed" || selectedSeason.status === "archived"
+          ? "This season is read-only. Fixture creation, editing and deletion are available only while the season is Active."
+          : selectedSeason.auctionLifecycleStatus !== "completed"
+            ? "The auction must be completed before fixture details can be changed. Existing match results and incident history remain available."
+            : null;
 
   if (matchQuery.loading) return <PageContainer><Skeleton className="h-64" /></PageContainer>;
   if (matchQuery.error || !match) {
@@ -225,9 +240,9 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
   const scoringTeamId = goalTeamId || home.id;
   const playerTeamId = goalType === "normal" ? scoringTeamId : scoringTeamId === home.id ? away.id : home.id;
   const eligibleGoalPlayers = (lotsQuery.data?.data ?? []).filter((lot) => lotTeamId(lot) === playerTeamId && lotPlayer(lot));
-  const canManageGoals = isAdmin && match.status === "live";
-  const canManageCards = isAdmin && match.status === "live";
-  const canManageShootout = isAdmin && match.stage !== "group" && match.status === "live";
+  const canManageGoals = canManageActiveSeason && match.status === "live";
+  const canManageCards = canManageActiveSeason && match.status === "live";
+  const canManageShootout = canManageActiveSeason && match.stage !== "group" && match.status === "live";
   const showScore = match.status === "live"
     || match.status === "completed"
     || (match.status !== "scheduled" && match.goals.length > 0);
@@ -247,7 +262,7 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
       : null;
   const venueName = match.venueRef && typeof match.venueRef === "object" ? match.venueRef.name : match.venue || null;
 
-  const showEdit = isAdmin && canEditSeasonMatch(match);
+  const showEdit = canChangeFixtures && canEditSeasonMatch(match);
 
   const saveGoal = async () => {
     if (!canManageGoals) {
@@ -360,13 +375,31 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
         Back to matches
       </Link>
 
-      {isAdmin && match.status === "completed" ? (
+      {canManageActiveSeason && match.status === "completed" ? (
         <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 border border-warning/30 p-4">
           <div className="min-w-0">
             <h2 className="font-display text-lg text-fg">Completed result correction</h2>
             <p className="mt-0.5 text-sm text-muted">Use the audited correction workflow to amend the official result. Ordinary goal editing is disabled.</p>
           </div>
           <Button size="sm" variant="surface" onClick={() => setCorrectionOpen(true)}>Correct completed result</Button>
+        </GlassCard>
+      ) : null}
+      {adminMode && isAdmin && fixtureManagementHint ? (
+        <GlassCard className="mt-3 border border-info/30 bg-info/5 p-4" role="status">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="font-semibold text-fg">Fixture management is currently unavailable</p>
+              <p className="mt-1 text-sm leading-6 text-muted">{fixtureManagementHint}</p>
+            </div>
+            {selectedSeason.status !== "active" ? (
+              <Link
+                to="/admin/seasons"
+                className="shrink-0 text-sm font-semibold text-accent underline-offset-4 hover:underline"
+              >
+                Go to Seasons
+              </Link>
+            ) : null}
+          </div>
         </GlassCard>
       ) : null}
       {match.correctionHistory?.length ? (
@@ -386,7 +419,7 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
       <MatchStatusManager
         seasonId={seasonId}
         match={match}
-        isAdmin={isAdmin}
+        isAdmin={canManageActiveSeason}
         onMatchUpdated={(updatedMatch) => {
           matchQuery.setData((current) => current ? { ...current, data: updatedMatch } : current);
         }}
