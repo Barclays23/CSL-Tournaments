@@ -917,7 +917,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                           const away = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
                           return home === team._id || away === team._id;
                         });
-                        const managersLocked = saving || !canEditSeasonTeamManagers(selected.status);
                         const managersAssignedElsewhere = registeredTeams
                           .filter((otherTeam) => otherTeam._id !== team._id)
                           .flatMap((otherTeam) => otherTeam.managerRefs);
