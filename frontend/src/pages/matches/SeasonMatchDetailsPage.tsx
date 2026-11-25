@@ -149,7 +149,7 @@ function TeamSide({
       to={adminMode ? "/admin/teams/$teamId" : "/teams/$teamId"}
       params={{ teamId: team.teamId }}
       aria-label={"View " + team.name + " team details"}
-      className="rounded-xl transition hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+      className="rounded-xl transition hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
     >
       {content}
     </Link>
