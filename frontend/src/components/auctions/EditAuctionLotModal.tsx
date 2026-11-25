@@ -20,8 +20,8 @@ interface EditAuctionLotModalProps {
   positions: Record<SeasonPlayerPosition, string>;
   editStatus: AuctionLotStatus;
   onStatusChange: (value: AuctionLotStatus) => void;
-  editPosition: SeasonPlayerPosition;
-  onPositionChange: (value: SeasonPlayerPosition) => void;
+  editPosition: SeasonPlayerPosition | "";
+  onPositionChange: (value: SeasonPlayerPosition | "") => void;
   editIconPlayer: boolean;
   onIconPlayerChange: (value: boolean) => void;
   editGoalkeeper: boolean;
@@ -167,7 +167,8 @@ export function EditAuctionLotModal({
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
             <Field label="Season position">
-              <Select value={editPosition} onChange={(event) => onPositionChange(event.target.value as SeasonPlayerPosition)}>
+              <Select required value={editPosition} onChange={(event) => onPositionChange(event.target.value as SeasonPlayerPosition | "")}>
+                <option value="">Select position</option>
                 {Object.entries(positions).map(([value, label]) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
@@ -270,10 +271,10 @@ export function EditAuctionLotModal({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Purchase price (INR)">
-                <Input type="number" min="0" step="1" required value={editPrice} onChange={(event) => onPriceChange(event.target.value)} placeholder="Enter purchase price" />
+                <Input className="h-12 text-base" type="number" min="0" step="1" required value={editPrice} onChange={(event) => onPriceChange(event.target.value)} placeholder="Enter purchase price" />
               </Field>
               <Field label="Jersey number (optional)">
-                <Input type="number" min="1" max="99" value={editJersey} onChange={(event) => onJerseyChange(event.target.value)} placeholder="e.g. 10" />
+                <Input className="h-12 text-base" type="number" min="1" max="99" value={editJersey} onChange={(event) => onJerseyChange(event.target.value)} placeholder="e.g. 10" />
               </Field>
             </div>
 
@@ -295,7 +296,7 @@ export function EditAuctionLotModal({
 
         <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
           <Button type="button" variant="surface" onClick={onClose}>Cancel</Button>
-          <Button type="submit" disabled={saving || (editStatus === "sold" && (!editTeamId || editPrice.trim() === ""))}>
+          <Button type="submit" disabled={saving || !editPosition || (editStatus === "sold" && (!editTeamId || editPrice.trim() === ""))}>
             {saving ? "Saving…" : "Save changes"}
           </Button>
         </div>

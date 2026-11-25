@@ -171,7 +171,7 @@ export function AuctionsPage() {
 
   const [editingLot, setEditingLot] = useState<AuctionLot | null>(null);
   const [editStatus, setEditStatus] = useState<AuctionLotStatus>("pending");
-  const [editPosition, setEditPosition] = useState<SeasonPlayerPosition>("midfielder");
+  const [editPosition, setEditPosition] = useState<SeasonPlayerPosition | "">("");
   const [editIconPlayer, setEditIconPlayer] = useState(false);
   const [editGoalkeeper, setEditGoalkeeper] = useState(false);
   const [editTeamId, setEditTeamId] = useState("");
@@ -237,6 +237,10 @@ export function AuctionsPage() {
   const saveLot = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!editingLot) return;
+    if (!editPosition) {
+      toast.error("Select the player’s season position before saving.");
+      return;
+    }
     if (editStatus === "sold" && (!editTeamId || editPrice.trim() === "")) {
       toast.error("Choose a team and enter the purchase price for a sold lot.");
       return;
@@ -674,6 +678,7 @@ export function AuctionsPage() {
         playerSearch={playerSearch}
         onPlayerSearchChange={setPlayerSearch}
         playerId={playerId}
+        selectedPlayer={playerRows.find((player) => player._id === playerId) ?? null}
         onPlayerSelect={setPlayerId}
         playerPosition={playerPosition}
         onPlayerPositionChange={(next) => {
@@ -720,7 +725,7 @@ export function AuctionsPage() {
         editGoalkeeper={editGoalkeeper}
         onGoalkeeperChange={(checked) => {
           setEditGoalkeeper(checked);
-          setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "midfielder" : current);
+          setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "" : current);
         }}
         teams={data?.teams ?? []}
         editTeamId={editTeamId}

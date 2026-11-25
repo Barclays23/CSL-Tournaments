@@ -1,5 +1,5 @@
 import type { FormEvent, ReactNode } from "react";
-import { Check, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { Check, PencilLine, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -18,6 +18,7 @@ interface CreateAuctionLotModalProps {
   playerSearch: string;
   onPlayerSearchChange: (value: string) => void;
   playerId: string;
+  selectedPlayer: PublicPlayer | null;
   onPlayerSelect: (value: string) => void;
   playerPosition: SeasonPlayerPosition | "";
   onPlayerPositionChange: (value: SeasonPlayerPosition | "") => void;
@@ -93,6 +94,7 @@ export function CreateAuctionLotModal({
   playerSearch,
   onPlayerSearchChange,
   playerId,
+  selectedPlayer,
   onPlayerSelect,
   playerPosition,
   onPlayerPositionChange,
@@ -129,54 +131,81 @@ export function CreateAuctionLotModal({
             </span>
           </div>
 
-          <div className="relative mb-3">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
-            <Input
-              aria-label="Search available players"
-              className="pl-9"
-              placeholder="Search players by name…"
-              value={playerSearch}
-              onChange={(event) => onPlayerSearchChange(event.target.value)}
-            />
-          </div>
-
-          <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
-            {availablePlayers.map((player) => {
-              const selected = playerId === player._id;
-              return (
-                <button
-                  type="button"
-                  key={player._id}
-                  onClick={() => onPlayerSelect(player._id)}
-                  aria-pressed={selected}
-                  className={"flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition " +
-                    (selected ? "border-accent bg-accent/10 shadow-sm" : "border-line bg-glass hover:border-accent/40 hover:bg-surface")}
-                >
-                  <Avatar name={player.name} asset={player.profilePic} className="h-11 w-11 shrink-0 rounded-xl" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold text-fg">{player.name}</span>
-                    <span className="mt-0.5 block text-xs text-muted">Active player</span>
-                  </span>
-                  <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border " +
-                    (selected ? "border-accent bg-accent text-accent-fg" : "border-line text-transparent")}>
-                    <Check className="h-3.5 w-3.5" />
-                  </span>
-                </button>
-              );
-            })}
-            {!availablePlayers.length ? (
-              <div className="rounded-xl border border-dashed border-line px-4 py-7 text-center">
-                <p className="text-sm font-medium text-fg">
-                  {totalActivePlayers ? "No available players match this search." : "No active players are available."}
-                </p>
-                <p className="mt-1 text-xs text-muted">
-                  {totalActivePlayers ? "Try another player name." : "Activate or add player profiles before creating auction lots."}
-                </p>
-              </div>
-            ) : null}
-          </div>
+          {!playerId ? (
+            <>
+            <div className="relative mb-3">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <Input
+                aria-label="Search available players"
+                className="pl-9"
+                placeholder="Search players by name…"
+                value={playerSearch}
+                onChange={(event) => onPlayerSearchChange(event.target.value)}
+              />
+            </div>
+  
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {availablePlayers.map((player) => {
+                const selected = playerId === player._id;
+                return (
+                  <button
+                    type="button"
+                    key={player._id}
+                    onClick={() => onPlayerSelect(player._id)}
+                    aria-pressed={selected}
+                    className={"flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition " +
+                      (selected ? "border-accent bg-accent/10 shadow-sm" : "border-line bg-glass hover:border-accent/40 hover:bg-surface")}
+                  >
+                    <Avatar name={player.name} asset={player.profilePic} className="h-11 w-11 shrink-0 rounded-xl" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-fg">{player.name}</span>
+                      <span className="mt-0.5 block text-xs text-muted">Active player</span>
+                    </span>
+                    <span className={"flex h-6 w-6 shrink-0 items-center justify-center rounded-full border " +
+                      (selected ? "border-accent bg-accent text-accent-fg" : "border-line text-transparent")}>
+                      <Check className="h-3.5 w-3.5" />
+                    </span>
+                  </button>
+                );
+              })}
+              {!availablePlayers.length ? (
+                <div className="rounded-xl border border-dashed border-line px-4 py-7 text-center">
+                  <p className="text-sm font-medium text-fg">
+                    {totalActivePlayers ? "No available players match this search." : "No active players are available."}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {totalActivePlayers ? "Try another player name." : "Activate or add player profiles before creating auction lots."}
+                  </p>
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-accent/20 bg-accent/5 px-3 py-2.5">
+              <span className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                <Check className="h-4 w-4 shrink-0 text-success" />
+                <span className="truncate">Player selected. Review the details below.</span>
+              </span>
+              <Button type="button" size="sm" variant="surface" onClick={() => { onPlayerSelect(""); onPlayerSearchChange(""); }}>
+                <PencilLine className="h-3.5 w-3.5" /> Change
+              </Button>
+            </div>
+          )}
           {playersError ? <p className="mt-2 text-xs text-danger">{playersError}</p> : null}
         </section>
+
+        {playerId && selectedPlayer ? (
+          <section className="flex items-center gap-3 rounded-2xl border border-accent/25 bg-linear-to-r from-primary/10 via-glass to-accent/10 p-3 sm:p-4" aria-label="Selected player">
+            <Avatar name={selectedPlayer.name} asset={selectedPlayer.profilePic} className="h-14 w-14 shrink-0 rounded-2xl border border-line shadow-sm" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">Selected player</p>
+              <p className="mt-0.5 truncate text-base font-semibold text-fg">{selectedPlayer.name}</p>
+              <p className="mt-0.5 text-xs text-muted">Active player · Ready for auction nomination</p>
+            </div>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/10 text-success">
+              <Check className="h-4 w-4" />
+            </span>
+          </section>
+        ) : null}
 
         <section className="rounded-2xl border border-line bg-surface/40 p-3 sm:p-4">
           <div className="mb-3 flex items-center gap-2">
