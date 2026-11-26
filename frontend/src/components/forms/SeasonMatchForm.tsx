@@ -181,9 +181,8 @@ export function SeasonMatchForm({
   const rootError = errors.root?.serverError?.message;
 
   return (
-    <div className="relative">
-      <form
-        className="grid gap-4"
+    <form
+      className="relative grid gap-4"
         noValidate
         aria-busy={submitting}
         onSubmit={handleSubmit(submitForm)}
@@ -358,10 +357,13 @@ export function SeasonMatchForm({
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : match ? "Save changes" : "Save fixture"}
       </Button>
-      </form>
       {submitting ? (
-        <LoadingSpinner label="Saving fixture..." size="md" mode="cover" />
+        <LoadingSpinner
+          label={match ? "Saving changes..." : "Creating fixture..."}
+          size="md"
+          mode="cover"
+        />
       ) : null}
-    </div>
+    </form>
   );
 }
