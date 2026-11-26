@@ -650,7 +650,13 @@ export function SeasonMatchDetailsPage(props: { seasonId: string; matchId: strin
           }
         }}
       /> : null}
-      <Drawer open={editing} title="Edit fixture" onClose={() => setEditing(false)}>
+      <Drawer
+        open={editing}
+        title="Edit fixture"
+        onClose={() => setEditing(false)}
+        loading={savingMatch}
+        loadingLabel="Saving fixture..."
+      >
         <SeasonMatchForm
           seasonTeams={teamsQuery.data?.data ?? []}
           groups={groupsQuery.data?.data ?? []}
