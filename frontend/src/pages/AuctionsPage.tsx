@@ -458,11 +458,31 @@ export function AuctionsPage() {
           {/* --------------------------- Stats --------------------------- */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
             <StatTile label="Teams registered" value={`${registeredTeamCount}/${teamRegistrationLimit}`} current={registeredTeamCount} limit={teamRegistrationLimit} />
-            <StatTile label="Team slots remaining" value={Math.max(teamRegistrationLimit - registeredTeamCount, 0)} />
+            <StatTile
+              label="Team slots remaining"
+              value={`${Math.max(teamRegistrationLimit - registeredTeamCount, 0)}/${teamRegistrationLimit}`}
+              current={Math.max(teamRegistrationLimit - registeredTeamCount, 0)}
+              limit={teamRegistrationLimit}
+            />
             <StatTile label="Players nominated" value={`${nominatedLotCount}/${playerNominationLimit}`} current={nominatedLotCount} limit={playerNominationLimit} />
-            <StatTile label="Nominations remaining" value={Math.max(playerNominationLimit - nominatedLotCount, 0)} />
-            <StatTile label="Pending auction lots" value={data.totals.pending} />
-            <StatTile label="Sold" value={data.totals.sold} />
+            <StatTile
+              label="Nominations remaining"
+              value={`${Math.max(playerNominationLimit - nominatedLotCount, 0)}/${playerNominationLimit}`}
+              current={Math.max(playerNominationLimit - nominatedLotCount, 0)}
+              limit={playerNominationLimit}
+            />
+            <StatTile
+              label="Pending auction lots"
+              value={`${data.totals.pending}/${nominatedLotCount}`}
+              current={data.totals.pending}
+              limit={nominatedLotCount}
+            />
+            <StatTile
+              label="Sold"
+              value={`${data.totals.sold}/${playerNominationLimit}`}
+              current={data.totals.sold}
+              limit={playerNominationLimit}
+            />
             <StatTile label="Unsold" value={data.totals.unsold} />
             <StatTile label="Icon players" value={`${nominatedIconCount}/${iconQuotaLimit}`} current={nominatedIconCount} limit={iconQuotaLimit} />
             <StatTile label="Goalkeepers" value={`${nominatedGoalkeeperCount}/${goalkeeperQuotaLimit}`} current={nominatedGoalkeeperCount} limit={goalkeeperQuotaLimit} />
