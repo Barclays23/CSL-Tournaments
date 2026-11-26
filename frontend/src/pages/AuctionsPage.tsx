@@ -169,6 +169,7 @@ export function AuctionsPage() {
   const playerNominationLimit = data?.season.auctionSettings.playersCount ?? 0;
   const iconQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.iconPlayerLimit ?? 0);
   const goalkeeperQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.goalkeeperLimit ?? 0);
+  const nominatedLotCount = Math.max((data?.totals.lots ?? 0) - (data?.totals.withdrawn ?? 0), 0);
   const nominatedIconCount = data?.totals.nominatedIconPlayers ?? 0;
   const nominatedGoalkeeperCount = data?.totals.nominatedGoalkeepers ?? 0;
 
@@ -445,8 +446,8 @@ export function AuctionsPage() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
             <StatTile label="Teams registered" value={`${registeredTeamCount}/${teamRegistrationLimit}`} current={registeredTeamCount} limit={teamRegistrationLimit} />
             <StatTile label="Team slots remaining" value={Math.max(teamRegistrationLimit - registeredTeamCount, 0)} />
-            <StatTile label="Players nominated" value={`${nominatedLots.length}/${playerNominationLimit}`} current={nominatedLots.length} limit={playerNominationLimit} />
-            <StatTile label="Nominations remaining" value={Math.max(playerNominationLimit - nominatedLots.length, 0)} />
+            <StatTile label="Players nominated" value={`${nominatedLotCount}/${playerNominationLimit}`} current={nominatedLotCount} limit={playerNominationLimit} />
+            <StatTile label="Nominations remaining" value={Math.max(playerNominationLimit - nominatedLotCount, 0)} />
             <StatTile label="Pending auction lots" value={data.totals.pending} />
             <StatTile label="Sold" value={data.totals.sold} />
             <StatTile label="Unsold" value={data.totals.unsold} />
