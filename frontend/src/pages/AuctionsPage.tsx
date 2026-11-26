@@ -801,6 +801,9 @@ export function AuctionsPage() {
           setEditPosition((current) => checked ? "goalkeeper" : current === "goalkeeper" ? "" : current);
         }}
         teams={data?.teams ?? []}
+        teamSquadSize={data?.season.auctionSettings.teamSquadSize ?? 0}
+        goalkeeperLimit={data?.season.auctionSettings.goalkeeperLimit ?? 0}
+        iconPlayerLimit={data?.season.auctionSettings.iconPlayerLimit ?? 0}
         editTeamId={editTeamId}
         onTeamChange={setEditTeamId}
         editPrice={editPrice}

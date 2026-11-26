@@ -28,6 +28,9 @@ interface EditAuctionLotModalProps {
   editGoalkeeper: boolean;
   onGoalkeeperChange: (value: boolean) => void;
   teams: AuctionTeamSummary[];
+  teamSquadSize: number;
+  goalkeeperLimit: number;
+  iconPlayerLimit: number;
   editTeamId: string;
   onTeamChange: (value: string) => void;
   editPrice: string;
@@ -113,6 +116,9 @@ export function EditAuctionLotModal({
   editGoalkeeper,
   onGoalkeeperChange,
   teams,
+  teamSquadSize,
+  goalkeeperLimit,
+  iconPlayerLimit,
   editTeamId,
   onTeamChange,
   editPrice,
@@ -233,6 +239,9 @@ export function EditAuctionLotModal({
                   {teams.map((team) => {
                     const selected = editTeamId === team.seasonTeamId;
                     const disabled = ["withdrawn", "eliminated", "completed"].includes(team.status);
+                    const remainingPlayers = Math.max(teamSquadSize - team.playersSigned, 0);
+                    const remainingGoalkeepers = Math.max(goalkeeperLimit - team.goalkeeperCount, 0);
+                    const remainingIconPlayers = Math.max(iconPlayerLimit - team.iconCount, 0);
                     return (
                       <button
                         key={team.seasonTeamId}
@@ -248,7 +257,21 @@ export function EditAuctionLotModal({
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-xs font-semibold text-fg">{team.displayName}</span>
                           <span className="mt-0.5 block truncate text-[10px] text-muted">Balance · ₹{team.balance.toLocaleString("en-IN")}</span>
-                          <span className="mt-1 block"><StatusBadge status={team.status} /></span>
+                          <span className="mt-2 grid grid-cols-3 gap-1.5">
+                            <span className="min-w-0 rounded-lg border border-line/70 bg-surface/60 px-1.5 py-1">
+                              <span className="block truncate text-[9px] leading-tight text-muted">Players left</span>
+                              <span className="mt-0.5 block text-xs font-semibold tabular text-fg">{remainingPlayers}<span className="text-[9px] font-normal text-muted">/{teamSquadSize}</span></span>
+                            </span>
+                            <span className="min-w-0 rounded-lg border border-line/70 bg-surface/60 px-1.5 py-1">
+                              <span className="block truncate text-[9px] leading-tight text-muted">Goalkeepers left</span>
+                              <span className="mt-0.5 block text-xs font-semibold tabular text-fg">{remainingGoalkeepers}<span className="text-[9px] font-normal text-muted">/{goalkeeperLimit}</span></span>
+                            </span>
+                            <span className="min-w-0 rounded-lg border border-line/70 bg-surface/60 px-1.5 py-1">
+                              <span className="block truncate text-[9px] leading-tight text-muted">Icon players left</span>
+                              <span className="mt-0.5 block text-xs font-semibold tabular text-fg">{remainingIconPlayers}<span className="text-[9px] font-normal text-muted">/{iconPlayerLimit}</span></span>
+                            </span>
+                          </span>
+                          <span className="mt-1.5 block"><StatusBadge status={team.status} /></span>
                         </span>
                         <span className={"flex h-5 w-5 shrink-0 items-center justify-center rounded-full border " +
                           (selected ? "border-accent bg-accent text-accent-fg" : "border-line text-transparent")}>
