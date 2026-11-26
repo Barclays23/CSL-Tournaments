@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { RotateCcw } from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -156,6 +157,18 @@ export function AuctionsPage() {
   const lotRows = lots.data?.data ?? [];
   const lotPagination = lots.data?.pagination;
   const lotTotalPages = lotPagination?.totalPages;
+  const hasActiveLotFilters = Boolean(
+    playerName.trim() || teamFilter || statusFilter || positionFilter || iconFilter || goalkeeperFilter
+  );
+  const clearLotFilters = () => {
+    setPlayerName("");
+    setTeamFilter("");
+    setStatusFilter("");
+    setPositionFilter("");
+    setIconFilter("");
+    setGoalkeeperFilter("");
+    setLotPage(1);
+  };
   useEffect(() => {
     if (lotTotalPages === undefined) return;
     // Sync the selected page when server-side filtering or deletion reduces the page count.
@@ -553,7 +566,23 @@ export function AuctionsPage() {
           {/* --------------------------- Lots --------------------------- */}
           {auctionSection === "lots" ? (
             <section className="mt-7">
-              <SectionTitle title="Auction lots" aside={<Pill className="bg-glass text-muted ring-1 ring-line">{lotPagination?.total ?? 0} result(s)</Pill>} />
+              <SectionTitle
+                title="Auction lots"
+                aside={
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Pill className="bg-glass text-muted ring-1 ring-line">{lotPagination?.total ?? 0} result(s)</Pill>
+                    <Button
+                      size="sm"
+                      variant="surface"
+                      disabled={!hasActiveLotFilters}
+                      onClick={clearLotFilters}
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Clear filters
+                    </Button>
+                  </div>
+                }
+              />
 
               <div className="mb-5 grid gap-2 rounded-3xl border border-line bg-glass p-3 shadow-glass backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-6">
                 <Input placeholder="Search Player Name" value={playerName} onChange={(event) => { setPlayerName(event.target.value); setLotPage(1); }} />
