@@ -175,7 +175,7 @@ export function getTeamOutfieldQuotaBlockers(
 ): string[] {
   const limit = settings.teamSquadSize - settings.goalkeeperLimit;
   if (addingOutfieldPlayer && currentOutfieldPlayers >= limit) {
-    return [`${teamName} already has ${currentOutfieldPlayers} outfield players. Each team can have a maximum of ${limit} outfield players (${settings.teamSquadSize} squad members - ${settings.goalkeeperLimit} Goalkeeper).`];
+    return [`Outfield player limit reached for ${teamName}. A maximum of ${limit} outfield players are allowed per team (${settings.teamSquadSize} squad spots - ${settings.goalkeeperLimit} goalkeeper).`];
   }
   return [];
 }

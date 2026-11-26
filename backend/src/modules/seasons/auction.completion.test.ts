@@ -152,7 +152,7 @@ test("team outfield cap blocks a player above squad size minus goalkeeper limit"
   const teamSettings = { ...settings, teamSquadSize: 9, goalkeeperLimit: 1 };
   assert.deepEqual(getTeamOutfieldQuotaBlockers(teamSettings, 7, true, "Team A"), []);
   assert.deepEqual(getTeamOutfieldQuotaBlockers(teamSettings, 8, true, "Team A"), [
-    "Team A already has 8 outfield players. Each team can have a maximum of 8 outfield players (9 squad members - 1 Goalkeeper).",
+    "Outfield player limit reached for Team A. A maximum of 8 outfield players are allowed per team (9 squad spots - 1 goalkeeper).",
   ]);
   assert.deepEqual(getTeamOutfieldQuotaBlockers(teamSettings, 8, false, "Team A"), []);
 });
