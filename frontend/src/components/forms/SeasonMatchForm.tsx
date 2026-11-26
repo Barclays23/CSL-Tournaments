@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { SeasonTeam } from "@/types/season.types";
 import type { SeasonGroup, SeasonMatch, SeasonMatchStage, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { fromDateTimeInput, toDateTimeInput } from "@/utils/formatDate";
@@ -182,7 +181,7 @@ export function SeasonMatchForm({
 
   return (
     <form
-      className="relative grid gap-4"
+      className="grid gap-4"
       noValidate
       aria-busy={submitting}
       onSubmit={handleSubmit(submitForm)}
@@ -357,13 +356,6 @@ export function SeasonMatchForm({
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : match ? "Save changes" : "Save fixture"}
       </Button>
-      {submitting ? (
-        <LoadingSpinner
-          label={match ? "Saving changes..." : "Creating fixture..."}
-          size="md"
-          mode="cover"
-        />
-      ) : null}
     </form>
   );
 }
