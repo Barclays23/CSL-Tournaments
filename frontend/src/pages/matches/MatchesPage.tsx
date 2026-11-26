@@ -204,6 +204,32 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
     setOpen(true);
   };
 
+  const handleSaveFixture = async (values: SeasonMatchWrite): Promise<void> => {
+    if (!seasonId) return;
+    setSaving(true);
+    try {
+      if (editingMatch) {
+        await updateSeasonMatch(seasonId, editingMatch._id, values);
+        toast.success("Season fixture updated");
+      } else {
+        if (!values.kickoffAt) {
+          throw new Error("Kick-off date and time are required to create a fixture.");
+        }
+        await createSeasonMatch(seasonId, { ...values, kickoffAt: values.kickoffAt });
+        toast.success("Season fixture created");
+      }
+      setOpen(false);
+      setEditingMatch(null);
+      setPage(1);
+      matches.reload();
+    } catch (error) {
+      toast.error(errorMessage(error));
+      throw error;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async (fixture: SeasonMatch) => {
     const yes = await confirm({ title: "Delete this fixture?", description: "Delete match " + fixture.matchNumber + "?", confirmLabel: "Delete fixture", danger: true });
     if (!yes) return;
@@ -444,29 +470,7 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
           venues={venues.data?.data ?? []}
           match={editingMatch}
           submitting={saving}
-          onSubmit={async (values: SeasonMatchWrite) => {
-            if (!seasonId) return;
-            setSaving(true);
-            try {
-              if (editingMatch) {
-                await updateSeasonMatch(seasonId, editingMatch._id, values);
-                toast.success("Season fixture updated");
-              } else {
-                if (!values.kickoffAt) throw new Error("Kick-off date and time are required to create a fixture.");
-                await createSeasonMatch(seasonId, { ...values, kickoffAt: values.kickoffAt });
-                toast.success("Season fixture created");
-              }
-              setOpen(false);
-              setEditingMatch(null);
-              setPage(1);
-              matches.reload();
-            } catch (error) {
-              toast.error(errorMessage(error));
-              throw error;
-            } finally {
-              setSaving(false);
-            }
-          }}
+          onSubmit={handleSaveFixture}
         />
       </Drawer>
     </PageContainer>

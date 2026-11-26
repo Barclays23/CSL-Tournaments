@@ -182,7 +182,7 @@ export function SeasonMatchForm({
 
   return (
     <form
-      className="relative grid gap-4"
+      className="grid gap-4"
       noValidate
       aria-busy={submitting}
       onSubmit={handleSubmit(submitForm)}
@@ -357,11 +357,13 @@ export function SeasonMatchForm({
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : match ? "Save changes" : "Save fixture"}
       </Button>
+      
       {submitting ? (
         <LoadingSpinner
           label={match ? "Saving changes..." : "Creating fixture..."}
-          size="md"
+          size="lg"
           mode="cover"
+          className="h-full w-full"
         />
       ) : null}
     </form>
