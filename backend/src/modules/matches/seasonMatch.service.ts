@@ -1553,24 +1553,31 @@ export class SeasonMatchService implements ISeasonMatchService {
     return { _id: String(p._id), name: p.name, profilePic: p.profilePic };
   }
 
-  private mapGoal(g: PopulatedSeasonGoal): SeasonGoalResponseDto {
+  private mapGoal(
+    g: PopulatedSeasonGoal,
+    fallbackCreatedAt: Date,
+  ): SeasonGoalResponseDto {
     return {
       _id: String(g._id),
       scoringSeasonTeamRef: this.mapTeam(g.scoringSeasonTeamRef)!,
       scorerPlayerRef: this.mapPlayer(g.scorerPlayerRef),
       playerSeasonTeamRef: this.mapTeam(g.playerSeasonTeamRef),
       goalType: g.goalType,
-      createdAt: g.createdAt.toISOString(),
+      // Older match records may not have timestamps on embedded goal documents.
+      createdAt: (g.createdAt ?? fallbackCreatedAt).toISOString(),
     };
   }
   
-  private mapCard(c: PopulatedSeasonMatchCard): SeasonMatchCardResponseDto {
+  private mapCard(
+    c: PopulatedSeasonMatchCard,
+    fallbackCreatedAt: Date,
+  ): SeasonMatchCardResponseDto {
     return {
       _id: String(c._id),
       seasonTeamRef: this.mapTeam(c.seasonTeamRef)!,
       playerRef: this.mapPlayer(c.playerRef)!,
       cardType: c.cardType,
-      createdAt: c.createdAt.toISOString(),
+      createdAt: (c.createdAt ?? fallbackCreatedAt).toISOString(),
     };
   }
   private map(m: PopulatedSeasonMatch): SeasonMatchResponseDto {
@@ -1597,8 +1604,8 @@ export class SeasonMatchService implements ISeasonMatchService {
       homeSeasonTeamRef: this.mapTeam(m.homeSeasonTeamRef)!,
       awaySeasonTeamRef: this.mapTeam(m.awaySeasonTeamRef)!,
       status: m.status,
-      goals: m.goals.map((g) => this.mapGoal(g)),
-      cards: (m.cards ?? []).map((c) => this.mapCard(c)),
+      goals: m.goals.map((g) => this.mapGoal(g, m.createdAt)),
+      cards: (m.cards ?? []).map((c) => this.mapCard(c, m.createdAt)),
       resolutionHistory: (m.resolutionHistory ?? []).map((entry) => ({
         status: entry.status,
         reason: entry.reason,
