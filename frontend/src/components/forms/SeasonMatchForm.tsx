@@ -183,10 +183,10 @@ export function SeasonMatchForm({
   return (
     <form
       className="relative grid gap-4"
-        noValidate
-        aria-busy={submitting}
-        onSubmit={handleSubmit(submitForm)}
-      >
+      noValidate
+      aria-busy={submitting}
+      onSubmit={handleSubmit(submitForm)}
+    >
       <div className="grid gap-4 sm:grid-cols-2">
         <FormField label="Match number" required error={errors.matchNumber?.message}>
           <Input
