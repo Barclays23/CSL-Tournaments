@@ -1231,7 +1231,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                     <div className="space-y-0.5">
                       <p>Create groups and assign teams to them before fixtures are created.</p>
                       <p>A group cannot be deleted while any team registration is assigned to it, or while a fixture references the group or any team assigned to it. This includes knockout fixtures.</p>
-                      {hasFixtures ? <p>Groups are locked because this season already has fixtures.</p> : null}
+                      {hasFixtures ? <p>Group editing and team assignment are locked because this season already has fixtures. An unused group with no team assignments or fixture references can still be deleted.</p> : null}
                     </div>
                   }
                   aside={<Badge tone={assignableTeams.length > 0 && unassignedTeams.length === 0 ? "accent" : "info"}>{assignedTeamCount} / {assignableTeams.length} assigned</Badge>}
