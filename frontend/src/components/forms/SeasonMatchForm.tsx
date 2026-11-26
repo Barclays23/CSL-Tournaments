@@ -12,6 +12,7 @@ import { fromDateTimeInput, toDateTimeInput } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
 import { seasonMatchFormSchema, type SeasonMatchFormInput, type SeasonMatchFormValues } from "@/schemas/seasonMatch.schema";
 import type { Venue } from "@/types/venue.types";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 const STAGES: Array<{ value: SeasonMatchStage; label: string }> = [
   { value: "group", label: "Group stage" },
@@ -353,9 +354,18 @@ export function SeasonMatchForm({
           ? "Editing fixture details does not change its recorded goals or current result."
           : "The fixture is created as scheduled. Record goals and update its status from its match page."}
       </p>
+
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : match ? "Save changes" : "Save fixture"}
       </Button>
+
+      {submitting && (
+        <LoadingSpinner
+          label={match ? "Saving changes..." : "Creating fixture..."}
+          size="md"
+          mode="cover"
+        />
+      )}
     </form>
   );
 }
