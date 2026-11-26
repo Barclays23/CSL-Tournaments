@@ -402,7 +402,7 @@ export function AuctionsPage() {
 
           {isAdmin && seasonOpen && lifecycle === "completed" ? (
             <Button
-              variant="surface"
+              variant="accent"
               disabled={saving}
               onClick={() => runLifecycle(
                 {
