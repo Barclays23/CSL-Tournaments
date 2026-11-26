@@ -1573,7 +1573,7 @@ export const seasonPreviewRepository = {
     const existing = soldLots(db, lot.seasonRef, st._id);
     const settings = season.auctionSettings;
     const spent = existing.reduce((sum, item) => sum + (item.purchasePrice ?? 0), 0);
-    if (existing.length >= settings.teamSquadSize) fail(422, "Team squad size limit reached");
+    if (existing.length >= settings.teamSquadSize) fail(422, "Team squad size limit reached for this team");
     if (spent + input.purchasePrice > settings.budgetPerTeam) fail(422, "Team auction budget exceeded");
     if (lot.isIconPlayer && existing.filter((item) => item.isIconPlayer).length >= settings.iconPlayerLimit) fail(422, "Icon player limit reached");
     if (lot.isGoalkeeper && existing.filter((item) => item.isGoalkeeper).length >= settings.goalkeeperLimit) fail(422, "Goalkeeper limit reached");
