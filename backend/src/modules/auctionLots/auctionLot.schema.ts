@@ -17,4 +17,14 @@ export const updateAuctionLotSchema=z.object({
   context.addIssue({code:"custom",path:["seasonTeamId"],message:"A sold lot requires a season team and purchase price"});
  }
 });
-export const auctionQuerySchema=z.object({seasonId:objectId,seasonTeamId:objectId.optional(),playerName:z.string().trim().min(1).max(80).optional(),playerPosition:position.optional(),auctionStatus:z.enum(["pending","sold","unsold","withdrawn"]).optional(),isIconPlayer:z.enum(["true","false"]).transform(v=>v==="true").optional(),isGoalkeeper:z.enum(["true","false"]).transform(v=>v==="true").optional()}).strict();
+export const auctionQuerySchema=z.object({
+ seasonId:objectId,
+ page:z.coerce.number().int().min(1).default(1),
+ limit:z.coerce.number().int().min(1).max(100).default(10),
+ seasonTeamId:objectId.optional(),
+ playerName:z.string().trim().min(1).max(80).optional(),
+ playerPosition:position.optional(),
+ auctionStatus:z.enum(["pending","sold","unsold","withdrawn"]).optional(),
+ isIconPlayer:z.enum(["true","false"]).transform(v=>v==="true").optional(),
+ isGoalkeeper:z.enum(["true","false"]).transform(v=>v==="true").optional()
+}).strict();

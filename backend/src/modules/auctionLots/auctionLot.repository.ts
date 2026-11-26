@@ -43,6 +43,24 @@ export class AuctionLotRepository implements ISeasonRosterLookupRepository {
     return AuctionLotModel.find(query).sort({ lotNumber: 1, createdAt: 1 }).populate(populate).lean<PopulatedAuctionLotEntity[]>().exec();
   }
 
+  async findPaginated(
+    query: AuctionLotQuery,
+    page: number,
+    limit: number,
+  ): Promise<{ items: PopulatedAuctionLotEntity[]; total: number }> {
+    const [items, total] = await Promise.all([
+      AuctionLotModel.find(query)
+        .sort({ lotNumber: 1, createdAt: 1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .populate(populate)
+        .lean<PopulatedAuctionLotEntity[]>()
+        .exec(),
+      AuctionLotModel.countDocuments(query).exec(),
+    ]);
+    return { items, total };
+  }
+
   async findById(id: string, session?: ClientSession): Promise<AuctionLotEntity | null> {
     return AuctionLotModel.findById(id).session(session ?? null).lean<AuctionLotEntity>().exec();
   }

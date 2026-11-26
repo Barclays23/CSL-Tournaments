@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Tabs } from "@/components/ui/Tabs";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { Pagination } from "@/components/ui/Pagination";
 import { useServiceQuery } from "@/hooks/useServiceQuery";
 import { useConfirm } from "@/contexts/ConfirmContext";
 import {
@@ -125,6 +126,7 @@ export function AuctionsPage() {
   const [playerName, setPlayerName] = useState("");
   const [iconFilter, setIconFilter] = useState("");
   const [goalkeeperFilter, setGoalkeeperFilter] = useState("");
+  const [lotPage, setLotPage] = useState(1);
   const summary = useServiceQuery(
     () => selectedSeasonId
       ? getAuctionSummary(selectedSeasonId)
@@ -135,6 +137,8 @@ export function AuctionsPage() {
     () => selectedSeasonId
       ? getAuctionLots({
           seasonId: selectedSeasonId,
+          page: lotPage,
+          limit: 10,
           ...(teamFilter ? { seasonTeamId: teamFilter } : {}),
           ...(statusFilter ? { auctionStatus: statusFilter } : {}),
           ...(positionFilter ? { playerPosition: positionFilter } : {}),
@@ -143,13 +147,20 @@ export function AuctionsPage() {
           ...(goalkeeperFilter ? { isGoalkeeper: goalkeeperFilter === "true" } : {}),
         })
       : Promise.resolve(EMPTY_LOTS),
-    [selectedSeasonId, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
+    [selectedSeasonId, lotPage, teamFilter, statusFilter, positionFilter, playerName, iconFilter, goalkeeperFilter],
   );
   const players = useServiceQuery(() => getPlayers({ limit: 100, status: "active" }), []);
 
   const data = summary.data?.data;
   const selectedSeason = seasons.data?.data.find((season) => season._id === selectedSeasonId) ?? null;
   const lotRows = lots.data?.data ?? [];
+  const lotPagination = lots.data?.pagination;
+  const lotTotalPages = lotPagination?.totalPages;
+  useEffect(() => {
+    if (lotTotalPages === undefined) return;
+    if (lotTotalPages > 0 && lotPage > lotTotalPages) setLotPage(lotTotalPages);
+    else if (lotTotalPages === 0 && lotPage !== 1) setLotPage(1);
+  }, [lotTotalPages, lotPage]);
   const nominatedLots = (data?.lots ?? []).filter((lot) => lot.auctionStatus !== "withdrawn");
   const registeredTeamCount = (data?.teams ?? []).filter((team) => team.status === "registered" || team.status === "active").length;
   const teamRegistrationLimit = data?.season.auctionSettings.seasonTeamCount ?? 0;
@@ -323,6 +334,7 @@ export function AuctionsPage() {
             value={selectedSeasonId}
             onChange={(event) => {
               setSeasonId(event.target.value);
+              setLotPage(1);
               setTeamFilter("");
               setStatusFilter("");
               setPositionFilter("");
@@ -539,35 +551,35 @@ export function AuctionsPage() {
           {/* --------------------------- Lots --------------------------- */}
           {auctionSection === "lots" ? (
             <section className="mt-7">
-              <SectionTitle title="Auction lots" aside={<Pill className="bg-glass text-muted ring-1 ring-line">{lotRows.length} result(s)</Pill>} />
+              <SectionTitle title="Auction lots" aside={<Pill className="bg-glass text-muted ring-1 ring-line">{lotPagination?.total ?? 0} result(s)</Pill>} />
 
               <div className="mb-5 grid gap-2 rounded-3xl border border-line bg-glass p-3 shadow-glass backdrop-blur-xl sm:grid-cols-2 lg:grid-cols-6">
-                <Input placeholder="Search Player Name" value={playerName} onChange={(event) => setPlayerName(event.target.value)} />
-                <Select value={teamFilter} onChange={(event) => setTeamFilter(event.target.value)}>
+                <Input placeholder="Search Player Name" value={playerName} onChange={(event) => { setPlayerName(event.target.value); setLotPage(1); }} />
+                <Select value={teamFilter} onChange={(event) => { setTeamFilter(event.target.value); setLotPage(1); }}>
                   <option value="">All teams</option>
                   {data.teams.map((team) => (
                     <option key={team.seasonTeamId} value={team.seasonTeamId}>{team.displayName}</option>
                   ))}
                 </Select>
-                <Select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as AuctionLotStatus | "")}>
+                <Select value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value as AuctionLotStatus | ""); setLotPage(1); }}>
                   <option value="">All statuses</option>
                   <option value="pending">Pending</option>
                   <option value="sold">Sold</option>
                   <option value="unsold">Unsold</option>
                   <option value="withdrawn">Withdrawn</option>
                 </Select>
-                <Select value={positionFilter} onChange={(event) => setPositionFilter(event.target.value as SeasonPlayerPosition | "")}>
+                <Select value={positionFilter} onChange={(event) => { setPositionFilter(event.target.value as SeasonPlayerPosition | ""); setLotPage(1); }}>
                   <option value="">All positions</option>
                   {Object.entries(POSITIONS).map(([value, label]) => (
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </Select>
-                <Select value={iconFilter} onChange={(event) => setIconFilter(event.target.value)}>
+                <Select value={iconFilter} onChange={(event) => { setIconFilter(event.target.value); setLotPage(1); }}>
                   <option value="">Icon: all</option>
                   <option value="true">Icon players</option>
                   <option value="false">Non-icon players</option>
                 </Select>
-                <Select value={goalkeeperFilter} onChange={(event) => setGoalkeeperFilter(event.target.value)}>
+                <Select value={goalkeeperFilter} onChange={(event) => { setGoalkeeperFilter(event.target.value); setLotPage(1); }}>
                   <option value="">Goalkeeper: all</option>
                   <option value="true">Goalkeepers</option>
                   <option value="false">Non-goalkeepers</option>
@@ -642,6 +654,16 @@ export function AuctionsPage() {
                   </div>
                 ))}
               </div>
+              {lotPagination ? (
+                <>
+                  <p className="mt-4 text-xs text-muted" aria-live="polite">
+                    {lotPagination.total === 0
+                      ? "No lots to display"
+                      : `Showing ${(lotPagination.page - 1) * lotPagination.limit + 1}–${Math.min(lotPagination.page * lotPagination.limit, lotPagination.total)} of ${lotPagination.total} lots`}
+                  </p>
+                  <Pagination pagination={lotPagination} onPage={setLotPage} />
+                </>
+              ) : null}
             </section>
           ) : null}
         </>
