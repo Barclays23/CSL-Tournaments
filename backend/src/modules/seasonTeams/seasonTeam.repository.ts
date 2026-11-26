@@ -48,6 +48,21 @@ export class SeasonTeamRepository {
     return result.matchedCount === 1;
   }
 
+  async countSoldLotsBySeason(seasonId: string): Promise<Array<{ _id: Types.ObjectId; count: number }>> {
+    return AuctionLotModel.aggregate<{ _id: Types.ObjectId; count: number }>([
+      { $match: { seasonRef: new Types.ObjectId(seasonId), auctionStatus: "sold", seasonTeamRef: { $ne: null } } },
+      { $group: { _id: "$seasonTeamRef", count: { $sum: 1 } } },
+    ]).exec();
+  }
+
+  async countSoldLotsForTeam(seasonId: string, seasonTeamId: string): Promise<number> {
+    return AuctionLotModel.countDocuments({
+      seasonRef: new Types.ObjectId(seasonId),
+      seasonTeamRef: new Types.ObjectId(seasonTeamId),
+      auctionStatus: "sold",
+    }).exec();
+  }
+
   async findPopulatedBySeason(seasonId: string): Promise<any[]> {
     return SeasonTeamModel.find({ seasonRef: new Types.ObjectId(seasonId) }).sort({ displayName: 1 })
       .populate({ path: "teamRef", select: "name shortName logo" })

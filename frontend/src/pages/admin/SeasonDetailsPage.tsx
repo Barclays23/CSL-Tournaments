@@ -17,7 +17,7 @@ import { getTeams } from "@/services/teamService";
 import { getManagers } from "@/services/managerService";
 import { getSeasonAwards, createSeasonAward, updateSeasonAward, deleteSeasonAward } from "@/services/seasonAwardService";
 import {
-  archiveSeason, completeSeasonAuction, reopenSeasonAuction, completeSeason, deleteSeason, getAuctionLots,
+  archiveSeason, completeSeasonAuction, reopenSeasonAuction, completeSeason, deleteSeason, getAllAuctionLots,
   getSeasonById, getSeasonTeams, registerSeasonTeams, removeSeasonTeam,
   transitionSeason, updateSeason, updateSeasonTeam, withdrawSeasonTeam, recallSeasonTeam,
 } from "@/services/seasonService";
@@ -275,7 +275,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   );
   const awardsQuery = useServiceQuery(() => selectedSeasonId ? getSeasonAwards(selectedSeasonId) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getSeasonAwards>>), [selectedSeasonId]);
   const lots = useServiceQuery(
-    () => selectedSeasonId ? getAuctionLots({ seasonId: selectedSeasonId }) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getAuctionLots>>),
+    () => selectedSeasonId ? getAllAuctionLots(selectedSeasonId) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getAllAuctionLots>>),
     [selectedSeasonId],
   );
 
@@ -1034,6 +1034,13 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 </span>
                               </div>
 
+                              <div className="mt-2 flex items-center justify-between gap-3 rounded-control border border-line bg-surface/40 px-3 py-2.5 backdrop-blur-md">
+                                <span className="text-xs text-muted">Players</span>
+                                <span className="tabular text-xs font-semibold text-fg">
+                                  {team.playersCount} {team.playersCount === 1 ? "player" : "players"}
+                                </span>
+                              </div>
+
                               {/* Actions */}
                               {canWithdraw || canRecall ? (
                                 <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1223,8 +1230,8 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   hint={
                     <div className="space-y-0.5">
                       <p>Create groups and assign teams to them before fixtures are created.</p>
-                      <p>Delete is unavailable while any team registration, including withdrawn or completed ones, refers to this group.</p>
-                      {hasFixtures ? <p>Groups are locked because this season already has fixtures.</p> : null}
+                      <p>A group cannot be deleted while any team registration is assigned to it, or while a fixture references the group or any team assigned to it. This includes knockout fixtures.</p>
+                      {hasFixtures ? <p>Group editing and team assignment are locked because this season already has fixtures. An unused group with no team assignments or fixture references can still be deleted.</p> : null}
                     </div>
                   }
                   aside={<Badge tone={assignableTeams.length > 0 && unassignedTeams.length === 0 ? "accent" : "info"}>{assignedTeamCount} / {assignableTeams.length} assigned</Badge>}
@@ -1285,6 +1292,21 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                     {seasonGroups.map((group) => {
                       const draft = groupDrafts[group._id];
                       const assigned = registeredTeams.filter((team) => team.groupRef === group._id);
+                      const assignedTeamIds = new Set(assigned.map((team) => team._id));
+                      const groupHasFixtures = seasonFixtures.some((match) => {
+                        const homeTeamId = typeof match.homeSeasonTeamRef === "object" ? match.homeSeasonTeamRef._id : match.homeSeasonTeamRef;
+                        const awayTeamId = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
+                        return match.groupRef === group._id || assignedTeamIds.has(homeTeamId) || assignedTeamIds.has(awayTeamId);
+                      });
+                      const deleteBlockers = [
+                        !preActivation ? "Groups cannot be deleted after season activation." : "",
+                        selected.groupStageEnabled === false ? "Group management is disabled for this season." : "",
+                        groupHasFixtures ? "One or more fixtures reference this group or a team assigned to it. Fixture history must be preserved." : "",
+                        assigned.length > 0 ? `${assigned.length} team registration(s) are assigned to this group. Remove the assignments before deleting it.` : "",
+                      ].filter(Boolean);
+                      const deleteBlocker = deleteBlockers.length
+                        ? "Cannot delete: " + deleteBlockers.join(" ")
+                        : "";
                       const historicalCount = assigned.filter((team) => !["registered", "active"].includes(team.status)).length;
                       return (
                         <div key={group._id} className={panel + " overflow-hidden"}>
@@ -1300,7 +1322,13 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <Button size="sm" variant="surface" disabled={saving || groupsLocked} onClick={() => editGroup(group)}>Edit</Button>
-                                  <Button size="sm" variant="danger" disabled={saving || assigned.length > 0 || groupsLocked} onClick={() => void removeGroup(group)}>Delete</Button>
+                                  <Button
+                                    size="sm"
+                                    variant="danger"
+                                    disabled={saving || Boolean(deleteBlocker)}
+                                    title={deleteBlocker || "Delete group"}
+                                    onClick={() => void removeGroup(group)}
+                                  >Delete</Button>
                                 </div>
                               </>
                             ) : (
@@ -1322,6 +1350,11 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                           </div>
 
                           <div className="space-y-4 p-4">
+                            {deleteBlocker ? (
+                              <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-muted" role="note">
+                                {deleteBlocker}
+                              </p>
+                            ) : null}
                             <div>
                               <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-fg"><Users className="h-3.5 w-3.5 text-accent" /> Teams in this group</p>
                               {assigned.length ? (

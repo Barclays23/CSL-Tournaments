@@ -158,20 +158,22 @@ export function AuctionsPage() {
   const lotTotalPages = lotPagination?.totalPages;
   useEffect(() => {
     if (lotTotalPages === undefined) return;
+    // Sync the selected page when server-side filtering or deletion reduces the page count.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (lotTotalPages > 0 && lotPage > lotTotalPages) setLotPage(lotTotalPages);
     else if (lotTotalPages === 0 && lotPage !== 1) setLotPage(1);
   }, [lotTotalPages, lotPage]);
-  const nominatedLots = (data?.lots ?? []).filter((lot) => lot.auctionStatus !== "withdrawn");
+  const nominatedPlayerIds = new Set(data?.nominatedPlayerIds ?? []);
   const registeredTeamCount = (data?.teams ?? []).filter((team) => team.status === "registered" || team.status === "active").length;
   const teamRegistrationLimit = data?.season.auctionSettings.seasonTeamCount ?? 0;
   const playerNominationLimit = data?.season.auctionSettings.playersCount ?? 0;
   const iconQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.iconPlayerLimit ?? 0);
   const goalkeeperQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.goalkeeperLimit ?? 0);
-  const nominatedIconCount = nominatedLots.filter((lot) => lot.isIconPlayer).length;
-  const nominatedGoalkeeperCount = nominatedLots.filter((lot) => lot.isGoalkeeper).length;
+  const nominatedLotCount = Math.max((data?.totals.lots ?? 0) - (data?.totals.withdrawn ?? 0), 0);
+  const nominatedIconCount = data?.totals.nominatedIconPlayers ?? 0;
+  const nominatedGoalkeeperCount = data?.totals.nominatedGoalkeepers ?? 0;
 
   const playerRows = (players.data?.data ?? []) as Array<PublicPlayer | AdminPlayer>;
-  const nominatedPlayerIds = new Set((data?.lots ?? []).map((lot) => typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef._id));
   const availablePlayers = playerRows.filter((player) => !nominatedPlayerIds.has(player._id) && (!playerSearch.trim() || player.name.toLowerCase().includes(playerSearch.trim().toLowerCase())));
 
   const [nominateOpen, setNominateOpen] = useState(false);
@@ -444,8 +446,8 @@ export function AuctionsPage() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-5">
             <StatTile label="Teams registered" value={`${registeredTeamCount}/${teamRegistrationLimit}`} current={registeredTeamCount} limit={teamRegistrationLimit} />
             <StatTile label="Team slots remaining" value={Math.max(teamRegistrationLimit - registeredTeamCount, 0)} />
-            <StatTile label="Players nominated" value={`${nominatedLots.length}/${playerNominationLimit}`} current={nominatedLots.length} limit={playerNominationLimit} />
-            <StatTile label="Nominations remaining" value={Math.max(playerNominationLimit - nominatedLots.length, 0)} />
+            <StatTile label="Players nominated" value={`${nominatedLotCount}/${playerNominationLimit}`} current={nominatedLotCount} limit={playerNominationLimit} />
+            <StatTile label="Nominations remaining" value={Math.max(playerNominationLimit - nominatedLotCount, 0)} />
             <StatTile label="Pending auction lots" value={data.totals.pending} />
             <StatTile label="Sold" value={data.totals.sold} />
             <StatTile label="Unsold" value={data.totals.unsold} />

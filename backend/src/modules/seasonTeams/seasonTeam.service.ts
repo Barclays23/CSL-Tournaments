@@ -14,7 +14,12 @@ export class SeasonTeamService implements ISeasonTeamService {
     if (!await this.repository.findSeasonState(seasonId)) {
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     }
-    return (await this.repository.findPopulatedBySeason(seasonId)).map((record) => this.map(record));
+    const [records, playerCounts] = await Promise.all([
+      this.repository.findPopulatedBySeason(seasonId),
+      this.repository.countSoldLotsBySeason(seasonId),
+    ]);
+    const countsBySeasonTeam = new Map(playerCounts.map((item) => [String(item._id), item.count]));
+    return records.map((record) => this.map(record, countsBySeasonTeam.get(String(record._id)) ?? 0));
   }
 
   async update(seasonId: string, id: string, input: UpdateSeasonTeamDto): Promise<SeasonTeamResponseDto> {
@@ -86,7 +91,7 @@ export class SeasonTeamService implements ISeasonTeamService {
 
     const updated = await this.repository.findPopulatedInSeason(seasonId, id);
     if (!updated) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
-    return this.map(updated);
+    return this.map(updated, await this.repository.countSoldLotsForTeam(seasonId, id));
   }
 
   async remove(seasonId: string, id: string): Promise<void> {
@@ -148,7 +153,7 @@ export class SeasonTeamService implements ISeasonTeamService {
     }
     const updated = await this.repository.findPopulatedInSeason(seasonId, id);
     if (!updated) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
-    return this.map(updated);
+    return this.map(updated, await this.repository.countSoldLotsForTeam(seasonId, id));
   }
 
   async recall(seasonId: string, id: string, reason: string): Promise<SeasonTeamResponseDto> {
@@ -172,10 +177,10 @@ export class SeasonTeamService implements ISeasonTeamService {
     } finally { await session.endSession(); }
     const updated = await this.repository.findPopulatedInSeason(seasonId, id);
     if (!updated) throw new AppError("Season team not found", 404, "SEASON_TEAM_NOT_FOUND");
-    return this.map(updated);
+    return this.map(updated, await this.repository.countSoldLotsForTeam(seasonId, id));
   }
 
-  private map(record: any): SeasonTeamResponseDto {
+  private map(record: any, playersCount = 0): SeasonTeamResponseDto {
     return {
       _id: String(record._id),
       seasonRef: String(record.seasonRef),
@@ -184,6 +189,7 @@ export class SeasonTeamService implements ISeasonTeamService {
       logoSnapshot: record.teamRef?.logo ?? record.logoSnapshot,
       groupRef: record.groupRef ? String(record.groupRef._id ?? record.groupRef) : null,
       managerRefs: (record.managerRefs ?? []).map((manager: any) => String(manager._id ?? manager)),
+      playersCount,
       status: record.status,
       participationHistory: (record.participationHistory ?? []).map((entry: any) => ({ fromStatus: entry.fromStatus, toStatus: entry.toStatus, reason: entry.reason, changedAt: entry.changedAt.toISOString() })),
       team: record.teamRef && typeof record.teamRef === "object" && record.teamRef.name
