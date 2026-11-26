@@ -1,4 +1,4 @@
-import type { Asset } from "../../shared/types/common.types.js";
+import type { Asset, IPagination, IPaginationQuery } from "../../shared/types/common.types.js";
 import type { AuctionLotStatus } from "./auctionLot.types.js";
 import type { AuctionLifecycleStatus, SeasonPlayerPosition, SeasonAuctionSettings, SeasonStatus } from "../seasons/season.types.js";
 import type { SeasonTeamStatus } from "../seasonTeams/seasonTeam.types.js";
@@ -21,10 +21,8 @@ export interface UpdateAuctionLotDto {
   isIconPlayer?: boolean;
   isGoalkeeper?: boolean;
 }
-export interface AuctionLotsQueryDto {
+export interface AuctionLotsQueryDto extends IPaginationQuery {
   seasonId: string;
-  page: number;
-  limit: number;
   seasonTeamId?: string;
   playerName?: string;
   playerPosition?: SeasonPlayerPosition;
@@ -50,6 +48,10 @@ export interface AuctionLotResponseDto {
   jerseyNo: number | null;
   nominatedAt: string | null;
   soldAt: string | null;
+}
+export interface AuctionLotsListResult {
+  items: AuctionLotResponseDto[];
+  pagination: IPagination;
 }
 export interface AuctionTeamSummaryDto {
   seasonTeamId: string;
@@ -84,7 +86,9 @@ export interface AuctionSummaryDto {
     unsold: number;
     withdrawn: number;
     totalSoldValue: number;
+    nominatedIconPlayers: number;
+    nominatedGoalkeepers: number;
   };
+  nominatedPlayerIds: string[];
   teams: AuctionTeamSummaryDto[];
-  lots: AuctionLotResponseDto[];
 }

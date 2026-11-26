@@ -1,4 +1,5 @@
 import {z} from "zod";
+import { paginationSchema } from "../../shared/dto/pagination.dto.js";
 const objectId=z.string().regex(/^[a-f\d]{24}$/i,"Invalid ID");
 const position=z.enum(["goalkeeper","defender","midfielder","forward"]);
 export const nominatePlayerSchema=z.object({seasonId:objectId,playerId:objectId,playerPosition:position,isIconPlayer:z.boolean().default(false),isGoalkeeper:z.boolean().default(false)}).strict();
@@ -17,10 +18,8 @@ export const updateAuctionLotSchema=z.object({
   context.addIssue({code:"custom",path:["seasonTeamId"],message:"A sold lot requires a season team and purchase price"});
  }
 });
-export const auctionQuerySchema=z.object({
+export const auctionQuerySchema=paginationSchema.pick({page:true,limit:true}).extend({
  seasonId:objectId,
- page:z.coerce.number().int().min(1).default(1),
- limit:z.coerce.number().int().min(1).max(100).default(10),
  seasonTeamId:objectId.optional(),
  playerName:z.string().trim().min(1).max(80).optional(),
  playerPosition:position.optional(),

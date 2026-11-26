@@ -20,6 +20,15 @@ const populate = [
   },
 ];
 
+interface AuctionLotSummaryRow {
+  seasonTeamRef: Types.ObjectId | null;
+  playerRef: Types.ObjectId;
+  auctionStatus: "pending" | "sold" | "unsold" | "withdrawn";
+  purchasePrice: number | null;
+  isIconPlayer: boolean;
+  isGoalkeeper: boolean;
+}
+
 export class AuctionLotRepository implements ISeasonRosterLookupRepository {
   async isPlayerSoldToTeamInActiveSeason(playerId: string, teamId: string): Promise<boolean> {
     if (!Types.ObjectId.isValid(playerId) || !Types.ObjectId.isValid(teamId)) return false;
@@ -41,6 +50,25 @@ export class AuctionLotRepository implements ISeasonRosterLookupRepository {
 
   async find(query: AuctionLotQuery): Promise<PopulatedAuctionLotEntity[]> {
     return AuctionLotModel.find(query).sort({ lotNumber: 1, createdAt: 1 }).populate(populate).lean<PopulatedAuctionLotEntity[]>().exec();
+  }
+
+  async findSummaryRows(seasonId: string): Promise<AuctionLotSummaryRow[]> {
+    return AuctionLotModel.find({ seasonRef: new Types.ObjectId(seasonId) })
+      .select("seasonTeamRef playerRef auctionStatus purchasePrice isIconPlayer isGoalkeeper")
+      .lean<AuctionLotSummaryRow[]>()
+      .exec();
+  }
+
+  async findSquadLots(seasonId: string): Promise<PopulatedAuctionLotEntity[]> {
+    return AuctionLotModel.find({
+      seasonRef: new Types.ObjectId(seasonId),
+      auctionStatus: { $in: ["sold", "withdrawn"] },
+      seasonTeamRef: { $ne: null },
+    })
+      .sort({ lotNumber: 1, createdAt: 1 })
+      .populate(populate)
+      .lean<PopulatedAuctionLotEntity[]>()
+      .exec();
   }
 
   async findPaginated(
