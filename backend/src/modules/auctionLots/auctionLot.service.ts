@@ -1,4 +1,5 @@
 import mongoose,{Types,type QueryFilter} from "mongoose";
+import type { PaginatedResult } from "../../shared/types/common.types.js";
 import {AppError} from "../../shared/errors/appError.js";
 import {SeasonModel} from "../seasons/season.model.js";
 import {SeasonTeamModel} from "../seasonTeams/seasonTeam.model.js";
@@ -21,7 +22,7 @@ export class AuctionLotService implements IAuctionLotService{
   const summaries:AuctionTeamSummaryDto[]=teams.map(st=>{const teamLots=lots.filter(l=>l.seasonTeamRef&&this.refId(l.seasonTeamRef)===String(st._id)&&(l.auctionStatus==="sold"||l.auctionStatus==="withdrawn"));const activeTeamLots=teamLots.filter(l=>l.auctionStatus==="sold");const spent=activeTeamLots.reduce((sum,l)=>sum+(l.purchasePrice??0),0);return {seasonTeamId:String(st._id),teamId:this.refId(st.teamRef),displayName:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.name:st.displayName,logoSnapshot:st.teamRef&&!(st.teamRef instanceof Types.ObjectId)?st.teamRef.logo:st.logoSnapshot,status:st.status,budget:auctionSettings.budgetPerTeam,playersSigned:activeTeamLots.length,remainingSlots:auctionSettings.teamSquadSize-activeTeamLots.length,totalSpent:spent,balance:auctionSettings.budgetPerTeam-spent,averagePrice:activeTeamLots.length?spent/activeTeamLots.length:0,iconCount:activeTeamLots.filter(l=>l.isIconPlayer).length,goalkeeperCount:activeTeamLots.filter(l=>l.isGoalkeeper).length,lots:teamLots.map(l=>this.map(l))};});
   return {season:{_id:String(season._id),name:season.name,year:season.year,status:season.status,auctionSettings:season.auctionSettings,auctionLifecycleStatus:season.auctionLifecycleStatus},totals:{participatingTeams:teams.length,lots:lots.length,sold:lots.filter(l=>l.auctionStatus==="sold").length,pending:lots.filter(l=>l.auctionStatus==="pending").length,unsold:lots.filter(l=>l.auctionStatus==="unsold").length,withdrawn:lots.filter(l=>l.auctionStatus==="withdrawn").length,totalSoldValue:lots.filter(l=>l.auctionStatus==="sold").reduce((s,l)=>s+(l.purchasePrice??0),0)},teams:summaries,lots:lots.map(l=>this.map(l))};
  }
- async list(query:AuctionLotsQueryDto):Promise<AuctionLotResponseDto[]>{
+ async list(query:AuctionLotsQueryDto):Promise<PaginatedResult<AuctionLotResponseDto>>{
   this.id(query.seasonId);
   const season=await SeasonModel.findById(query.seasonId).select("_id").lean().exec();if(!season)throw new AppError("Season not found",404,"SEASON_NOT_FOUND");
   const filter:import("./auctionLot.types.js").AuctionLotQuery={seasonRef:new Types.ObjectId(query.seasonId)};
@@ -30,8 +31,12 @@ export class AuctionLotService implements IAuctionLotService{
   if(query.auctionStatus)filter.auctionStatus=query.auctionStatus;
   if(query.isIconPlayer!==undefined)filter.isIconPlayer=query.isIconPlayer;
   if(query.isGoalkeeper!==undefined)filter.isGoalkeeper=query.isGoalkeeper;
-  if(query.playerName){const ids=await this.lots.findPlayerIdsByName(query.playerName);if(!ids.length)return [];filter.playerRef={$in:ids};}
-  return (await this.lots.find(filter)).map(l=>this.map(l));
+  if(query.playerName){const ids=await this.lots.findPlayerIdsByName(query.playerName);filter.playerRef={$in:ids};}
+  const result=await this.lots.findPaginated(filter,query.page,query.limit);
+  return {
+   items:result.items.map(l=>this.map(l)),
+   pagination:{page:query.page,limit:query.limit,total:result.total,totalPages:Math.ceil(result.total/query.limit)},
+  };
  }
  async nominate(input:NominatePlayerDto):Promise<AuctionLotResponseDto>{
   this.id(input.seasonId);this.id(input.playerId);
