@@ -1,7 +1,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAuctionCompletionBlockers, getAuctionNominationQuotaBlockers, getAuctionStartBlockers, getAuctionTeamQuotaBlockers, type AuctionCompletionLot } from "./auction.completion.js";
+import { getAuctionCompletionBlockers, getAuctionNominationQuotaBlockers, getAuctionStartBlockers, getAuctionTeamQuotaBlockers, getSeasonOutfieldQuotaBlockers, getTeamOutfieldQuotaBlockers, type AuctionCompletionLot } from "./auction.completion.js";
 
 const settings = { currency: "INR" as const, budgetPerTeam: 1000, playersCount: 12, seasonTeamCount: 4, teamSquadSize: 3, iconPlayerLimit: 1, goalkeeperLimit: 1 };
 const teams = [
@@ -137,6 +137,24 @@ test("team assignment quota reports icon and goalkeeper limits independently", (
   assert.ok(blockers[0].includes("maximum of 1 Icon Player"));
   assert.ok(blockers[1].includes("Team B"));
   assert.ok(blockers[1].includes("maximum of 1 Goalkeeper"));
+});
+
+test("season outfield cap blocks the first player above total players minus season goalkeeper slots", () => {
+  const seasonSettings = { ...settings, playersCount: 54, seasonTeamCount: 6, teamSquadSize: 9, goalkeeperLimit: 1 };
+  assert.deepEqual(getSeasonOutfieldQuotaBlockers(seasonSettings, 47, true), []);
+  assert.deepEqual(getSeasonOutfieldQuotaBlockers(seasonSettings, 48, true), [
+    "The season outfield player limit is full. A maximum of 48 outfield players are allowed (54 total players - 6 Goalkeepers).",
+  ]);
+  assert.deepEqual(getSeasonOutfieldQuotaBlockers(seasonSettings, 48, false), []);
+});
+
+test("team outfield cap blocks a player above squad size minus goalkeeper limit", () => {
+  const teamSettings = { ...settings, teamSquadSize: 9, goalkeeperLimit: 1 };
+  assert.deepEqual(getTeamOutfieldQuotaBlockers(teamSettings, 7, true, "Team A"), []);
+  assert.deepEqual(getTeamOutfieldQuotaBlockers(teamSettings, 8, true, "Team A"), [
+    "Team A already has 8 outfield players. Each team can have a maximum of 8 outfield players (9 squad members - 1 Goalkeeper).",
+  ]);
+  assert.deepEqual(getTeamOutfieldQuotaBlockers(teamSettings, 8, false, "Team A"), []);
 });
 
 test("team assignment quota allows a player when the selected team has capacity", () => {
