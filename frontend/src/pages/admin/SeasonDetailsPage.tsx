@@ -17,7 +17,7 @@ import { getTeams } from "@/services/teamService";
 import { getManagers } from "@/services/managerService";
 import { getSeasonAwards, createSeasonAward, updateSeasonAward, deleteSeasonAward } from "@/services/seasonAwardService";
 import {
-  archiveSeason, completeSeasonAuction, reopenSeasonAuction, completeSeason, deleteSeason, getAuctionLots,
+  archiveSeason, completeSeasonAuction, reopenSeasonAuction, completeSeason, deleteSeason, getAllAuctionLots,
   getSeasonById, getSeasonTeams, registerSeasonTeams, removeSeasonTeam,
   transitionSeason, updateSeason, updateSeasonTeam, withdrawSeasonTeam, recallSeasonTeam,
 } from "@/services/seasonService";
@@ -275,7 +275,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
   );
   const awardsQuery = useServiceQuery(() => selectedSeasonId ? getSeasonAwards(selectedSeasonId) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getSeasonAwards>>), [selectedSeasonId]);
   const lots = useServiceQuery(
-    () => selectedSeasonId ? getAuctionLots({ seasonId: selectedSeasonId, page: 1, limit: 100 }) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getAuctionLots>>),
+    () => selectedSeasonId ? getAllAuctionLots(selectedSeasonId) : Promise.resolve({ success: true, message: "", data: [] } as Awaited<ReturnType<typeof getAllAuctionLots>>),
     [selectedSeasonId],
   );
 
@@ -1298,15 +1298,15 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                         const awayTeamId = typeof match.awaySeasonTeamRef === "object" ? match.awaySeasonTeamRef._id : match.awaySeasonTeamRef;
                         return match.groupRef === group._id || assignedTeamIds.has(homeTeamId) || assignedTeamIds.has(awayTeamId);
                       });
-                      const deleteBlocker = !preActivation
-                        ? "Groups cannot be deleted after season activation."
-                        : selected.groupStageEnabled === false
-                          ? "Group management is disabled for this season."
-                          : assigned.length > 0
-                            ? `Cannot delete: ${assigned.length} team registration(s) are assigned to this group. Remove the assignments before deleting it.`
-                            : groupHasFixtures
-                              ? "Cannot delete: one or more fixtures reference this group or a team assigned to it. Fixture history must be preserved."
-                              : "";
+                      const deleteBlockers = [
+                        !preActivation ? "Groups cannot be deleted after season activation." : "",
+                        selected.groupStageEnabled === false ? "Group management is disabled for this season." : "",
+                        groupHasFixtures ? "One or more fixtures reference this group or a team assigned to it. Fixture history must be preserved." : "",
+                        assigned.length > 0 ? `${assigned.length} team registration(s) are assigned to this group. Remove the assignments before deleting it.` : "",
+                      ].filter(Boolean);
+                      const deleteBlocker = deleteBlockers.length
+                        ? "Cannot delete: " + deleteBlockers.join(" ")
+                        : "";
                       const historicalCount = assigned.filter((team) => !["registered", "active"].includes(team.status)).length;
                       return (
                         <div key={group._id} className={panel + " overflow-hidden"}>

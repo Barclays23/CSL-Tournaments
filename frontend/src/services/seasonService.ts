@@ -79,6 +79,25 @@ export function getAuctionSummary(seasonId: string) {
 export function getAuctionLots(query: AuctionLotsQuery) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.getAuctionLots(query) : api.get<ApiResponse<AuctionLot[]>>("/auctions", { params: query }).then((r) => r.data));
 }
+
+export async function getAllAuctionLots(seasonId: string) {
+  const firstPage = await getAuctionLots({ seasonId, page: 1, limit: 100 });
+  const totalPages = firstPage.pagination?.totalPages ?? 1;
+  if (totalPages <= 1) return firstPage;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      getAuctionLots({ seasonId, page: index + 2, limit: 100 }),
+    ),
+  );
+  return {
+    ...firstPage,
+    data: [
+      ...firstPage.data,
+      ...remainingPages.flatMap((response) => response.data),
+    ],
+  };
+}
 export function nominatePlayer(data: NominatePlayerInput) {
   return run(() => USE_MOCK_API ? seasonPreviewRepository.nominatePlayer(data) : api.post<ApiResponse<AuctionLot>>("/auction-lots", data).then((r) => r.data));
 }
