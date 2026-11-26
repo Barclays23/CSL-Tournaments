@@ -158,6 +158,8 @@ export function AuctionsPage() {
   const lotTotalPages = lotPagination?.totalPages;
   useEffect(() => {
     if (lotTotalPages === undefined) return;
+    // Sync the selected page when server-side filtering or deletion reduces the page count.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (lotTotalPages > 0 && lotPage > lotTotalPages) setLotPage(lotTotalPages);
     else if (lotTotalPages === 0 && lotPage !== 1) setLotPage(1);
   }, [lotTotalPages, lotPage]);
