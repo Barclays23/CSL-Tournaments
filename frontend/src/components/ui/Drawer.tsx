@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { IconButton } from "@/components/ui/IconButton";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 export function Drawer({
   open,
@@ -9,18 +10,26 @@ export function Drawer({
   description,
   onClose,
   children,
+  loading = false,
+  loadingLabel = "Loading...",
 }: {
   open: boolean;
   title: string;
   description?: string;
   onClose: () => void;
   children: ReactNode;
+  loading?: boolean;
+  loadingLabel?: string;
 }) {
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => !next && onClose()}>
+    <Dialog.Root open={open} onOpenChange={(next) => { if (!next && !loading) onClose(); }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-bg/70 backdrop-blur-sm" />
-        <Dialog.Content className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col overflow-y-auto border-l border-line bg-glass-strong p-5 shadow-glass">
+        <Dialog.Content
+          aria-busy={loading}
+          onEscapeKeyDown={(event) => { if (loading) event.preventDefault(); }}
+          className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col overflow-y-auto border-l border-line bg-glass-strong p-5 shadow-glass"
+        >
           <div className="flex items-start justify-between gap-3">
             <div>
               <Dialog.Title className="font-display text-3xl leading-none text-fg">{title}</Dialog.Title>
@@ -33,6 +42,7 @@ export function Drawer({
             </Dialog.Close>
           </div>
           <div className="mt-5">{children}</div>
+          {loading ? <LoadingSpinner label={loadingLabel} size="lg" mode="cover" /> : null}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
