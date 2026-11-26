@@ -22,7 +22,18 @@ const STAGES: Array<{ value: SeasonMatchStage; label: string }> = [
   { value: "final", label: "Final" },
 ];
 
-const FORM_FIELD_NAMES = [
+type SeasonMatchFormField =
+  | "matchNumber"
+  | "roundNumber"
+  | "stage"
+  | "groupRef"
+  | "kickoffAt"
+  | "venueRef"
+  | "homeSeasonTeamRef"
+  | "awaySeasonTeamRef"
+  | "notes";
+
+const FORM_FIELD_NAMES: readonly SeasonMatchFormField[] = [
   "matchNumber",
   "roundNumber",
   "stage",
@@ -32,9 +43,11 @@ const FORM_FIELD_NAMES = [
   "homeSeasonTeamRef",
   "awaySeasonTeamRef",
   "notes",
-] as const;
+];
 
-type SeasonMatchFormField = (typeof FORM_FIELD_NAMES)[number];
+function isSeasonMatchFormField(field: string): field is SeasonMatchFormField {
+  return (FORM_FIELD_NAMES as readonly string[]).includes(field);
+}
 
 function getDefaultValues(match?: SeasonMatch | null): SeasonMatchFormInput {
   const existingVenueRef = match?.venueRef;
@@ -145,7 +158,7 @@ export function SeasonMatchForm({
       const unmappedErrors: string[] = [];
 
       for (const [field, message] of Object.entries(fieldErrors)) {
-        if ((FORM_FIELD_NAMES as readonly string[]).includes(field)) {
+        if (isSeasonMatchFormField(field)) {
           setError(field as FieldPath<SeasonMatchFormInput>, { type: "server", message });
           mappedFields += 1;
         } else {
