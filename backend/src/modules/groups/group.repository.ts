@@ -50,9 +50,23 @@ export class GroupRepository implements IGroupRepository {
   }
 
   async countMatchReferences(seasonId: string, groupId: string): Promise<number> {
+    const seasonRef = new Types.ObjectId(seasonId);
+    const groupRef = new Types.ObjectId(groupId);
+    const assignedSeasonTeamIds = await SeasonTeamModel.find({ seasonRef, groupRef })
+      .distinct("_id")
+      .exec();
+
     return SeasonMatchModel.countDocuments({
-      seasonRef: new Types.ObjectId(seasonId),
-      groupRef: new Types.ObjectId(groupId),
+      seasonRef,
+      $or: [
+        { groupRef },
+        ...(assignedSeasonTeamIds.length
+          ? [
+              { homeSeasonTeamRef: { $in: assignedSeasonTeamIds } },
+              { awaySeasonTeamRef: { $in: assignedSeasonTeamIds } },
+            ]
+          : []),
+      ],
     }).exec();
   }
 

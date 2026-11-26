@@ -88,11 +88,20 @@ export class GroupService implements IGroupService {
     }
     const group = await this._groupRepository.findInSeason(seasonId, groupId);
     if (!group) throw new AppError("Group not found in this season", 404, "GROUP_NOT_FOUND");
-    if (await this._groupRepository.countAssignments(seasonId, groupId) > 0) {
-      throw new AppError("Remove all SeasonTeam assignments before deleting this group", 409, "GROUP_REFERENCED");
-    }
-    if (await this._groupRepository.countMatchReferences(seasonId, groupId) > 0) {
-      throw new AppError("This group is referenced by one or more fixtures and cannot be deleted", 409, "GROUP_REFERENCED");
+    const [assignmentCount, fixtureReferenceCount] = await Promise.all([
+      this._groupRepository.countAssignments(seasonId, groupId),
+      this._groupRepository.countMatchReferences(seasonId, groupId),
+    ]);
+    if (assignmentCount > 0 || fixtureReferenceCount > 0) {
+      const blockers = [
+        ...(assignmentCount > 0 ? [`${assignmentCount} team registration(s) are assigned to this group`] : []),
+        ...(fixtureReferenceCount > 0 ? [`${fixtureReferenceCount} fixture(s) reference this group or one of its assigned teams`] : []),
+      ];
+      throw new AppError(
+        "This group cannot be deleted: " + blockers.join("; ") + ". Team assignments must be removed before fixtures are created, and existing fixture history must be preserved.",
+        409,
+        "GROUP_REFERENCED",
+      );
     }
     if (!await this._groupRepository.deleteInSeason(seasonId, groupId)) {
       throw new AppError("Group could not be deleted. Refresh and try again.", 409, "GROUP_DELETE_CONFLICT");
