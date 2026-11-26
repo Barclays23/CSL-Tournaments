@@ -1,7 +1,7 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { getAuctionCompletionBlockers, getAuctionNominationQuotaBlockers, getAuctionStartBlockers, type AuctionCompletionLot } from "./auction.completion.js";
+import { getAuctionCompletionBlockers, getAuctionNominationQuotaBlockers, getAuctionStartBlockers, getAuctionTeamQuotaBlockers, type AuctionCompletionLot } from "./auction.completion.js";
 
 const settings = { currency: "INR" as const, budgetPerTeam: 1000, playersCount: 12, seasonTeamCount: 4, teamSquadSize: 3, iconPlayerLimit: 1, goalkeeperLimit: 1 };
 const teams = [
@@ -109,4 +109,44 @@ test("season-wide nomination quotas are based on configured teams and per-team d
 test("season-wide nomination quota permits ordinary players after designation quotas are full", () => {
 
   assert.deepEqual(getAuctionNominationQuotaBlockers(settings, { iconPlayers: 4, goalkeepers: 4 }, { isIconPlayer: false, isGoalkeeper: false }), []);
+});
+
+test("team assignment quota reports the selected team's own goalkeeper limit", () => {
+  const blockers = getAuctionTeamQuotaBlockers(
+    settings,
+    { iconPlayers: 0, goalkeepers: 1 },
+    { isIconPlayer: false, isGoalkeeper: true },
+    "Team A",
+  );
+
+  assert.deepEqual(blockers, [
+    "Team A already has 1 Goalkeeper. Each team can have a maximum of 1 Goalkeeper.",
+  ]);
+});
+
+test("team assignment quota reports icon and goalkeeper limits independently", () => {
+  const blockers = getAuctionTeamQuotaBlockers(
+    settings,
+    { iconPlayers: 1, goalkeepers: 1 },
+    { isIconPlayer: true, isGoalkeeper: true },
+    "Team B",
+  );
+
+  assert.equal(blockers.length, 2);
+  assert.ok(blockers[0].includes("Team B"));
+  assert.ok(blockers[0].includes("maximum of 1 Icon Player"));
+  assert.ok(blockers[1].includes("Team B"));
+  assert.ok(blockers[1].includes("maximum of 1 Goalkeeper"));
+});
+
+test("team assignment quota allows a player when the selected team has capacity", () => {
+  assert.deepEqual(
+    getAuctionTeamQuotaBlockers(
+      settings,
+      { iconPlayers: 0, goalkeepers: 0 },
+      { isIconPlayer: true, isGoalkeeper: true },
+      "Team C",
+    ),
+    [],
+  );
 });
