@@ -1,4 +1,7 @@
-import { Goal, Square } from "lucide-react";
+import { Goal } from "lucide-react";
+import { IoFootball } from "react-icons/io5";
+import { MdSportsSoccer } from "react-icons/md";
+import { TbRectangleVerticalFilled } from "react-icons/tb";
 
 export type MatchEventKind = "goal" | "own_goal" | "yellow_card" | "red_card" | "second_yellow";
 
@@ -26,18 +29,19 @@ export function MatchEventIcon({
   const icon = (() => {
     switch (kind) {
       case "goal":
-        return <Goal className={className} aria-hidden="true" />;
+        // return <IoFootball className={className} aria-hidden="true" />;
+        return <MdSportsSoccer className={className} aria-hidden="true" />;
       case "own_goal":
-        return <Goal className={className} aria-hidden="true" />;
+        return <MdSportsSoccer className={className} aria-hidden="true" />;
       case "yellow_card":
-        return <Square className={className} fill="currentColor" aria-hidden="true" />;
+        return <TbRectangleVerticalFilled className={className} fill="currentColor" aria-hidden="true" />;
       case "red_card":
-        return <Square className={className} fill="currentColor" aria-hidden="true" />;
+        return <TbRectangleVerticalFilled className={className} fill="currentColor" aria-hidden="true" />;
       case "second_yellow":
         return (
           <span className={`relative inline-flex ${className}`} aria-hidden="true">
-            <Square className="absolute left-0 top-0 h-[85%] w-[85%] fill-warning text-warning" />
-            <Square className="absolute bottom-0 right-0 h-[85%] w-[85%] fill-danger text-danger [stroke:var(--csl-bg)]" />
+            <TbRectangleVerticalFilled className="absolute left-0 top-0 h-[85%] w-[85%] fill-warning text-warning" />
+            <TbRectangleVerticalFilled className="absolute bottom-0 right-0 h-[85%] w-[85%] fill-danger text-danger [stroke:var(--csl-bg)]" />
           </span>
         );
     }
