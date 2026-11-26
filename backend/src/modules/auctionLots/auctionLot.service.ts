@@ -194,7 +194,7 @@ export class AuctionLotService implements IAuctionLotService{
     if(input.isGoalkeeper!==undefined&&input.isGoalkeeper!==nextGoalkeeper)throw new AppError("Goalkeeper designation must match the selected Goalkeeper position.",422,"GOALKEEPER_POSITION_MISMATCH");
     const designationChanged = nextIcon !== lot.isIconPlayer || nextGoalkeeper !== lot.isGoalkeeper;
     const goalkeeperDesignationChanged = nextGoalkeeper !== lot.isGoalkeeper;
-    if(goalkeeperDesignationChanged && !nextGoalkeeper) {
+    if(nextStatus !== "sold" && goalkeeperDesignationChanged && !nextGoalkeeper) {
      const currentSeasonOutfieldPlayers=await AuctionLotModel.countDocuments({
       seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isGoalkeeper:false,_id:{$ne:lot._id},
      }).session(session).exec();
