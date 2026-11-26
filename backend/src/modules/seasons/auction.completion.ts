@@ -129,7 +129,31 @@ export interface AuctionNominationFlags {
   isGoalkeeper: boolean;
 }
 
-/** Enforce designation quotas across the whole season before nominations are created or edited. */
+/** Return quota messages for the destination team's existing Sold roster. */
+export function getAuctionTeamQuotaBlockers(
+  settings: SeasonAuctionSettings,
+  counts: AuctionNominationQuotaCounts,
+  player: AuctionNominationFlags,
+  teamName: string,
+): string[] {
+  const blockers: string[] = [];
+
+  if (player.isIconPlayer && counts.iconPlayers >= settings.iconPlayerLimit) {
+    const countLabel = counts.iconPlayers === 1 ? "Icon Player" : "Icon Players";
+    const limitLabel = settings.iconPlayerLimit === 1 ? "Icon Player" : "Icon Players";
+    blockers.push(`${teamName} already has ${counts.iconPlayers} ${countLabel}. Each team can have a maximum of ${settings.iconPlayerLimit} ${limitLabel}.`);
+  }
+
+  if (player.isGoalkeeper && counts.goalkeepers >= settings.goalkeeperLimit) {
+    const countLabel = counts.goalkeepers === 1 ? "Goalkeeper" : "Goalkeepers";
+    const limitLabel = settings.goalkeeperLimit === 1 ? "Goalkeeper" : "Goalkeepers";
+    blockers.push(`${teamName} already has ${counts.goalkeepers} ${countLabel}. Each team can have a maximum of ${settings.goalkeeperLimit} ${limitLabel}.`);
+  }
+
+  return blockers;
+}
+
+/** Enforce designation quotas across the whole season when a new lot is nominated. */
 export function getAuctionNominationQuotaBlockers(
   settings: SeasonAuctionSettings,
   counts: AuctionNominationQuotaCounts,
