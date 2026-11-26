@@ -57,7 +57,7 @@ function getDefaultValues(match?: SeasonMatch | null): SeasonMatchFormInput {
     stage: (match?.stage ?? "") as SeasonMatchFormInput["stage"],
     groupRef: match?.groupRef ?? "",
     kickoffAt: match ? toDateTimeInput(match.kickoffAt) : "",
-    venueRef: typeof existingVenueRef === "object" ? existingVenueRef._id : existingVenueRef ?? "",
+    venueRef: existingVenueRef && typeof existingVenueRef === "object" ? existingVenueRef._id : existingVenueRef ?? "",
     homeSeasonTeamRef: refId(match?.homeSeasonTeamRef) ?? "",
     awaySeasonTeamRef: refId(match?.awaySeasonTeamRef) ?? "",
     notes: match?.notes ?? "",
@@ -169,7 +169,7 @@ export function SeasonMatchForm({
       if (mappedFields === 0 || unmappedErrors.length > 0) {
         setError("root.serverError", {
           type: "server",
-          message: apiError.message || unmappedErrors[0] || "Unable to save fixture. Please try again.",
+          message: unmappedErrors[0] || apiError.message || "Unable to save fixture. Please try again.",
         });
       }
 
