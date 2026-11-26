@@ -1,5 +1,6 @@
 import type { FormEvent, ReactNode } from "react";
 import { Check, PencilLine, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { AuctionLotPreview } from "@/components/auctions/AuctionLotPreview";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -195,17 +196,19 @@ export function CreateAuctionLotModal({
         </section>
 
         {playerId && selectedPlayer ? (
-          <section className="flex items-center gap-3 rounded-2xl border border-accent/25 bg-linear-to-r from-primary/10 via-glass to-accent/10 p-3 sm:p-4" aria-label="Selected player">
-            <Avatar name={selectedPlayer.name} asset={selectedPlayer.profilePic} className="h-14 w-14 shrink-0 rounded-2xl border border-line shadow-sm" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">Selected player</p>
-              <p className="mt-0.5 truncate text-base font-semibold text-fg">{selectedPlayer.name}</p>
-              <p className="mt-0.5 text-xs text-muted">Active player · Ready for auction nomination</p>
-            </div>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success/10 text-success">
-              <Check className="h-4 w-4" />
-            </span>
-          </section>
+          <AuctionLotPreview
+            playerName={selectedPlayer.name}
+            playerImage={selectedPlayer.profilePic}
+            status="Ready for nomination"
+            positionLabel={playerPosition ? positions[playerPosition] : "Not selected"}
+            teamName={null}
+            teamLogo={null}
+            jerseyNo={null}
+            iconPlayer={isIconPlayer}
+            goalkeeper={isGoalkeeper}
+            price={null}
+            pricePlaceholder="Not sold yet"
+          />
         ) : null}
 
         <section className="rounded-2xl border border-line bg-surface/40 p-3 sm:p-4">

@@ -1,5 +1,6 @@
 import type { FormEvent, ReactNode } from "react";
 import { Check, ShieldCheck, Sparkles } from "lucide-react";
+import { AuctionLotPreview } from "@/components/auctions/AuctionLotPreview";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -137,22 +138,20 @@ export function EditAuctionLotModal({
     >
       <form className="grid gap-5" onSubmit={onSubmit}>
         {lot ? (
-          <div className="relative overflow-hidden rounded-2xl border border-accent/20 bg-linear-to-r from-primary/10 via-glass to-accent/10 p-3 sm:p-4">
-            <div className="relative flex items-center gap-3">
-              <Avatar name={playerName} asset={playerImage} className="h-14 w-14 shrink-0 rounded-2xl border border-line shadow-sm" />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="truncate text-sm font-semibold text-fg">{playerName}</p>
-                  <StatusBadge status={lot.auctionStatus} />
-                </div>
-                <p className="mt-1 text-xs text-muted">Lot #{lot.lotNumber ?? "—"}</p>
-              </div>
-              <div className="hidden text-right sm:block">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">Current price</p>
-                <p className="mt-1 text-lg font-semibold tabular text-fg">{lot.purchasePrice === null ? "—" : `₹${lot.purchasePrice.toLocaleString("en-IN")}`}</p>
-              </div>
-            </div>
-          </div>
+          <AuctionLotPreview
+            playerName={playerName}
+            playerImage={playerImage}
+            status={editStatus}
+            lotNumber={lot.lotNumber}
+            positionLabel={editPosition ? positions[editPosition] : "Not selected"}
+            teamName={editStatus === "sold" ? selectedTeam?.displayName ?? null : null}
+            teamLogo={editStatus === "sold" ? selectedTeam?.logoSnapshot ?? null : null}
+            jerseyNo={editStatus === "sold" ? editJersey : null}
+            iconPlayer={editIconPlayer}
+            goalkeeper={editGoalkeeper}
+            price={editStatus === "sold" ? editPrice : null}
+            pricePlaceholder={editStatus === "sold" ? "Enter purchase price" : "Not sold"}
+          />
         ) : null}
 
         <section className="rounded-2xl border border-line bg-surface/40 p-3 sm:p-4">
