@@ -11,7 +11,9 @@ export const seasonMatchFormSchema = z.object({
   awaySeasonTeamRef: z.string().min(1, "Choose the away team").regex(/^[a-f\d]{24}$/i, "Choose a valid away team"),
   notes: z.string().trim().max(1000, "Notes must be 1000 characters or fewer").transform(value => value || null),
 }).superRefine((value, context) => {
-  if (value.homeSeasonTeamRef === value.awaySeasonTeamRef) context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "Home and away teams must be different" });
+  if (value.homeSeasonTeamRef && value.awaySeasonTeamRef && value.homeSeasonTeamRef === value.awaySeasonTeamRef) {
+    context.addIssue({ code: "custom", path: ["awaySeasonTeamRef"], message: "Home and away teams must be different" });
+  }
   if (value.stage === "group" && !value.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Choose a group for a group-stage fixture" });
   if (value.stage !== "group" && value.groupRef) context.addIssue({ code: "custom", path: ["groupRef"], message: "Knockout fixtures cannot belong to a group" });
 });
