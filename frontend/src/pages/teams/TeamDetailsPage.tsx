@@ -384,7 +384,7 @@ export function TeamDetailsPage({ teamId, adminMode = false }: { teamId: string;
           <section className="mt-10 grid gap-5 lg:grid-cols-3">
             <GlassCard className="p-5 sm:p-6 lg:col-span-2">
               <SectionHeader
-                title="Season squad"
+                title="Season Team Squad"
                 description={`${soldCount} current player(s) · ${withdrawnCount} withdrawn player(s) in history`}
               />
               <div className="grid gap-3 sm:grid-cols-2">

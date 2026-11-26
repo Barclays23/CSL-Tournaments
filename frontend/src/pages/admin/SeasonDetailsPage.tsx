@@ -1003,6 +1003,13 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 </div>
                               </div>
 
+                              <div className="mt-2 flex items-center justify-between gap-3 rounded-control border border-line bg-surface/40 px-3 py-2.5 backdrop-blur-md">
+                                <span className="text-xs text-muted">Players</span>
+                                <span className="tabular text-xs font-semibold text-fg">
+                                  {team.playersCount} {team.playersCount === 1 ? "player" : "players"}
+                                </span>
+                              </div>
+
                               {/* Manager avatar stack */}
                               <div className="mt-4 flex items-center justify-between gap-3 rounded-control border border-line bg-surface/40 px-3 py-2.5 backdrop-blur-md">
                                 <div className="flex min-w-0 items-center gap-3">
@@ -1031,13 +1038,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                                 </div>
                                 <span className="tabular shrink-0 text-xs font-semibold text-fg">
                                   {team.managers.length} {team.managers.length === 1 ? "manager" : "managers"}
-                                </span>
-                              </div>
-
-                              <div className="mt-2 flex items-center justify-between gap-3 rounded-control border border-line bg-surface/40 px-3 py-2.5 backdrop-blur-md">
-                                <span className="text-xs text-muted">Players</span>
-                                <span className="tabular text-xs font-semibold text-fg">
-                                  {team.playersCount} {team.playersCount === 1 ? "player" : "players"}
                                 </span>
                               </div>
 
@@ -1305,7 +1305,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                         assigned.length > 0 ? `${assigned.length} team registration(s) are assigned to this group. Remove the assignments before deleting it.` : "",
                       ].filter(Boolean);
                       const deleteBlocker = deleteBlockers.length
-                        ? "Cannot delete: " + deleteBlockers.join(" ")
+                        ? "Cannot delete this group: " + deleteBlockers.join(" ")
                         : "";
                       const historicalCount = assigned.filter((team) => !["registered", "active"].includes(team.status)).length;
                       return (
