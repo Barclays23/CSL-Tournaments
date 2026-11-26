@@ -61,7 +61,7 @@ const resolutionSchema = new Schema({
 const schema = new Schema<SeasonMatchFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   matchNumber: { type: Number, required: true, min: 1 },
-  roundNumber: { type: Number, required: true, min: 1, max: 999 },
+  roundNumber: { type: Number, required: true, min: 1, max: 50 },
   stage: { type: String, enum: ["group", "round_of_16", "quarter_final", "semi_final", "third_place", "final"], required: true },
   groupRef: { type: Schema.Types.ObjectId, ref: "Group", default: null },
   kickoffAt: { type: Date, required: true },

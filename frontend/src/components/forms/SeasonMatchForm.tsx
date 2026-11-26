@@ -187,7 +187,7 @@ export function SeasonMatchForm({
             {...register("matchNumber")}
             type="number"
             min={1}
-            max={9999}
+            max={100}
             required
             placeholder="1"
             aria-invalid={Boolean(errors.matchNumber)}
@@ -198,7 +198,7 @@ export function SeasonMatchForm({
             {...register("roundNumber")}
             type="number"
             min={1}
-            max={999}
+            max={50}
             required
             aria-invalid={Boolean(errors.roundNumber)}
           />
