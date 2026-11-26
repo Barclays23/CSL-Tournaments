@@ -229,7 +229,7 @@ export function AuctionsPage() {
     setEditPosition(lot.playerPosition);
     setEditIconPlayer(lot.isIconPlayer);
     setEditGoalkeeper(lot.playerPosition === "goalkeeper");
-    setEditTeamId(assignedTeamId || data?.teams[0]?.seasonTeamId || "");
+    setEditTeamId(lot.auctionStatus === "sold" ? assignedTeamId : "");
     setEditPrice(lot.purchasePrice === null ? "" : String(lot.purchasePrice));
     setEditJersey(lot.jerseyNo === null ? "" : String(lot.jerseyNo));
   };
