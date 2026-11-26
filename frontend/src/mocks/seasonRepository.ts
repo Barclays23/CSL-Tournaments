@@ -94,7 +94,9 @@ function populatedSeasonTeam(db: SeasonMockDatabase, st: MockSeasonTeam): Season
   const group = groupById(db, st.groupRef);
   return {
     _id: st._id, seasonRef: st.seasonRef, teamRef: st.teamRef, displayName: team.name,
-    logoSnapshot: team.logo, groupRef: st.groupRef, managerRefs: [...st.managerRefs], status: st.status,
+    logoSnapshot: team.logo, groupRef: st.groupRef, managerRefs: [...st.managerRefs],
+    playersCount: db.auctionLots.filter((lot) => lot.seasonRef === st.seasonRef && lot.seasonTeamRef === st._id && lot.auctionStatus === "sold").length,
+    status: st.status,
     team: { _id: team._id, name: team.name, shortName: team.shortName, logo: team.logo },
     group: group ? { _id: group._id, groupName: group.groupName, displayOrder: group.displayOrder } : null,
     managers: st.managerRefs.map((id) => db.managers.find((m) => m._id === id)).filter((m): m is NonNullable<typeof m> => Boolean(m)).map((m) => ({ _id: m._id, name: m.name, role: m.role, profilePic: m.profilePic })),
@@ -120,6 +122,7 @@ function soldLots(db: SeasonMockDatabase, seasonId: string, seasonTeamId?: strin
 }
 function summaryFor(db: SeasonMockDatabase, season: MockSeason): AuctionSummary {
   const lots = db.auctionLots.filter((lot) => lot.seasonRef === season._id);
+  const nominatedLots = lots.filter((lot) => lot.auctionStatus !== "withdrawn");
   const teams = db.seasonTeams.filter((st) => st.seasonRef === season._id).map((st) => {
     const historicalTeamLots = db.auctionLots.filter((lot) => lot.seasonRef === season._id && lot.seasonTeamRef === st._id && ["sold", "withdrawn"].includes(lot.auctionStatus));
     const teamLots = historicalTeamLots.filter((lot) => lot.auctionStatus === "sold");
@@ -145,8 +148,11 @@ function summaryFor(db: SeasonMockDatabase, season: MockSeason): AuctionSummary 
       unsold: lots.filter((lot) => lot.auctionStatus === "unsold").length,
       withdrawn: lots.filter((lot) => lot.auctionStatus === "withdrawn").length,
       totalSoldValue: soldLots(db, season._id).reduce((sum, lot) => sum + (lot.purchasePrice ?? 0), 0),
+      nominatedIconPlayers: nominatedLots.filter((lot) => lot.isIconPlayer).length,
+      nominatedGoalkeepers: nominatedLots.filter((lot) => lot.isGoalkeeper).length,
     },
-    teams, lots: lots.map((lot) => populatedLot(db, lot)),
+    nominatedPlayerIds: lots.map((lot) => lot.playerRef),
+    teams,
   };
 }
 function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: string) {
@@ -1482,9 +1488,17 @@ export const seasonPreviewRepository = {
     if (season.groupStageEnabled === false) fail(409, "Groups are not enabled for this season");
     const group = db.groups.find((item) => item._id === groupId && item.seasonRef === seasonId);
     if (!group) return fail(404, "Group not found");
-    if (db.seasonTeams.some((st) => st.seasonRef === seasonId && st.groupRef === groupId)) fail(409, "Remove all SeasonTeam assignments before deleting this group");
-    if (db.matches.some((match) => match.seasonRef === seasonId && match.groupRef === groupId)) {
-      fail(409, "This group is referenced by a fixture and cannot be deleted");
+    const assignedSeasonTeamIds = new Set(
+      db.seasonTeams.filter((st) => st.seasonRef === seasonId && st.groupRef === groupId).map((st) => st._id),
+    );
+    if (assignedSeasonTeamIds.size) fail(409, "Remove all team assignments from this group before deleting it");
+    if (db.matches.some((match) => {
+      if (match.seasonRef !== seasonId) return false;
+      return match.groupRef === groupId
+        || assignedSeasonTeamIds.has(match.homeSeasonTeamRef)
+        || assignedSeasonTeamIds.has(match.awaySeasonTeamRef);
+    })) {
+      fail(409, "Fixtures reference this group or one of its assigned teams and must be preserved");
     }
     db.groups = db.groups.filter((item) => item._id !== groupId);
     commitSeasonDb(db);

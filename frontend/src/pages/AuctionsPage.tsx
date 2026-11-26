@@ -161,17 +161,16 @@ export function AuctionsPage() {
     if (lotTotalPages > 0 && lotPage > lotTotalPages) setLotPage(lotTotalPages);
     else if (lotTotalPages === 0 && lotPage !== 1) setLotPage(1);
   }, [lotTotalPages, lotPage]);
-  const nominatedLots = (data?.lots ?? []).filter((lot) => lot.auctionStatus !== "withdrawn");
+  const nominatedPlayerIds = new Set(data?.nominatedPlayerIds ?? []);
   const registeredTeamCount = (data?.teams ?? []).filter((team) => team.status === "registered" || team.status === "active").length;
   const teamRegistrationLimit = data?.season.auctionSettings.seasonTeamCount ?? 0;
   const playerNominationLimit = data?.season.auctionSettings.playersCount ?? 0;
   const iconQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.iconPlayerLimit ?? 0);
   const goalkeeperQuotaLimit = teamRegistrationLimit * (data?.season.auctionSettings.goalkeeperLimit ?? 0);
-  const nominatedIconCount = nominatedLots.filter((lot) => lot.isIconPlayer).length;
-  const nominatedGoalkeeperCount = nominatedLots.filter((lot) => lot.isGoalkeeper).length;
+  const nominatedIconCount = data?.totals.nominatedIconPlayers ?? 0;
+  const nominatedGoalkeeperCount = data?.totals.nominatedGoalkeepers ?? 0;
 
   const playerRows = (players.data?.data ?? []) as Array<PublicPlayer | AdminPlayer>;
-  const nominatedPlayerIds = new Set((data?.lots ?? []).map((lot) => typeof lot.playerRef === "string" ? lot.playerRef : lot.playerRef._id));
   const availablePlayers = playerRows.filter((player) => !nominatedPlayerIds.has(player._id) && (!playerSearch.trim() || player.name.toLowerCase().includes(playerSearch.trim().toLowerCase())));
 
   const [nominateOpen, setNominateOpen] = useState(false);

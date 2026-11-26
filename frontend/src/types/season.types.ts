@@ -159,9 +159,11 @@ export interface AuctionSummary {
     unsold: number;
     withdrawn: number;
     totalSoldValue: number;
+    nominatedIconPlayers: number;
+    nominatedGoalkeepers: number;
   };
+  nominatedPlayerIds: string[];
   teams: AuctionTeamSummary[];
-  lots: AuctionLot[];
 }
 
 export interface SeasonTeam {
@@ -172,6 +174,7 @@ export interface SeasonTeam {
   logoSnapshot: Asset | null;
   groupRef: string | null;
   managerRefs: string[];
+  playersCount: number;
   status: SeasonTeamStatus;
   participationHistory?: Array<{fromStatus:string;toStatus:string;reason:string;changedAt:string}>;
   team: { _id: string; name: string; shortName: string | null; logo: Asset | null } | null;

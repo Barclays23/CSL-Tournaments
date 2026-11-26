@@ -1,11 +1,11 @@
-import type { Pagination as PaginationType } from "@/types/api.types";
+import type { IPagination } from "@/types/api.types";
 import { Button } from "@/components/ui/Button";
 
 export function Pagination({
   pagination,
   onPage,
 }: {
-  pagination?: PaginationType;
+  pagination?: IPagination;
   onPage: (page: number) => void;
 }) {
   if (!pagination || pagination.totalPages <= 1) return null;
