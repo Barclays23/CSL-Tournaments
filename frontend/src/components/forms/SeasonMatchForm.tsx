@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { Controller, useForm, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { CalendarClock, Hash, Info, StickyNote, Swords, Users } from "lucide-react";
 import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -13,6 +14,8 @@ import { refId } from "@/utils/refs";
 import { seasonMatchFormSchema, type SeasonMatchFormInput, type SeasonMatchFormValues } from "@/schemas/seasonMatch.schema";
 import type { Venue } from "@/types/venue.types";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { TONES, ToneSection } from "@/lib/tones/Tones";
+
 
 const STAGES: Array<{ value: SeasonMatchStage; label: string }> = [
   { value: "group", label: "Group stage" },
@@ -187,172 +190,229 @@ export function SeasonMatchForm({
       aria-busy={submitting}
       onSubmit={handleSubmit(submitForm)}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Match number" required error={errors.matchNumber?.message}>
-          <Input
-            {...register("matchNumber")}
-            type="number"
-            min={1}
-            max={100}
-            required
-            placeholder="1"
-            aria-invalid={Boolean(errors.matchNumber)}
-          />
-        </FormField>
-        <FormField label="Round number" required error={errors.roundNumber?.message}>
-          <Input
-            {...register("roundNumber")}
-            type="number"
-            min={1}
-            max={50}
-            required
-            aria-invalid={Boolean(errors.roundNumber)}
-          />
-        </FormField>
-        <FormField label="Stage" required error={errors.stage?.message}>
-          <Controller
-            name="stage"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value || ""}
-                aria-invalid={Boolean(errors.stage)}
-                onChange={(event) => {
-                  const nextStage = event.target.value as SeasonMatchFormInput["stage"];
-                  field.onChange(nextStage);
+      {/* Match details */}
+      <ToneSection
+        tone="info"
+        icon={<Hash className="h-4 w-4" />}
+        title="Match details"
+        description="Number, round and stage of this fixture."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Match number" required error={errors.matchNumber?.message}>
+            <Input
+              {...register("matchNumber")}
+              className={TONES.info.input}
+              type="number"
+              min={1}
+              max={100}
+              required
+              placeholder="1"
+              aria-invalid={Boolean(errors.matchNumber)}
+            />
+          </FormField>
+          <FormField label="Round number" required error={errors.roundNumber?.message}>
+            <Input
+              {...register("roundNumber")}
+              className={TONES.info.input}
+              type="number"
+              min={1}
+              max={50}
+              required
+              aria-invalid={Boolean(errors.roundNumber)}
+            />
+          </FormField>
+          <FormField label="Stage" required error={errors.stage?.message}>
+            <Controller
+              name="stage"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  className={TONES.info.input}
+                  value={field.value || ""}
+                  aria-invalid={Boolean(errors.stage)}
+                  onChange={(event) => {
+                    const nextStage = event.target.value as SeasonMatchFormInput["stage"];
+                    field.onChange(nextStage);
 
-                  if (nextStage !== stage) {
-                    setValue("groupRef", "", { shouldDirty: true, shouldValidate: true });
-                    setValue("homeSeasonTeamRef", "", { shouldDirty: true, shouldValidate: true });
-                    setValue("awaySeasonTeamRef", "", { shouldDirty: true, shouldValidate: true });
-                  }
-                }}
-              >
-                <option value="">Choose stage</option>
-                {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
-              </Select>
-            )}
-          />
-        </FormField>
-      </div>
+                    if (nextStage !== stage) {
+                      setValue("groupRef", "", { shouldDirty: true, shouldValidate: true });
+                      setValue("homeSeasonTeamRef", "", { shouldDirty: true, shouldValidate: true });
+                      setValue("awaySeasonTeamRef", "", { shouldDirty: true, shouldValidate: true });
+                    }
+                  }}
+                >
+                  <option value="">Choose stage</option>
+                  {STAGES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                </Select>
+              )}
+            />
+          </FormField>
+        </div>
+      </ToneSection>
 
+      {/* Group (group stage only) */}
       {stage === "group" ? (
-        <FormField label="Group" required error={errors.groupRef?.message}>
-          <Controller
-            name="groupRef"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                value={field.value ?? ""}
-                required
-                aria-invalid={Boolean(errors.groupRef)}
-                onChange={(event) => {
-                  const nextGroup = event.target.value;
-                  field.onChange(nextGroup);
-                  changeGroup(nextGroup);
-                }}
-              >
-                <option value="">Choose a group</option>
-                {groups.map((group) => <option key={group._id} value={group._id}>{group.groupName}</option>)}
-              </Select>
-            )}
-          />
-        </FormField>
+        <ToneSection
+          tone="accent"
+          icon={<Users className="h-4 w-4" />}
+          title="Group"
+          description="Only teams from this group can be picked."
+        >
+          <FormField label="Group" required error={errors.groupRef?.message}>
+            <Controller
+              name="groupRef"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  className={TONES.accent.input}
+                  value={field.value ?? ""}
+                  required
+                  aria-invalid={Boolean(errors.groupRef)}
+                  onChange={(event) => {
+                    const nextGroup = event.target.value;
+                    field.onChange(nextGroup);
+                    changeGroup(nextGroup);
+                  }}
+                >
+                  <option value="">Choose a group</option>
+                  {groups.map((group) => <option key={group._id} value={group._id}>{group.groupName}</option>)}
+                </Select>
+              )}
+            />
+          </FormField>
+        </ToneSection>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Kick-off" required error={errors.kickoffAt?.message}>
-          <Input
-            {...register("kickoffAt")}
-            type="datetime-local"
-            required
-            readOnly={match?.status === "postponed"}
-            aria-invalid={Boolean(errors.kickoffAt)}
-          />
-        </FormField>
-        <FormField label="Venue / Ground" required error={errors.venueRef?.message}>
-          <Controller
-            name="venueRef"
-            control={control}
-            render={({ field }) => (
-              <Select {...field} required aria-invalid={Boolean(errors.venueRef)}>
-                <option value="">Choose a venue</option>
-                {venues.filter((venue) => venue.status === "active" || venue._id === field.value).map((venue) => (
-                  <option key={venue._id} value={venue._id}>
-                    {venue.name}{venue.location ? " · " + venue.location : ""}
-                  </option>
-                ))}
-              </Select>
-            )}
-          />
-        </FormField>
-      </div>
+      {/* Schedule & venue */}
+      <ToneSection
+        tone="gold"
+        icon={<CalendarClock className="h-4 w-4" />}
+        title="Schedule & venue"
+        description="When and where the match is played."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Kick-off" required error={errors.kickoffAt?.message}>
+            <Input
+              {...register("kickoffAt")}
+              className={TONES.gold.input}
+              type="datetime-local"
+              required
+              readOnly={match?.status === "postponed"}
+              aria-invalid={Boolean(errors.kickoffAt)}
+            />
+          </FormField>
+          <FormField label="Venue / Ground" required error={errors.venueRef?.message}>
+            <Controller
+              name="venueRef"
+              control={control}
+              render={({ field }) => (
+                <Select {...field} className={TONES.gold.input} required aria-invalid={Boolean(errors.venueRef)}>
+                  <option value="">Choose a venue</option>
+                  {venues.filter((venue) => venue.status === "active" || venue._id === field.value).map((venue) => (
+                    <option key={venue._id} value={venue._id}>
+                      {venue.name}{venue.location ? " · " + venue.location : ""}
+                    </option>
+                  ))}
+                </Select>
+              )}
+            />
+          </FormField>
+        </div>
 
-      {match?.status === "postponed" ? (
-        <p className="-mt-2 text-xs text-muted">
-          The original kick-off is preserved. Use Reschedule Match in the status manager to set a new date and time.
+        {match?.status === "postponed" ? (
+          <p className={"flex items-start gap-2 rounded-xl border p-2.5 text-xs leading-relaxed " + TONES.gold.note}>
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>The original kick-off is preserved. Use Reschedule Match in the status manager to set a new date and time.</span>
+          </p>
+        ) : null}
+      </ToneSection>
+
+      {/* Teams */}
+      <ToneSection
+        tone="primary"
+        icon={<Swords className="h-4 w-4" />}
+        title="Teams"
+        description="Choose the home and away sides."
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <FormField label="Home team" required error={errors.homeSeasonTeamRef?.message}>
+            <Controller
+              name="homeSeasonTeamRef"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  className={TONES.primary.input}
+                  disabled={!stage || (stage === "group" && !groupRef)}
+                  aria-invalid={Boolean(errors.homeSeasonTeamRef)}
+                >
+                  <option value="">
+                    {stage === "group" && !groupRef ? "Choose a group first" : "Choose home team"}
+                  </option>
+                  {selectableTeams.map((team) => (
+                    <option key={team._id} value={team._id}>{team.displayName}</option>
+                  ))}
+                </Select>
+              )}
+            />
+          </FormField>
+          <FormField label="Away team" required error={errors.awaySeasonTeamRef?.message}>
+            <Controller
+              name="awaySeasonTeamRef"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  {...field}
+                  className={TONES.primary.input}
+                  disabled={!stage || (stage === "group" && !groupRef)}
+                  aria-invalid={Boolean(errors.awaySeasonTeamRef)}
+                >
+                  <option value="">
+                    {stage === "group" && !groupRef ? "Choose a group first" : "Choose away team"}
+                  </option>
+                  {selectableTeams.filter((team) => team._id !== homeTeamRef).map((team) => (
+                    <option key={team._id} value={team._id}>{team.displayName}</option>
+                  ))}
+                </Select>
+              )}
+            />
+          </FormField>
+        </div>
+      </ToneSection>
+
+      {/* Notes */}
+      <ToneSection
+        tone="success"
+        icon={<StickyNote className="h-4 w-4" />}
+        title="Notes"
+        description="Optional details about this fixture."
+      >
+        <FormField label="Notes" error={errors.notes?.message}>
+          <Textarea
+            {...register("notes")}
+            className={TONES.success.input}
+            maxLength={1000}
+            placeholder="Optional fixture notes"
+            aria-invalid={Boolean(errors.notes)}
+          />
+        </FormField>
+      </ToneSection>
+
+      {rootError ? (
+        <p className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger" role="alert">
+          {rootError}
         </p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <FormField label="Home team" required error={errors.homeSeasonTeamRef?.message}>
-          <Controller
-            name="homeSeasonTeamRef"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                disabled={!stage || (stage === "group" && !groupRef)}
-                aria-invalid={Boolean(errors.homeSeasonTeamRef)}
-              >
-                <option value="">
-                  {stage === "group" && !groupRef ? "Choose a group first" : "Choose home team"}
-                </option>
-                {selectableTeams.map((team) => (
-                  <option key={team._id} value={team._id}>{team.displayName}</option>
-                ))}
-              </Select>
-            )}
-          />
-        </FormField>
-        <FormField label="Away team" required error={errors.awaySeasonTeamRef?.message}>
-          <Controller
-            name="awaySeasonTeamRef"
-            control={control}
-            render={({ field }) => (
-              <Select
-                {...field}
-                disabled={!stage || (stage === "group" && !groupRef)}
-                aria-invalid={Boolean(errors.awaySeasonTeamRef)}
-              >
-                <option value="">
-                  {stage === "group" && !groupRef ? "Choose a group first" : "Choose away team"}
-                </option>
-                {selectableTeams.filter((team) => team._id !== homeTeamRef).map((team) => (
-                  <option key={team._id} value={team._id}>{team.displayName}</option>
-                ))}
-              </Select>
-            )}
-          />
-        </FormField>
-      </div>
-
-      <FormField label="Notes" error={errors.notes?.message}>
-        <Textarea
-          {...register("notes")}
-          maxLength={1000}
-          placeholder="Optional fixture notes"
-          aria-invalid={Boolean(errors.notes)}
-        />
-      </FormField>
-
-      {rootError ? <p className="text-sm text-danger" role="alert">{rootError}</p> : null}
-      <p className="text-xs text-muted">
-        {match
-          ? "Editing fixture details does not change its recorded goals or current result."
-          : "The fixture is created as scheduled. Record goals and update its status from its match page."}
+      <p className={"flex items-start gap-2 rounded-xl border p-3 text-xs leading-relaxed " + TONES.info.note}>
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          {match
+            ? "Editing fixture details does not change its recorded goals or current result."
+            : "The fixture is created as scheduled. Record goals and update its status from its match page."}
+        </span>
       </p>
 
       <Button type="submit" disabled={submitting}>
