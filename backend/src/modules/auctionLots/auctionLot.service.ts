@@ -11,7 +11,7 @@ import {AuctionLotRepository} from "./auctionLot.repository.js";
 import type {NominatePlayerDto,SellAuctionLotDto,UpdateAuctionLotStatusDto,UpdateAuctionLotDto,AuctionLotResponseDto,AuctionSummaryDto,AuctionTeamSummaryDto,AuctionLotsQueryDto,AuctionLotsListResult} from "./auctionLot.dto.js";
 import type {AuctionLotEntity,AuctionLotFields,PopulatedAuctionLotEntity,PopulatedAuctionLotTeam} from "./auctionLot.types.js";
 import { canDeletePendingAuctionLot, canUpdateAuctionLot } from "./auctionLot.lifecycle.js";
-import { getAuctionNominationQuotaBlockers, getAuctionTeamQuotaBlockers } from "../seasons/auction.completion.js";
+import { getAuctionNominationQuotaBlockers, getAuctionTeamQuotaBlockers, getSeasonOutfieldQuotaBlockers, getTeamOutfieldQuotaBlockers } from "../seasons/auction.completion.js";
 export class AuctionLotService implements IAuctionLotService{
  constructor(private readonly lots:AuctionLotRepository){}
  async summary(seasonId:string):Promise<AuctionSummaryDto>{
@@ -101,10 +101,13 @@ export class AuctionLotService implements IAuctionLotService{
     if(playerLock.modifiedCount!==1)throw new AppError("Active player not found",404,"PLAYER_NOT_FOUND");
     const count=await AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"}}).session(session).exec();
     if(count>=season.auctionSettings.playersCount)throw new AppError("Season player nomination limit reached",422,"AUCTION_PLAYER_LIMIT");
-    const [iconPlayers,goalkeepers]=await Promise.all([
+    const [iconPlayers,goalkeepers,outfieldPlayers]=await Promise.all([
      AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isIconPlayer:true}).session(session).exec(),
      AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isGoalkeeper:true}).session(session).exec(),
+     AuctionLotModel.countDocuments({seasonRef:new Types.ObjectId(input.seasonId),auctionStatus:{$ne:"withdrawn"},isGoalkeeper:false}).session(session).exec(),
     ]);
+    const outfieldBlockers=getSeasonOutfieldQuotaBlockers(season.auctionSettings,outfieldPlayers,!isGoalkeeper);
+    if(outfieldBlockers.length)throw new AppError(outfieldBlockers[0],422,"SEASON_OUTFIELD_PLAYER_LIMIT");
     const quotaBlockers=getAuctionNominationQuotaBlockers(season.auctionSettings,{iconPlayers,goalkeepers},{isIconPlayer:!!input.isIconPlayer,isGoalkeeper});
     if(quotaBlockers.length)throw new AppError(quotaBlockers[0],422,quotaBlockers[0].includes("Icon Player")?"SEASON_ICON_PLAYER_LIMIT":"SEASON_GOALKEEPER_LIMIT");
     created=await this.lots.create({seasonRef:new Types.ObjectId(input.seasonId),seasonTeamRef:null,playerRef:new Types.ObjectId(input.playerId),lotNumber:null,auctionStatus:"pending",purchasePrice:null,playerPosition:input.playerPosition,isIconPlayer:!!input.isIconPlayer,isGoalkeeper,jerseyNo:null,nominatedAt:new Date(),soldAt:null},session);
@@ -127,17 +130,20 @@ export class AuctionLotService implements IAuctionLotService{
    if(!season||!["upcoming","active"].includes(season.status)||season.auctionLifecycleStatus !== "in_progress")throw new AppError("Auction sales are available only while an Upcoming or Active season auction is open",409,"SEASON_NOT_AUCTION_READY");
    if(!season||!team||String(team.seasonRef)!==String(lot.seasonRef)||["withdrawn","eliminated","completed"].includes(team.status))throw new AppError("Winning team must participate in the same season",422,"INVALID_SEASON_TEAM");
    if(!season.auctionSettings)throw new AppError("Auction settings are unavailable for this season",409,"SEASON_RULES_UNAVAILABLE");
-   const [soldCount,spent,icons,gks,player,jerseyCount]=await Promise.all([
+   const [soldCount,spent,icons,gks,outfieldPlayers,player,jerseyCount]=await Promise.all([
     AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold"}).session(session),
     AuctionLotModel.aggregate([{$match:{seasonTeamRef:team._id,auctionStatus:"sold"}},{$group:{_id:null,total:{$sum:"$purchasePrice"}}}]).session(session),
     AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold",isIconPlayer:true}).session(session),
     AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold",isGoalkeeper:true}).session(session),
+    AuctionLotModel.countDocuments({seasonTeamRef:team._id,auctionStatus:"sold",isGoalkeeper:false}).session(session),
     PlayerModel.findById(lot.playerRef).session(session).lean().exec(),
     input.jerseyNo==null?Promise.resolve(0):AuctionLotModel.countDocuments({seasonTeamRef:team._id,jerseyNo:input.jerseyNo,auctionStatus:"sold"}).session(session)
    ]);
    if(!player||player.status!=="active")throw new AppError("Player is no longer active",409,"PLAYER_UNAVAILABLE");
    const total=Number(spent[0]?.total??0);if(total+input.purchasePrice>season.auctionSettings.budgetPerTeam)throw new AppError("Sale exceeds the team's remaining budget",422,"AUCTION_BUDGET_EXCEEDED");
    if(soldCount>=season.auctionSettings.teamSquadSize)throw new AppError("Team squad size limit reached for this team",422,"SQUAD_LIMIT");
+   const outfieldBlockers=getTeamOutfieldQuotaBlockers(season.auctionSettings,outfieldPlayers,!lot.isGoalkeeper,team.displayName);
+   if(outfieldBlockers.length)throw new AppError(outfieldBlockers[0],422,"TEAM_OUTFIELD_PLAYER_LIMIT");
    const teamQuotaBlockers = getAuctionTeamQuotaBlockers(
     season.auctionSettings,
     { iconPlayers: icons, goalkeepers: gks },
@@ -187,6 +193,14 @@ export class AuctionLotService implements IAuctionLotService{
     const nextGoalkeeper=nextPosition==="goalkeeper";
     if(input.isGoalkeeper!==undefined&&input.isGoalkeeper!==nextGoalkeeper)throw new AppError("Goalkeeper designation must match the selected Goalkeeper position.",422,"GOALKEEPER_POSITION_MISMATCH");
     const designationChanged = nextIcon !== lot.isIconPlayer || nextGoalkeeper !== lot.isGoalkeeper;
+    const goalkeeperDesignationChanged = nextGoalkeeper !== lot.isGoalkeeper;
+    if(goalkeeperDesignationChanged && !nextGoalkeeper) {
+     const currentSeasonOutfieldPlayers=await AuctionLotModel.countDocuments({
+      seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isGoalkeeper:false,_id:{$ne:lot._id},
+     }).session(session).exec();
+     const outfieldBlockers=getSeasonOutfieldQuotaBlockers(season.auctionSettings,currentSeasonOutfieldPlayers,true);
+     if(outfieldBlockers.length)throw new AppError(outfieldBlockers[0],422,"SEASON_OUTFIELD_PLAYER_LIMIT");
+    }
     if(nextStatus !== "sold" && designationChanged) {
      const [seasonIconPlayers,seasonGoalkeepers]=await Promise.all([
       AuctionLotModel.countDocuments({seasonRef:lot.seasonRef,auctionStatus:{$ne:"withdrawn"},isIconPlayer:true,_id:{$ne:lot._id}}).session(session).exec(),
@@ -217,11 +231,12 @@ export class AuctionLotService implements IAuctionLotService{
      if(jerseyNo!==null&&(!Number.isInteger(jerseyNo)||jerseyNo<1||jerseyNo>99))throw new AppError("Jersey number must be between 1 and 99",422,"INVALID_JERSEY");
 
      const otherSold:QueryFilter<AuctionLotFields>={seasonTeamRef:team._id,auctionStatus:"sold",_id:{$ne:lot._id}};
-     const [soldCount,spent,icons,goalkeepers,player,jerseyCount]=await Promise.all([
+     const [soldCount,spent,icons,goalkeepers,outfieldPlayers,player,jerseyCount]=await Promise.all([
       AuctionLotModel.countDocuments(otherSold).session(session),
       AuctionLotModel.aggregate([{$match:otherSold},{$group:{_id:null,total:{$sum:"$purchasePrice"}}}]).session(session),
       AuctionLotModel.countDocuments({...otherSold,isIconPlayer:true}).session(session),
       AuctionLotModel.countDocuments({...otherSold,isGoalkeeper:true}).session(session),
+      AuctionLotModel.countDocuments({...otherSold,isGoalkeeper:false}).session(session),
       PlayerModel.findById(lot.playerRef).session(session).lean().exec(),
       jerseyNo===null?Promise.resolve(0):AuctionLotModel.countDocuments({...otherSold,jerseyNo}).session(session)
      ]);
@@ -229,6 +244,8 @@ export class AuctionLotService implements IAuctionLotService{
      const total=Number(spent[0]?.total??0);
      if(soldCount>=season.auctionSettings.teamSquadSize)throw new AppError("Team squad size limit reached for "+team.displayName,422,"SQUAD_LIMIT");
      if(total+purchasePrice>season.auctionSettings.budgetPerTeam)throw new AppError("Sale exceeds the team's remaining budget",422,"AUCTION_BUDGET_EXCEEDED");
+     const outfieldBlockers=getTeamOutfieldQuotaBlockers(season.auctionSettings,outfieldPlayers,!nextGoalkeeper,team.displayName);
+     if(outfieldBlockers.length)throw new AppError(outfieldBlockers[0],422,"TEAM_OUTFIELD_PLAYER_LIMIT");
      const teamQuotaBlockers = getAuctionTeamQuotaBlockers(
       season.auctionSettings,
       { iconPlayers: icons, goalkeepers },

@@ -153,6 +153,33 @@ export function getAuctionTeamQuotaBlockers(
   return blockers;
 }
 
+/** Enforce the season-wide outfield player cap when a lot is nominated or changed to an outfield position. */
+export function getSeasonOutfieldQuotaBlockers(
+  settings: SeasonAuctionSettings,
+  currentOutfieldPlayers: number,
+  addingOutfieldPlayer: boolean,
+): string[] {
+  const limit = settings.playersCount - settings.seasonTeamCount * settings.goalkeeperLimit;
+  if (addingOutfieldPlayer && currentOutfieldPlayers >= limit) {
+    return [`The season outfield player limit is full. A maximum of ${limit} outfield players are allowed (${settings.playersCount} total players - ${settings.seasonTeamCount * settings.goalkeeperLimit} Goalkeepers).`];
+  }
+  return [];
+}
+
+/** Enforce the destination team's outfield player cap when a lot is sold or edited. */
+export function getTeamOutfieldQuotaBlockers(
+  settings: SeasonAuctionSettings,
+  currentOutfieldPlayers: number,
+  addingOutfieldPlayer: boolean,
+  teamName: string,
+): string[] {
+  const limit = settings.teamSquadSize - settings.goalkeeperLimit;
+  if (addingOutfieldPlayer && currentOutfieldPlayers >= limit) {
+    return [`${teamName} already has ${currentOutfieldPlayers} outfield players. Each team can have a maximum of ${limit} outfield players (${settings.teamSquadSize} squad members - ${settings.goalkeeperLimit} Goalkeeper).`];
+  }
+  return [];
+}
+
 /** Enforce designation quotas across the whole season when a new lot is nominated. */
 export function getAuctionNominationQuotaBlockers(
   settings: SeasonAuctionSettings,
