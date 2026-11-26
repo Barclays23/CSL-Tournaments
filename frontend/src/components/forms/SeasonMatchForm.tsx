@@ -93,7 +93,7 @@ export function SeasonMatchForm({
     setError,
     clearErrors,
     formState: { errors },
-  } = useForm<SeasonMatchFormInput, undefined, SeasonMatchFormValues>({
+  } = useForm<SeasonMatchFormInput, unknown, SeasonMatchFormValues>({
     resolver: zodResolver(seasonMatchFormSchema),
     defaultValues,
     mode: "onBlur",
