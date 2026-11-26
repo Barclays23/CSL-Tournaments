@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Controller, useForm, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarClock, Hash, Info, StickyNote, Swords, Users } from "lucide-react";
+import { FieldError } from "@/components/forms/FieldError";
 import { FormField } from "@/components/forms/FormField";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -198,7 +199,7 @@ export function SeasonMatchForm({
         description="Number, round and stage of this fixture."
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Match number" required error={errors.matchNumber?.message}>
+          <FormField label="Match number" required>
             <Input
               {...register("matchNumber")}
               className={TONES.info.input}
@@ -209,8 +210,9 @@ export function SeasonMatchForm({
               placeholder="1"
               aria-invalid={Boolean(errors.matchNumber)}
             />
+            <FieldError message={errors.matchNumber?.message} />
           </FormField>
-          <FormField label="Round number" required error={errors.roundNumber?.message}>
+          <FormField label="Round number" required>
             <Input
               {...register("roundNumber")}
               className={TONES.info.input}
@@ -220,8 +222,9 @@ export function SeasonMatchForm({
               required
               aria-invalid={Boolean(errors.roundNumber)}
             />
+            <FieldError message={errors.roundNumber?.message} />
           </FormField>
-          <FormField label="Stage" required error={errors.stage?.message}>
+          <FormField label="Stage" required>
             <Controller
               name="stage"
               control={control}
@@ -247,6 +250,7 @@ export function SeasonMatchForm({
                 </Select>
               )}
             />
+            <FieldError message={errors.stage?.message} />
           </FormField>
         </div>
       </ToneSection>
@@ -259,7 +263,7 @@ export function SeasonMatchForm({
           title="Group"
           description="Only teams from this group can be picked."
         >
-          <FormField label="Group" required error={errors.groupRef?.message}>
+          <FormField label="Group" required>
             <Controller
               name="groupRef"
               control={control}
@@ -281,6 +285,7 @@ export function SeasonMatchForm({
                 </Select>
               )}
             />
+            <FieldError message={errors.groupRef?.message} />
           </FormField>
         </ToneSection>
       ) : null}
@@ -293,7 +298,7 @@ export function SeasonMatchForm({
         description="When and where the match is played."
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Kick-off" required error={errors.kickoffAt?.message}>
+          <FormField label="Kick-off" required>
             <Input
               {...register("kickoffAt")}
               className={TONES.gold.input}
@@ -302,8 +307,9 @@ export function SeasonMatchForm({
               readOnly={match?.status === "postponed"}
               aria-invalid={Boolean(errors.kickoffAt)}
             />
+            <FieldError message={errors.kickoffAt?.message} />
           </FormField>
-          <FormField label="Venue / Ground" required error={errors.venueRef?.message}>
+          <FormField label="Venue / Ground" required>
             <Controller
               name="venueRef"
               control={control}
@@ -318,6 +324,7 @@ export function SeasonMatchForm({
                 </Select>
               )}
             />
+            <FieldError message={errors.venueRef?.message} />
           </FormField>
         </div>
 
@@ -337,7 +344,7 @@ export function SeasonMatchForm({
         description="Choose the home and away sides."
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Home team" required error={errors.homeSeasonTeamRef?.message}>
+          <FormField label="Home team" required>
             <Controller
               name="homeSeasonTeamRef"
               control={control}
@@ -357,8 +364,9 @@ export function SeasonMatchForm({
                 </Select>
               )}
             />
+            <FieldError message={errors.homeSeasonTeamRef?.message} />
           </FormField>
-          <FormField label="Away team" required error={errors.awaySeasonTeamRef?.message}>
+          <FormField label="Away team" required>
             <Controller
               name="awaySeasonTeamRef"
               control={control}
@@ -378,6 +386,7 @@ export function SeasonMatchForm({
                 </Select>
               )}
             />
+            <FieldError message={errors.awaySeasonTeamRef?.message} />
           </FormField>
         </div>
       </ToneSection>
@@ -389,7 +398,7 @@ export function SeasonMatchForm({
         title="Notes"
         description="Optional details about this fixture."
       >
-        <FormField label="Notes" error={errors.notes?.message}>
+        <FormField label="Notes">
           <Textarea
             {...register("notes")}
             className={TONES.success.input}
@@ -397,6 +406,7 @@ export function SeasonMatchForm({
             placeholder="Optional fixture notes"
             aria-invalid={Boolean(errors.notes)}
           />
+          <FieldError message={errors.notes?.message} />
         </FormField>
       </ToneSection>
 
