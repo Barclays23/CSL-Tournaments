@@ -17,15 +17,3 @@ export const seasonMatchFormSchema = z.object({
 });
 export type SeasonMatchFormInput = z.input<typeof seasonMatchFormSchema>;
 export type SeasonMatchFormValues = z.output<typeof seasonMatchFormSchema>;
-
-export const goalFormSchema = z.object({
-  scoringTeamRef: objectId,
-  goalType: z.enum(["normal", "own_goal"]),
-  scorerRef: z.string(),
-  ownGoalPlayerRef: z.string(),
-}).superRefine((value, context) => {
-  if (value.goalType === "own_goal" && !value.ownGoalPlayerRef) {
-    context.addIssue({ code: "custom", path: ["ownGoalPlayerRef"], message: "Choose the player who scored the own goal" });
-  }
-});
-export type GoalFormValues = z.infer<typeof goalFormSchema>;
