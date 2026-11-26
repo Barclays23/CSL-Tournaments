@@ -247,7 +247,7 @@ export function EditAuctionLotModal({
                         <Avatar name={team.displayName} asset={team.logoSnapshot} className="h-11 w-11 shrink-0 rounded-xl border border-line" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-xs font-semibold text-fg">{team.displayName}</span>
-                          <span className="mt-0.5 block truncate text-[10px] text-muted">Balance · {team.balance.toLocaleString("en-IN")} INR</span>
+                          <span className="mt-0.5 block truncate text-[10px] text-muted">Balance · ₹{team.balance.toLocaleString("en-IN")}</span>
                           <span className="mt-1 block"><StatusBadge status={team.status} /></span>
                         </span>
                         <span className={"flex h-5 w-5 shrink-0 items-center justify-center rounded-full border " +
@@ -269,10 +269,10 @@ export function EditAuctionLotModal({
             </section>
 
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Purchase price (INR)">
+              <Field label="Purchase Price (INR)">
                 <Input className="h-12 text-base" type="number" min="0" step="1" required value={editPrice} onChange={(event) => onPriceChange(event.target.value)} placeholder="Enter purchase price" />
               </Field>
-              <Field label="Jersey number (optional)">
+              <Field label="Jersey Number (optional)">
                 <Input className="h-12 text-base" type="number" min="1" max="99" value={editJersey} onChange={(event) => onJerseyChange(event.target.value)} placeholder="e.g. 10" />
               </Field>
             </div>
