@@ -1508,7 +1508,16 @@ export const seasonPreviewRepository = {
       lots = lots.filter((lot) => playerById(db, lot.playerRef).name.toLowerCase().includes(needle));
     }
     lots.sort((a, b) => (a.lotNumber ?? 0) - (b.lotNumber ?? 0));
-    return ok("Auction lots loaded", lots.map((lot) => populatedLot(db, lot)));
+    const total = lots.length;
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 10;
+    const start = (page - 1) * limit;
+    return {
+      success: true,
+      message: "Auction lots loaded",
+      data: lots.slice(start, start + limit).map((lot) => populatedLot(db, lot)),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   },
   async nominatePlayer(input: { seasonId: string; playerId: string; playerPosition: MockAuctionLot["playerPosition"]; isIconPlayer: boolean; isGoalkeeper?: boolean }) {
     requireAdmin();

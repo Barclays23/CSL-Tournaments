@@ -97,6 +97,8 @@ export interface AuctionLot {
 
 export interface AuctionLotsQuery {
   seasonId: string;
+  page?: number;
+  limit?: number;
   seasonTeamId?: string;
   playerName?: string;
   playerPosition?: SeasonPlayerPosition;
