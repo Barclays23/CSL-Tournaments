@@ -60,7 +60,7 @@ export function SeasonFixtureCard({
         to={managementMode ? "/admin/matches/$matchId" : "/matches/$matchId"}
         params={{ matchId: match._id }}
         search={{ seasonId: match.seasonRef }}
-        className="block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+        className="block rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
       >
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-3">
           <Avatar name={home.name} asset={home.logo} className="h-12 w-12 rounded-xl" />

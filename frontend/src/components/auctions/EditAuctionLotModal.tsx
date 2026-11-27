@@ -171,7 +171,7 @@ function CountTile({
     >
       <div
         className={
-          "flex min-h-[2rem] items-center justify-center border-b px-1 py-0.5 text-center " +
+          "flex min-h-8 items-center justify-center border-b px-1 py-0.5 text-center " +
           t.chip
         }
       >

@@ -39,7 +39,7 @@ export function MatchEventIcon({
         return (
           <span className={`relative inline-flex ${className}`} aria-hidden="true">
             <TbRectangleVerticalFilled className="absolute left-0 top-0 h-[85%] w-[85%] fill-warning text-warning" />
-            <TbRectangleVerticalFilled className="absolute bottom-0 right-0 h-[85%] w-[85%] fill-danger text-danger [stroke:var(--csl-bg)]" />
+            <TbRectangleVerticalFilled className="absolute bottom-0 right-0 h-[85%] w-[85%] fill-danger text-danger stroke-bg" />
           </span>
         );
     }
