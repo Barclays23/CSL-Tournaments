@@ -479,8 +479,6 @@ export function SeasonMatchDetailsPage(props: {
     match.status === "scheduled" && match.goals.length > 0;
   const events = buildEvents(match.goals, match.cards ?? []);
   const availableEventPeriods = getAvailableEventPeriods(match);
-  const goalTimeIsAhead = isEventTimeAheadOfClock(match, goalPeriod, goalMinute, goalAddedMinutes, Date.now());
-  const cardTimeIsAhead = isEventTimeAheadOfClock(match, cardPeriod, cardMinute, cardAddedMinutes, Date.now());
   const goalStoppageTimeAllowed = Boolean(goalPeriod && goalMinute === getPeriodBoundaryMinute(match, goalPeriod));
   const cardStoppageTimeAllowed = Boolean(cardPeriod && cardMinute === getPeriodBoundaryMinute(match, cardPeriod));
   const eligibleCardPlayers = (lotsQuery.data?.data ?? []).filter(
@@ -1133,7 +1131,6 @@ export function SeasonMatchDetailsPage(props: {
         onAddedMinutesChange={setGoalAddedMinutes}
         match={match}
         stoppageTimeAllowed={goalStoppageTimeAllowed}
-        timeIsAhead={goalTimeIsAhead}
         players={eligibleGoalPlayers
           .map((lot) => {
             const player = lotPlayer(lot);
@@ -1183,7 +1180,6 @@ export function SeasonMatchDetailsPage(props: {
         onAddedMinutesChange={setCardAddedMinutes}
         match={match}
         stoppageTimeAllowed={cardStoppageTimeAllowed}
-        timeIsAhead={cardTimeIsAhead}
         players={eligibleCardPlayers
           .map((lot) => {
             const player = lotPlayer(lot);

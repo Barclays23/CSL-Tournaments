@@ -1,10 +1,11 @@
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
 import type { Asset } from "@/types/api.types";
 import type { MatchTimedPeriod, SeasonMatch } from "@/types/seasonMatch.types";
-import { MatchClockTicker } from "@/components/matches/MatchClockTicker";
-import { formatMatchEventTime, getPeriodLabel } from "@/utils/matchTiming";
+import { formatMatchClock, getPeriodLabel, isEventTimeAheadOfClock } from "@/utils/matchTiming";
+import { formatMatchEventTime } from "@/utils/matchTiming";
 
 export interface GoalTeamOption {
   id: string;
@@ -41,7 +42,6 @@ export function GoalManagementDrawer({
   onAddedMinutesChange,
   match,
   stoppageTimeAllowed,
-  timeIsAhead,
   saving,
   error,
   onSubmit,
@@ -67,11 +67,18 @@ export function GoalManagementDrawer({
   onAddedMinutesChange: (minutes: number) => void;
   match: SeasonMatch;
   stoppageTimeAllowed: boolean;
-  timeIsAhead: boolean;
   saving: boolean;
   error?: string | null;
   onSubmit: () => void;
 }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!open || !match.clock.isRunning) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [open, match.clock.isRunning]);
+  const timeIsAhead = isEventTimeAheadOfClock(match, period, minute, addedMinutes, now);
+  const clockPosition = formatMatchClock(match, now);
   const creditedTeam = scoringTeamId === away.id ? away : home;
   const playerTeam = goalType === "normal" ? creditedTeam : creditedTeam.id === home.id ? away : home;
   const canSave = !saving && !timeIsAhead && (goalType === "own_goal" || selectedPlayerId !== "") && Boolean(period) && minute > 0;
@@ -142,7 +149,7 @@ export function GoalManagementDrawer({
         </section>
 
         <section className="rounded-xl border border-line bg-surface/40 p-3">
-          <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-fg">Event time</h3><span className="text-xs text-muted">Clock position · <MatchClockTicker match={match} /></span></div>
+          <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-fg">Event time</h3><span className="text-xs text-muted">Clock position · {clockPosition}</span></div>
           <label className="mt-3 block text-sm text-fg">Match period
             <select className="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm" required value={period ?? ""} onChange={(event) => onPeriodChange(event.target.value as MatchTimedPeriod)}>
               <option value="" disabled>Select a completed period</option>
