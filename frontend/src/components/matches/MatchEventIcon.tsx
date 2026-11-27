@@ -29,17 +29,21 @@ export function MatchEventIcon({
       case "goal":
         // return <IoFootball className={className} aria-hidden="true" />;
         return <MdSportsSoccer className={className} aria-hidden="true" />;
+
       case "own_goal":
         return <MdSportsSoccer className={className} aria-hidden="true" />;
+
       case "yellow_card":
-        return <TbRectangleVerticalFilled className={className} fill="currentColor" aria-hidden="true" />;
+        return <TbRectangleVerticalFilled className={`${className} rotate-15`} fill="currentColor" aria-hidden="true" />;
+
       case "red_card":
-        return <TbRectangleVerticalFilled className={className} fill="currentColor" aria-hidden="true" />;
+        return <TbRectangleVerticalFilled className={`${className} rotate-15`} fill="currentColor" aria-hidden="true" />;
+        
       case "second_yellow":
         return (
           <span className={`relative inline-flex ${className}`} aria-hidden="true">
-            <TbRectangleVerticalFilled className="absolute left-0 top-0 h-[85%] w-[85%] fill-warning text-warning" />
-            <TbRectangleVerticalFilled className="absolute bottom-0 right-0 h-[85%] w-[85%] fill-danger text-danger stroke-bg" />
+            <TbRectangleVerticalFilled className="absolute left-0 top-0 h-[85%] w-[85%] fill-warning text-warning rotate-10" />
+            <TbRectangleVerticalFilled className="absolute bottom-0 right-0 h-[85%] w-[85%] fill-danger text-danger stroke-bg rotate-15" />
           </span>
         );
     }
