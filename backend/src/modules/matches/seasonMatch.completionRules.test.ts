@@ -29,7 +29,7 @@ function normalGoal(team: Types.ObjectId): SeasonGoalFields {
 
 function completedMatch(
   overrides: Partial<SeasonMatchFields> = {},
-): Pick<SeasonMatchFields, "status" | "stage" | "homeSeasonTeamRef" | "awaySeasonTeamRef" | "goals" | "penaltyShootout"> {
+): Pick<SeasonMatchFields,"status"|"stage"|"homeSeasonTeamRef"|"awaySeasonTeamRef"|"goals"|"penaltyShootout"> & Partial<Pick<SeasonMatchFields,"phase"|"decidingRules">> {
   return {
     status: "completed",
     stage: "group",

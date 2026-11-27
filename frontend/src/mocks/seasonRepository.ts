@@ -1102,7 +1102,7 @@ export const seasonPreviewRepository = {
       groupStageEnabled: input.groupStageEnabled ?? true, homeAndAwayFixtures: input.homeAndAwayFixtures ?? false, status: "draft", auctionLifecycleStatus: "not_started", auctionSettings: input.auctionSettings,
       pointsRules: input.pointsRules ?? { win: 3, draw: 1, loss: 0 },
       standingsTieBreakers: input.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
-      matchRules: input.matchRules ?? { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false },
+      matchRules:input.matchRules??{groupStageDrawAllowed:true,defaultMatchDurationMinutes:30,extraTime:{isAllowedByDefault:false,defaultDurationMinutes:10},penaltyShootout:{isAllowedByDefault:true},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false},
       auctionRevision: 0, createdAt: date, updatedAt: date,
     };
     db.seasons.push(season);

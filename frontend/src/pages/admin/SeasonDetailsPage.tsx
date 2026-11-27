@@ -59,10 +59,6 @@ const fromSeason = (season: Season): SeasonFormState => ({
   extraTimeAllowedByDefault:season.matchRules?.extraTime.isAllowedByDefault??false,
   extraTimeDurationMinutes:season.matchRules?.extraTime.defaultDurationMinutes??10,
   penaltyShootoutAllowedByDefault:season.matchRules?.penaltyShootout.isAllowedByDefault??true,
-  defaultMatchDurationMinutes:season.matchRules?.defaultMatchDurationMinutes??30,
-  extraTimeAllowedByDefault:season.matchRules?.extraTime.isAllowedByDefault??false,
-  extraTimeDurationMinutes:season.matchRules?.extraTime.defaultDurationMinutes??10,
-  penaltyShootoutAllowedByDefault:season.matchRules?.penaltyShootout.isAllowedByDefault??true,
   standingsTieBreakers: season.standingsTieBreakers ? [...season.standingsTieBreakers] : ["points", "goalDifference", "goalsScored", "teamNameAsc"],
 });
 const TIE_BREAKER_LABELS: Record<"points" | "goalDifference" | "goalsScored" | "teamNameAsc", string> = {
@@ -384,10 +380,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
     },
     pointsRules: { win: form.win, draw: form.draw, loss: form.loss },
     standingsTieBreakers: form.standingsTieBreakers,
-    matchRules: {
-      groupStageDrawAllowed: form.groupStageDrawAllowed, knockoutDrawRequiresShootout: form.knockoutDrawRequiresShootout,
-      shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false,
-    },
+    matchRules:{groupStageDrawAllowed:form.groupStageDrawAllowed,defaultMatchDurationMinutes:form.defaultMatchDurationMinutes,extraTime:{isAllowedByDefault:form.extraTimeAllowedByDefault,defaultDurationMinutes:form.extraTimeDurationMinutes},penaltyShootout:{isAllowedByDefault:form.penaltyShootoutAllowedByDefault},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false},
   });
 
   /* ── handlers (logic unchanged) ── */
@@ -838,7 +831,9 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                     {selected.matchRules ? (
                       <>
                         <ConfigurationRow label="Group-stage draws" value={selected.matchRules.groupStageDrawAllowed ? "Allowed" : "Not allowed"} />
-                        <ConfigurationRow label="Knockout draw" value={selected.matchRules.knockoutDrawRequiresShootout ? "Requires shootout" : "Draw allowed"} />
+                        <ConfigurationRow label="Default Extra Time" value={selected.matchRules.extraTime.isAllowedByDefault ? `Allowed · ${selected.matchRules.extraTime.defaultDurationMinutes} min` : "Disabled"} />
+                        <ConfigurationRow label="Default Penalty Shootout" value={selected.matchRules.penaltyShootout.isAllowedByDefault ? "Allowed" : "Disabled"} />
+                        <ConfigurationRow label="Regular match duration" value={`${selected.matchRules.defaultMatchDurationMinutes} min`} />
                         <ConfigurationRow label="Shootout in match score" value={selected.matchRules.shootoutCountsForMatchScore ? "Included" : "Not included"} />
                         <ConfigurationRow label="Shootout in player goals" value={selected.matchRules.shootoutCountsForPlayerGoals ? "Included" : "Not included"} />
                       </>

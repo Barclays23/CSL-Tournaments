@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  seasonMatchCardSchema,
+  seasonGoalSchema,seasonMatchCardSchema,
   seasonMatchCreateSchema,
   seasonMatchUpdateSchema,
 } from "./seasonMatch.schema.js";
@@ -39,6 +39,21 @@ test("match card schema rejects invalid references and unsupported card types", 
   assert.equal(seasonMatchCardSchema.safeParse({ ...validCard, extra: true }).success, false);
 });
 
+test("match duration and deciding rules enforce regular and Extra Time duration constraints",()=>{
+  for(const duration of [10,30,120])assert.equal(seasonMatchCreateSchema.safeParse({...validFixture,matchDurationMinutes:duration}).success,true);
+  for(const duration of [9,11,122,30.5])assert.equal(seasonMatchCreateSchema.safeParse({...validFixture,matchDurationMinutes:duration}).success,false);
+  const decidingRules={extraTime:{isAllowed:true,durationMinutes:2},penaltyShootout:{isAllowed:false}};
+  assert.equal(seasonMatchCreateSchema.safeParse({...validFixture,stage:"final",groupRef:null,decidingRules}).success,true);
+  for(const duration of [0,3,-2])assert.equal(seasonMatchCreateSchema.safeParse({...validFixture,stage:"final",groupRef:null,decidingRules:{...decidingRules,extraTime:{isAllowed:true,durationMinutes:duration}}}).success,false);
+});
+test("goal and card event timing validates period, minute and added minutes",()=>{
+  const goal={scoringSeasonTeamRef:objectId,scorerPlayerRef:otherObjectId,goalType:"normal"};
+  assert.equal(seasonGoalSchema.safeParse({...goal,period:"first_half",minute:45,addedMinutes:2}).success,true);
+  assert.equal(seasonGoalSchema.safeParse({...goal,minute:0}).success,false);
+  assert.equal(seasonGoalSchema.safeParse({...goal,addedMinutes:-1}).success,false);
+  assert.equal(seasonGoalSchema.safeParse({...goal,period:"break"}).success,false);
+  assert.equal(seasonMatchCardSchema.safeParse({...validCard,period:"second_half",minute:90,addedMinutes:4}).success,true);
+});
 test("season match create schema accepts a valid group fixture", () => {
   assert.equal(seasonMatchCreateSchema.safeParse(validFixture).success,true);
 });
