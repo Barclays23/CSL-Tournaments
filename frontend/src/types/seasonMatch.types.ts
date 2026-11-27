@@ -158,6 +158,7 @@ export interface SeasonMatchWrite {
   status?: SeasonMatchStatus;
   notes?: string | null;
   matchDurationMinutes?:number;
+  decidingRules?:MatchDecidingRules;
   penaltyShootout?: SeasonMatch["penaltyShootout"];
 }
 

@@ -14,6 +14,7 @@ const regularDuration=z.coerce.number().int().min(10).max(120).refine(v=>v%2===0
 const extraDuration=z.coerce.number().int().positive().refine(v=>v%2===0);
 const decidingRules=z.object({extraTime:z.object({isAllowed:z.boolean(),durationMinutes:extraDuration}).strict(),penaltyShootout:z.object({isAllowed:z.boolean()}).strict()}).strict();
 const eventTiming=z.object({period:z.enum(["first_half","second_half","extra_time_first_half","extra_time_second_half"]).nullable().optional(),minute:z.number().int().positive().nullable().optional(),addedMinutes:z.number().int().nonnegative().optional()}).strict();
+const eventTiming=z.object({period:z.enum(["first_half","second_half","extra_time_first_half","extra_time_second_half"]).nullable().optional(),minute:z.number().int().positive().nullable().optional(),addedMinutes:z.number().int().nonnegative().optional()}).strict();
 const kick = z
   .object({
     seasonTeamRef: objectId,
@@ -79,7 +80,7 @@ export const seasonMatchUpdateSchema = z
     awaySeasonTeamRef: fields.awaySeasonTeamRef.optional(),
     status: fields.status.optional(),
     notes: fields.notes.optional(),
-    matchDurationMinutes:fields.matchDurationMinutes.optional(),decidingRules:fields.decidingRules.optional(),
+    matchDurationMinutes:fields.matchDurationMinutes.optional(),decidingRules:fields.decidingRules.optional(),decidingRules:fields.decidingRules.optional(),
     penaltyShootout: fields.penaltyShootout.optional(),
     resolutionReason: z.string().trim().min(3).max(500).optional(),
     statusReason: z.string().trim().min(3).max(500).optional(),
@@ -164,7 +165,7 @@ export const seasonGoalSchema = z
   .object({
     scoringSeasonTeamRef: objectId,
     scorerPlayerRef: objectId.nullable().optional(),
-    goalType: z.enum(["normal", "own_goal"]),
+    goalType:z.enum(["normal","own_goal"]),...eventTiming.shape,
   })
   .strict();
 export const seasonMatchCardSchema = z

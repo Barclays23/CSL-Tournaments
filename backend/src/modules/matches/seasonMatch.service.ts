@@ -1431,7 +1431,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     return {
       seasonTeamRef: new Types.ObjectId(teamId),
       playerRef: new Types.ObjectId(input.playerRef),
-      cardType: input.cardType,
+      cardType:input.cardType,period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
     };
   }
   private async buildGoal(
@@ -1469,7 +1469,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         scoringSeasonTeamRef: new Types.ObjectId(scoring),
         scorerPlayerRef: new Types.ObjectId(input.scorerPlayerRef),
         playerSeasonTeamRef: new Types.ObjectId(scoring),
-        goalType: "normal",
+        goalType:"normal",period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
       };
     }
     if (!input.scorerPlayerRef)
@@ -1477,7 +1477,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         scoringSeasonTeamRef: new Types.ObjectId(scoring),
         scorerPlayerRef: null,
         playerSeasonTeamRef: null,
-        goalType: "own_goal",
+        goalType:"own_goal",period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
       };
     const [player, lot] = await Promise.all([
       this._seasonMatchRepo.findPlayer(input.scorerPlayerRef),
@@ -1494,7 +1494,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       scoringSeasonTeamRef: new Types.ObjectId(scoring),
       scorerPlayerRef: new Types.ObjectId(input.scorerPlayerRef),
       playerSeasonTeamRef: new Types.ObjectId(responsibleTeam),
-      goalType: "own_goal",
+      goalType:"own_goal",period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
     };
   }
   private buildShootout(
@@ -1665,7 +1665,7 @@ export class SeasonMatchService implements ISeasonMatchService {
             playerSeasonTeamRef: g.playerSeasonTeamRef
               ? String(g.playerSeasonTeamRef)
               : null,
-            goalType: g.goalType,
+            goalType:g.goalType,period:g.period??null,minute:g.minute??null,addedMinutes:g.addedMinutes??0,
             createdAt:
               g.createdAt?.toISOString() ?? entry.correctedAt.toISOString(),
           })),
