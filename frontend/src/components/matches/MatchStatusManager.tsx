@@ -16,7 +16,7 @@ import {
 } from "@/services/seasonMatchService";
 import type { MatchPhaseAction, SeasonMatch } from "@/types/seasonMatch.types";
 import { formatDate, formatTime, fromDateTimeInput } from "@/utils/formatDate";
-import { formatMatchClock, getMatchPhaseLabel } from "@/utils/matchTiming";
+import { formatMatchClock, getAvailableEventPeriods, getMatchPhaseLabel, getPeriodLabel } from "@/utils/matchTiming";
 import { refId } from "@/utils/refs";
 
 type ModalAction = "postpone" | "cancel" | "abandon" | "reschedule";
@@ -79,13 +79,21 @@ export function MatchStatusManager({
   const [phaseError, setPhaseError] = useState("");
 
   useEffect(() => {
+    if (!match.clock.isRunning) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [match.clock.isRunning]);
 
   const score = useMemo(() => scoreOf(match), [match]);
   const tied = score.home === score.away;
   const timedPhase = isTimedPhase(match.phase);
+  const displayedPeriod = timedPhase
+    ? match.phase as NonNullable<SeasonMatch["phase"]> & ("first_half"|"second_half"|"extra_time_first_half"|"extra_time_second_half")
+    : getAvailableEventPeriods(match).at(-1) ?? null;
+  const periodMinutes = displayedPeriod?.startsWith("extra_time_")
+    ? match.decidingRules.extraTime.durationMinutes / 2
+    : match.matchDurationMinutes / 2;
+  const hasStartedClock = Boolean(match.actualStartedAt && match.phase !== "full_time");
   const canManage = isAdmin && !["completed", "cancelled", "abandoned"].includes(match.status);
 
   const apply = (updated: SeasonMatch, message: string) => {
@@ -216,12 +224,19 @@ export function MatchStatusManager({
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${match.status === "live" ? "bg-success/15 text-success" : match.status === "postponed" ? "bg-warning/15 text-warning" : "bg-surface text-muted"}`}>
                 {statusLabel(match.status)}
               </span>
-              {match.status === "live" ? <span className="rounded-full border border-line px-2 py-1 text-xs text-muted">{match.clock.isRunning ? "Clock running" : "Clock paused"}</span> : null}
+              {hasStartedClock ? <span className="rounded-full border border-line px-2 py-1 text-xs text-muted">{match.clock.isRunning ? "Clock running" : "Clock paused"}</span> : null}
             </div>
             <p className="mt-1 text-sm text-muted">Phase · {getMatchPhaseLabel(match.phase)}</p>
+            <p className="mt-1 text-xs text-faint">
+              {match.phase === "penalty_shootout" || match.phase === "penalty_shootout_completed"
+                ? "Period · Penalty Shootout (no timed clock)"
+                : displayedPeriod
+                  ? `Period · ${getPeriodLabel(displayedPeriod)} · ${periodMinutes} minutes`
+                  : `Regular Match · ${match.matchDurationMinutes} minutes total`}
+            </p>
             {match.actualStartedAt ? <p className="mt-1 text-xs text-faint">Actual kickoff · {formatDate(match.actualStartedAt)} · {formatTime(match.actualStartedAt)}</p> : null}
           </div>
-          {match.status === "live" ? (
+          {hasStartedClock ? (
             <div className="min-w-36 rounded-xl border border-line bg-surface/60 px-4 py-3 text-center">
               <p className="font-display text-3xl tabular-nums text-fg" aria-live="off">{formatMatchClock(match, now)}</p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{match.clock.isRunning ? "Live clock" : "Paused clock"}</p>
