@@ -50,6 +50,10 @@ export const seasonMatchFormSchema = z
       .trim()
       .max(1000, "Notes must be 1000 characters or fewer")
       .transform((value) => value || null),
+    matchDurationMinutes: z.coerce.number().int("Match duration must be a whole number").min(10, "Regular Match duration must be at least 10 minutes").max(120, "Regular Match duration cannot exceed 120 minutes").refine((value) => value % 2 === 0, "Regular Match duration must be even"),
+    extraTimeIsAllowed: z.boolean(),
+    extraTimeDurationMinutes: z.coerce.number().int("Extra Time duration must be a whole number").positive("Extra Time duration must be greater than zero").refine((value) => value % 2 === 0, "Extra Time duration must be even"),
+    penaltyShootoutIsAllowed: z.boolean(),
   })
   .superRefine((value, context) => {
     if (

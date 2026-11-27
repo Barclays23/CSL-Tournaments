@@ -392,6 +392,14 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
     if (editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize) {
       toast.error("Player limits cannot exceed the team squad size"); return;
     }
+    if (!matchRulesLocked && (!Number.isSafeInteger(editForm.defaultMatchDurationMinutes) || editForm.defaultMatchDurationMinutes < 10 || editForm.defaultMatchDurationMinutes > 120 || editForm.defaultMatchDurationMinutes % 2 !== 0)) {
+      toast.error("Regular Match duration must be an even whole number from 10 to 120 minutes.");
+      return;
+    }
+    if (!matchRulesLocked && (!Number.isSafeInteger(editForm.extraTimeDurationMinutes) || editForm.extraTimeDurationMinutes <= 0 || editForm.extraTimeDurationMinutes % 2 !== 0)) {
+      toast.error("Default Extra Time duration must be a positive even whole number of minutes.");
+      return;
+    }
     setSaving(true);
     const patch: SeasonPatch = {
       ...(editForm.name.trim() !== selected.name ? { name: editForm.name.trim() } : {}), startDate: editForm.startDate || null, endDate: editForm.endDate || null,
@@ -1615,10 +1623,13 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
           identityLocked={identityLocked}
           auctionLocked={auctionRulesLocked}
           matchRulesLocked={matchRulesLocked}
+          matchRulesLockReason={hasFixtures
+            ? `Match and standings defaults are locked because this season already has ${fixtureCount} fixture(s). Existing match records will not be recalculated under changed rules.`
+            : "Match and standings defaults are unavailable for editing in this Season lifecycle state."}
           onChange={(key, value) => setEditForm((current) => ({ ...current, [key]: value }))}
           onSubmit={handleEdit}
           submitLabel="Save configuration"
-          submitDisabled={!editForm.standingsTieBreakers.length || editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize}
+          submitDisabled={!editForm.standingsTieBreakers.length || editForm.iconPlayerLimit > editForm.teamSquadSize || editForm.goalkeeperLimit > editForm.teamSquadSize || (!matchRulesLocked && (!Number.isSafeInteger(editForm.defaultMatchDurationMinutes) || editForm.defaultMatchDurationMinutes < 10 || editForm.defaultMatchDurationMinutes > 120 || editForm.defaultMatchDurationMinutes % 2 !== 0 || !Number.isSafeInteger(editForm.extraTimeDurationMinutes) || editForm.extraTimeDurationMinutes <= 0 || editForm.extraTimeDurationMinutes % 2 !== 0))}
         />
       </Modal>
       <Modal

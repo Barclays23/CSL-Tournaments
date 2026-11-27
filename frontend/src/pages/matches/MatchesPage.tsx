@@ -465,6 +465,7 @@ export function MatchesPage({ initialSeasonId, managementMode = false }: { initi
         onClose={() => { setOpen(false); setEditingMatch(null); }}
       >
         <SeasonMatchForm
+          season={selectedSeason}
           seasonTeams={seasonTeams.data?.data ?? []}
           groups={groups.data?.data ?? []}
           venues={venues.data?.data ?? []}

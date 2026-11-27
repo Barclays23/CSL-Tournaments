@@ -14,6 +14,7 @@ import { CardManagementDrawer } from "@/components/matches/CardManagementDrawer"
 import { PenaltyShootoutManagementDrawer } from "@/components/matches/PenaltyShootoutManagementDrawer";
 import { CompletedMatchCorrectionDrawer } from "@/components/matches/CompletedMatchCorrectionDrawer";
 import { MatchStatusManager } from "@/components/matches/MatchStatusManager";
+import { MatchDecidingRulesSection } from "@/components/matches/MatchDecidingRulesSection";
 import {
   MatchEventIcon,
   type MatchEventKind,
@@ -30,6 +31,7 @@ import {
   getSeasonMatchById,
   updateSeasonMatch,
   updateSeasonMatchGoal,
+  updateSeasonMatchShootout,
   updateSeasonMatchCard,
 } from "@/services/seasonMatchService";
 import {
@@ -44,11 +46,14 @@ import type {
   SeasonMatchTeamRef,
   SeasonMatchWrite,
   SeasonMatchCorrectionWrite,
+  MatchTimedPeriod,
+  MatchShootoutWrite,
 } from "@/types/seasonMatch.types";
 import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
 import { canEditSeasonMatch } from "@/utils/seasonMatchPermissions";
+import { formatMatchEventTime, getAvailableEventPeriods, getDefaultEventTiming, getPeriodBoundaryMinute, isEventTimeAheadOfClock, MATCH_TIMED_PERIODS } from "@/utils/matchTiming";
 
 const STAGE_LABEL: Record<SeasonMatch["stage"], string> = {
   group: "Group stage",
@@ -80,7 +85,9 @@ type MatchEvent = {
   kind: MatchEventKind;
   teamId: string;
   playerName: string;
-  at: string;
+  period: MatchTimedPeriod | null;
+  minute: number | null;
+  addedMinutes: number;
   goalId?: string;
   cardId?: string;
 };
@@ -109,18 +116,16 @@ function buildEvents(
   cards: NonNullable<SeasonMatch["cards"]> = [],
 ): MatchEvent[] {
   const goalEvents: MatchEvent[] = goals.map((goal) => {
-    const scorer =
-      goal.scorerPlayerRef && typeof goal.scorerPlayerRef !== "string"
-        ? goal.scorerPlayerRef.name
-        : null;
+    const scorer = goal.scorerPlayerRef && typeof goal.scorerPlayerRef !== "string"
+      ? goal.scorerPlayerRef.name : null;
     return {
       id: `goal-${goal._id}`,
       kind: goal.goalType === "own_goal" ? "own_goal" : "goal",
       teamId: refId(goal.scoringSeasonTeamRef) ?? "",
-      playerName:
-        scorer ??
-        (goal.goalType === "own_goal" ? "Player" : "Scorer not recorded"),
-      at: goal.createdAt,
+      playerName: scorer ?? (goal.goalType === "own_goal" ? "Player" : "Scorer not recorded"),
+      period: goal.period ?? null,
+      minute: goal.minute ?? null,
+      addedMinutes: goal.addedMinutes ?? 0,
       goalId: goal._id,
     };
   });
@@ -128,22 +133,20 @@ function buildEvents(
     id: `card-${card._id}`,
     kind: card.cardType,
     teamId: refId(card.seasonTeamRef) ?? "",
-    playerName:
-      typeof card.playerRef === "string" ? "Player" : card.playerRef.name,
-    at: card.createdAt,
+    playerName: typeof card.playerRef === "string" ? "Player" : card.playerRef.name,
+    period: card.period ?? null,
+    minute: card.minute ?? null,
+    addedMinutes: card.addedMinutes ?? 0,
     cardId: card._id,
   }));
-  return [...goalEvents, ...cardEvents].sort(
-    (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
+  const periodOrder = (period: MatchTimedPeriod | null) => period ? MATCH_TIMED_PERIODS.indexOf(period) : 99;
+  // Event chronology is derived only from period/minute/added time. createdAt is not match time.
+  return [...goalEvents, ...cardEvents].sort((a, b) =>
+    periodOrder(a.period) - periodOrder(b.period)
+    || (a.minute ?? Number.MAX_SAFE_INTEGER) - (b.minute ?? Number.MAX_SAFE_INTEGER)
+    || a.addedMinutes - b.addedMinutes
+    || a.id.localeCompare(b.id),
   );
-}
-
-function eventTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("en-IN", {
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "Asia/Kolkata",
-  });
 }
 
 const CalendarIcon = () => (
@@ -289,7 +292,7 @@ function EventText({
         ) : null}
       </p>
       <p className="text-xs text-muted">{title}</p>
-      <p className="text-xs tabular text-faint">{eventTime(event.at)}</p>
+      <p className="text-xs tabular text-faint">{formatMatchEventTime(event.period, event.minute, event.addedMinutes)}</p>
     </div>
   );
   const actions = manage ? (
@@ -353,11 +356,17 @@ export function SeasonMatchDetailsPage(props: {
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalType, setGoalType] = useState<"normal" | "own_goal">("normal");
   const [goalPlayerId, setGoalPlayerId] = useState("");
+  const [goalPeriod, setGoalPeriod] = useState<MatchTimedPeriod | null>(null);
+  const [goalMinute, setGoalMinute] = useState(1);
+  const [goalAddedMinutes, setGoalAddedMinutes] = useState(0);
   const [editingGoalId, setEditingGoalId] = useState<string | null>(null);
   const [savingGoal, setSavingGoal] = useState(false);
   const [cardTeamId, setCardTeamId] = useState("");
   const [cardType, setCardType] = useState<SeasonMatchCardType>("yellow_card");
   const [cardPlayerId, setCardPlayerId] = useState("");
+  const [cardPeriod, setCardPeriod] = useState<MatchTimedPeriod | null>(null);
+  const [cardMinute, setCardMinute] = useState(1);
+  const [cardAddedMinutes, setCardAddedMinutes] = useState(0);
   const [cardOpen, setCardOpen] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [savingCard, setSavingCard] = useState(false);
@@ -461,7 +470,7 @@ export function SeasonMatchDetailsPage(props: {
   const canManageGoals = canManageActiveSeason && match.status === "live";
   const canManageCards = canManageActiveSeason && match.status === "live";
   const canManageShootout =
-    canManageActiveSeason && match.stage !== "group" && match.status === "live";
+    canManageActiveSeason && match.stage !== "group" && match.status === "live" && match.phase === "penalty_shootout";
   const showScore =
     match.status === "live" ||
     match.status === "completed" ||
@@ -469,6 +478,9 @@ export function SeasonMatchDetailsPage(props: {
   const hasPreMatchGoals =
     match.status === "scheduled" && match.goals.length > 0;
   const events = buildEvents(match.goals, match.cards ?? []);
+  const availableEventPeriods = getAvailableEventPeriods(match);
+  const goalStoppageTimeAllowed = Boolean(goalPeriod && goalMinute === getPeriodBoundaryMinute(match, goalPeriod));
+  const cardStoppageTimeAllowed = Boolean(cardPeriod && cardMinute === getPeriodBoundaryMinute(match, cardPeriod));
   const eligibleCardPlayers = (lotsQuery.data?.data ?? []).filter(
     (lot) => lotTeamId(lot) === (cardTeamId || home.id) && lotPlayer(lot),
   );
@@ -516,10 +528,17 @@ export function SeasonMatchDetailsPage(props: {
     }
     setSavingGoal(true);
     try {
+      if (!goalPeriod || isEventTimeAheadOfClock(match, goalPeriod, goalMinute, goalAddedMinutes, Date.now())) {
+        toast.error("Choose an available period and an event time that is not ahead of the Match clock.");
+        return;
+      }
       const payload = {
         scoringSeasonTeamRef: scoringTeamId,
         scorerPlayerRef: goalPlayerId || null,
         goalType,
+        period: goalPeriod,
+        minute: goalMinute,
+        addedMinutes: goalAddedMinutes,
       };
       if (editingGoalId)
         await updateSeasonMatchGoal(seasonId, matchId, editingGoalId, payload);
@@ -544,10 +563,14 @@ export function SeasonMatchDetailsPage(props: {
     if (!canManageGoals) return;
     const goal = match.goals.find((g) => g._id === goalId);
     if (!goal) return;
+    const timing = getDefaultEventTiming(match);
     setEditingGoalId(goal._id);
     setGoalTeamId(refId(goal.scoringSeasonTeamRef) ?? home.id);
     setGoalType(goal.goalType);
     setGoalPlayerId(refId(goal.scorerPlayerRef) ?? "");
+    setGoalPeriod(goal.period ?? timing.period);
+    setGoalMinute(goal.minute ?? timing.minute);
+    setGoalAddedMinutes(goal.addedMinutes ?? timing.addedMinutes);
     setGoalOpen(true);
   };
 
@@ -591,10 +614,17 @@ export function SeasonMatchDetailsPage(props: {
     }
     setSavingCard(true);
     try {
+      if (!cardPeriod || isEventTimeAheadOfClock(match, cardPeriod, cardMinute, cardAddedMinutes, Date.now())) {
+        toast.error("Choose an available period and an event time that is not ahead of the Match clock.");
+        return;
+      }
       const payload = {
         seasonTeamRef: cardTeamId,
         playerRef: cardPlayerId,
         cardType,
+        period: cardPeriod,
+        minute: cardMinute,
+        addedMinutes: cardAddedMinutes,
       };
       if (editingCardId)
         await updateSeasonMatchCard(seasonId, matchId, editingCardId, payload);
@@ -618,10 +648,14 @@ export function SeasonMatchDetailsPage(props: {
     if (!canManageCards) return;
     const card = (match.cards ?? []).find((item) => item._id === cardId);
     if (!card) return;
+    const timing = getDefaultEventTiming(match);
     setEditingCardId(card._id);
     setCardTeamId(refId(card.seasonTeamRef) ?? home.id);
     setCardType(card.cardType);
     setCardPlayerId(refId(card.playerRef) ?? "");
+    setCardPeriod(card.period ?? timing.period);
+    setCardMinute(card.minute ?? timing.minute);
+    setCardAddedMinutes(card.addedMinutes ?? timing.addedMinutes);
     setCardOpen(true);
   };
   const removeCard = async (cardId: string) => {
@@ -644,22 +678,16 @@ export function SeasonMatchDetailsPage(props: {
       );
     }
   };
-  const saveShootout = async (value: SeasonMatch["penaltyShootout"]) => {
+  const saveShootout = async (value: MatchShootoutWrite) => {
     if (!canManageShootout) return;
     setSavingShootout(true);
     try {
-      await updateSeasonMatch(seasonId, matchId, { penaltyShootout: value });
-      toast.success(
-        value ? "Penalty shootout saved" : "Penalty shootout cleared",
-      );
+      const response = await updateSeasonMatchShootout(seasonId, matchId, value);
+      matchQuery.setData((current) => current ? { ...current, data: response.data } : current);
+      toast.success("Penalty shootout kicks saved");
       setShootoutOpen(false);
-      matchQuery.reload();
     } catch (error) {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : "Unable to save penalty shootout",
-      );
+      toast.error(error instanceof Error ? error.message : "Unable to save penalty shootout");
     } finally {
       setSavingShootout(false);
     }
@@ -818,6 +846,18 @@ export function SeasonMatchDetailsPage(props: {
           );
         }}
       />
+      {selectedSeason ? (
+        <MatchDecidingRulesSection
+          key={`${match._id}:${match.updatedAt}`}
+          seasonId={seasonId}
+          season={selectedSeason}
+          match={match}
+          isAdmin={canManageActiveSeason}
+          onMatchUpdated={(updatedMatch) => {
+            matchQuery.setData((current) => current ? { ...current, data: updatedMatch } : current);
+          }}
+        />
+      ) : null}
 
       {showEdit ? (
         <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-xl">
@@ -978,6 +1018,10 @@ export function SeasonMatchDetailsPage(props: {
                       setGoalTeamId(home.id);
                       setGoalType("normal");
                       setGoalPlayerId("");
+                      const timing = getDefaultEventTiming(match, Date.now());
+                      setGoalPeriod(timing.period);
+                      setGoalMinute(timing.minute);
+                      setGoalAddedMinutes(timing.addedMinutes);
                       setGoalOpen(true);
                     }}
                   >
@@ -993,6 +1037,10 @@ export function SeasonMatchDetailsPage(props: {
                       setCardTeamId(home.id);
                       setCardPlayerId("");
                       setCardType("yellow_card");
+                      const timing = getDefaultEventTiming(match, Date.now());
+                      setCardPeriod(timing.period);
+                      setCardMinute(timing.minute);
+                      setCardAddedMinutes(timing.addedMinutes);
                       setCardOpen(true);
                     }}
                   >
@@ -1056,6 +1104,8 @@ export function SeasonMatchDetailsPage(props: {
           setGoalTeamId("");
           setGoalPlayerId("");
           setGoalType("normal");
+          setGoalPeriod(null);
+          setGoalAddedMinutes(0);
         }}
         editing={editingGoalId !== null}
         home={home}
@@ -1072,6 +1122,15 @@ export function SeasonMatchDetailsPage(props: {
         }}
         selectedPlayerId={goalPlayerId}
         onPlayerChange={setGoalPlayerId}
+        period={goalPeriod}
+        periodOptions={availableEventPeriods}
+        onPeriodChange={(value) => { const timing = getDefaultEventTiming(match, Date.now()); setGoalPeriod(value); setGoalMinute(value === timing.period ? timing.minute : getPeriodBoundaryMinute(match, value)); setGoalAddedMinutes(0); }}
+        minute={goalMinute}
+        onMinuteChange={(value) => { setGoalMinute(value); setGoalAddedMinutes(0); }}
+        addedMinutes={goalAddedMinutes}
+        onAddedMinutesChange={setGoalAddedMinutes}
+        match={match}
+        stoppageTimeAllowed={goalStoppageTimeAllowed}
         players={eligibleGoalPlayers
           .map((lot) => {
             const player = lotPlayer(lot);
@@ -1100,6 +1159,8 @@ export function SeasonMatchDetailsPage(props: {
           setCardTeamId("");
           setCardPlayerId("");
           setCardType("yellow_card");
+          setCardPeriod(null);
+          setCardAddedMinutes(0);
         }}
         editing={editingCardId !== null}
         home={{ id: home.id, name: home.name }}
@@ -1110,6 +1171,15 @@ export function SeasonMatchDetailsPage(props: {
         onCardTypeChange={setCardType}
         playerId={cardPlayerId}
         onPlayerChange={setCardPlayerId}
+        period={cardPeriod}
+        periodOptions={availableEventPeriods}
+        onPeriodChange={(value) => { const timing = getDefaultEventTiming(match, Date.now()); setCardPeriod(value); setCardMinute(value === timing.period ? timing.minute : getPeriodBoundaryMinute(match, value)); setCardAddedMinutes(0); }}
+        minute={cardMinute}
+        onMinuteChange={(value) => { setCardMinute(value); setCardAddedMinutes(0); }}
+        addedMinutes={cardAddedMinutes}
+        onAddedMinutesChange={setCardAddedMinutes}
+        match={match}
+        stoppageTimeAllowed={cardStoppageTimeAllowed}
         players={eligibleCardPlayers
           .map((lot) => {
             const player = lotPlayer(lot);
@@ -1187,6 +1257,7 @@ export function SeasonMatchDetailsPage(props: {
         loadingLabel="Saving fixture..."
       >
         <SeasonMatchForm
+          season={selectedSeason}
           seasonTeams={teamsQuery.data?.data ?? []}
           groups={groupsQuery.data?.data ?? []}
           venues={venuesQuery.data?.data ?? []}

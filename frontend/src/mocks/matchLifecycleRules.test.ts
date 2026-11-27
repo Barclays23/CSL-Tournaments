@@ -52,11 +52,10 @@ test("goal management is permitted only while Live for all six statuses", () => 
   }
 });
 
-test("group completion validates points, disallowed draws and shootout prohibition", () => {
+test("a tied Group Stage fixture completes as a draw regardless of legacy draw toggles", () => {
   const base={status:"completed" as const,stage:"group",homeSeasonTeamRef:home,awaySeasonTeamRef:away,goals:[],penaltyShootout:null,decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:false}}};
   assert.equal(calculateMockCompletedWinner(base, season(), failure), null);
-  assert.throws(() => calculateMockCompletedWinner(base, season({matchRules:{...season().matchRules,groupStageDrawAllowed:false}}), failure),
-    (error: unknown) => isMockError(error, 422, "GROUP_DRAW_NOT_ALLOWED"));
+  assert.equal(calculateMockCompletedWinner(base, season({matchRules:{...season().matchRules,groupStageDrawAllowed:false}}), failure), null);
   assert.throws(() => calculateMockCompletedWinner(base, season({ pointsRules: null }), failure),
     (error: unknown) => isMockError(error, 409, "SEASON_POINTS_RULES_UNAVAILABLE"));
   assert.throws(() => calculateMockCompletedWinner({ ...base, penaltyShootout: { status: "completed", homeTeamScore: 2, awayTeamScore: 1, kicks: [] } }, season(), failure),
