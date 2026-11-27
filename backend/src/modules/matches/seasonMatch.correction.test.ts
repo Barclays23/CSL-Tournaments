@@ -185,5 +185,5 @@ test("ordinary goal CRUD and generic updates remain unavailable for completed ma
   await assert.rejects(() => service.addGoal(ids.match, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
   await assert.rejects(() => service.updateGoal(ids.match, goalId, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
   await assert.rejects(() => service.deleteGoal(ids.match, goalId), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
-  await assert.rejects(() => service.update(ids.match, { notes: "Bypass attempt" }), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+  await assert.rejects(() => service.update(ids.match, { notes: "Bypass attempt" }), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
 });
