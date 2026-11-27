@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import { calculateCompletedMatchWinner } from "./seasonMatch.completionRules.js";
 import type { SeasonMatchFields, SeasonGoalFields, SeasonPenaltyShootout } from "./seasonMatch.types.js";
@@ -104,18 +105,14 @@ test("an incomplete or inconsistent goal record blocks match completion", () => 
   );
 });
 
-test("group-stage draws are accepted or rejected using the season match and points rules", () => {
+test("a tied Group Stage fixture completes as a draw under the Section 17 rule", () => {
   const draw = completedMatch({ goals: [normalGoal(home), normalGoal(away)] });
 
   assert.equal(calculateCompletedMatchWinner(draw, matchRules, pointsRules), null);
-
-  getErrorCode(
-    () => calculateCompletedMatchWinner(
-      draw,
-      { ...matchRules, groupStageDrawAllowed: false },
-      pointsRules,
-    ),
-    "GROUP_DRAW_NOT_ALLOWED",
+  // The legacy season toggle cannot override the authoritative Match phase rule.
+  assert.equal(
+    calculateCompletedMatchWinner(draw, { ...matchRules, groupStageDrawAllowed: false }, pointsRules),
+    null,
   );
 
   getErrorCode(

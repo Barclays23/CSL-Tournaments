@@ -50,7 +50,8 @@ function hasExtraTimeStarted(match: Pick<SeasonMatchEntity, "phase" | "decidingR
   if ((match.clock?.periodElapsedSecondsByPeriod.extraTimeFirstHalf ?? 0) > 0
     || (match.clock?.periodElapsedSecondsByPeriod.extraTimeSecondHalf ?? 0) > 0) return true;
   return (match.auditHistory ?? []).some((entry: MatchAuditHistoryEntry) =>
-    entry.action === "phase_transition" && entry.newValue.phase === "extra_time_first_half",
+    ["phase_transition", "phase_correction"].includes(entry.action)
+    && ["extra_time_first_half", "extra_time_half_time", "extra_time_second_half", "extra_time_completed"].includes(entry.newValue.phase ?? ""),
   );
 }
 
@@ -196,11 +197,17 @@ export function resolveMatchEventTiming(
 
   const maxIndex = getLastAvailablePeriodIndex(match);
   const phasePeriod = getTimedPeriodForPhase(match.phase);
-  if (!isCompletedCorrection && (match.phase === "penalty_shootout" || match.phase === "penalty_shootout_completed" || match.phase === "full_time")) {
-    throw new AppError("Normal timed events cannot be recorded during or after the Penalty Shootout.", 409, "MATCH_TIMED_EVENTS_CLOSED");
+  const isShootoutPhase = match.phase === "penalty_shootout" || match.phase === "penalty_shootout_completed";
+  if (!isCompletedCorrection && match.phase === "full_time") {
+    throw new AppError("Normal timed events cannot be recorded after the Match is completed.", 409, "MATCH_TIMED_EVENTS_CLOSED");
   }
   const requestedPeriod = input.period ?? existing?.period ?? undefined;
-  const defaultPeriod = isCompletedCorrection ? undefined : phasePeriod ?? (maxIndex >= 0 ? MATCH_TIMED_PERIODS[maxIndex] : undefined);
+  // A shootout has no running timed period. Corrections must explicitly target
+  // a period that has already been played; getLastAvailablePeriodIndex rejects ET
+  // when it was never started.
+  const defaultPeriod = isCompletedCorrection || isShootoutPhase
+    ? undefined
+    : phasePeriod ?? (maxIndex >= 0 ? MATCH_TIMED_PERIODS[maxIndex] : undefined);
   if (!defaultPeriod && !requestedPeriod) {
     throw new AppError("Choose a completed Match period for this event.", 422, "MATCH_EVENT_PERIOD_REQUIRED");
   }

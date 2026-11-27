@@ -161,6 +161,51 @@ test("events may be assigned to a previously completed period", () => {
   });
 });
 
+test("a live shootout accepts corrections only for explicitly selected completed timed periods", () => {
+  const withoutExtraTime = match({
+    stage: "final",
+    decidingRules: { extraTime: { isAllowed: false, durationMinutes: 10 }, penaltyShootout: { isAllowed: true } },
+    phase: "penalty_shootout",
+    penaltyShootout: { status: "pending", homeTeamScore: 0, awayTeamScore: 0, kicks: [] },
+    clock: {
+      isRunning: false,
+      clockStartedAt: null,
+      periodElapsedSecondsByPeriod: { ...zeroElapsed, firstHalf: 900, secondHalf: 900 },
+    },
+  });
+
+  errorCode(() => resolveMatchEventTiming(withoutExtraTime, {}), "MATCH_EVENT_PERIOD_REQUIRED");
+  assert.deepEqual(
+    resolveMatchEventTiming(withoutExtraTime, { period: "second_half", minute: 28 }),
+    { period: "second_half", minute: 28, addedMinutes: 0 },
+  );
+  errorCode(
+    () => resolveMatchEventTiming(withoutExtraTime, { period: "extra_time_first_half", minute: 31 }),
+    "MATCH_EVENT_FUTURE_PERIOD",
+  );
+
+  const extraTimeReachedByCorrection = match({
+    stage: "final",
+    decidingRules: { extraTime: { isAllowed: true, durationMinutes: 10 }, penaltyShootout: { isAllowed: true } },
+    phase: "penalty_shootout",
+    penaltyShootout: { status: "pending", homeTeamScore: 0, awayTeamScore: 0, kicks: [] },
+    clock: { isRunning: false, clockStartedAt: null, periodElapsedSecondsByPeriod: { ...zeroElapsed } },
+    auditHistory: [{
+      action: "phase_correction",
+      actor: "507f1f77bcf86cd799439016" as unknown as SeasonMatchEntity["seasonRef"],
+      timestamp: new Date("2026-11-27T11:00:00.000Z"),
+      previousValue: { phase: "regular_full_time" },
+      newValue: { phase: "extra_time_first_half" },
+      reason: "Corrected missing Extra Time phase transition",
+    }] as unknown as SeasonMatchEntity["auditHistory"],
+  });
+
+  assert.deepEqual(
+    resolveMatchEventTiming(extraTimeReachedByCorrection, { period: "extra_time_second_half", minute: 36 }),
+    { period: "extra_time_second_half", minute: 36, addedMinutes: 0 },
+  );
+});
+
 test("completed-match corrections require explicit event period and minute", () => {
   const completed = match({
     status: "completed",
