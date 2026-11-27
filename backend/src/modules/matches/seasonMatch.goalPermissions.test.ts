@@ -51,6 +51,82 @@ const goalInput = {
   goalType: "normal" as const,
 };
 
+async function persistUpdatedGoal(match: SeasonMatchEntity) {
+  let persistedGoal: SeasonMatchEntity["goals"][number] | undefined;
+  const repository = {
+    findById: async () => match,
+    findSeason: async () => ({
+      status: "active",
+      matchRules: {
+        groupStageDrawAllowed: true,
+        knockoutDrawRequiresShootout: true,
+      },
+      pointsRules: { win: 3, draw: 1, loss: 0 },
+    }),
+    findPlayer: async () => ({ status: "active" }),
+    findSoldLot: async () => ({
+      seasonTeamRef: match.homeSeasonTeamRef,
+    }),
+    updateGoalWithWinner: async (
+      _matchId: string,
+      _goalId: string,
+      goal: SeasonMatchEntity["goals"][number],
+    ) => {
+      persistedGoal = goal;
+      return match;
+    },
+    findPopulatedById: async () => ({
+      ...match,
+      goals: persistedGoal ? [persistedGoal] : [],
+    }),
+  };
+  const service = new SeasonMatchService(
+    repository as unknown as SeasonMatchRepository,
+  );
+
+  await service.updateGoal(matchId, goalId, goalInput);
+  assert.ok(persistedGoal, "the updated goal should be sent to persistence");
+  return persistedGoal;
+}
+
+test("editing a goal preserves its original event identity and timestamp", async () => {
+  const matchCreatedAt = new Date("2026-11-27T03:00:00.000Z");
+  const goalCreatedAt = new Date("2026-11-27T03:26:00.000Z");
+  const match = makeMatch("live", [{
+    _id: new Types.ObjectId(goalId),
+    scoringSeasonTeamRef: new Types.ObjectId("507f1f77bcf86cd799439013"),
+    scorerPlayerRef: new Types.ObjectId("507f1f77bcf86cd799439019"),
+    playerSeasonTeamRef: new Types.ObjectId("507f1f77bcf86cd799439013"),
+    goalType: "normal",
+    createdAt: goalCreatedAt,
+  }]);
+  match.createdAt = matchCreatedAt;
+  match.updatedAt = matchCreatedAt;
+
+  const persistedGoal = await persistUpdatedGoal(match);
+
+  assert.equal(String(persistedGoal._id), goalId);
+  assert.equal(persistedGoal.createdAt?.toISOString(), goalCreatedAt.toISOString());
+});
+
+test("editing a legacy goal without an embedded timestamp preserves its mapped fallback time", async () => {
+  const matchCreatedAt = new Date("2026-11-20T10:00:00.000Z");
+  const match = makeMatch("live", [{
+    _id: new Types.ObjectId(goalId),
+    scoringSeasonTeamRef: new Types.ObjectId("507f1f77bcf86cd799439013"),
+    scorerPlayerRef: new Types.ObjectId("507f1f77bcf86cd799439019"),
+    playerSeasonTeamRef: new Types.ObjectId("507f1f77bcf86cd799439013"),
+    goalType: "normal",
+  }]);
+  match.createdAt = matchCreatedAt;
+  match.updatedAt = matchCreatedAt;
+
+  const persistedGoal = await persistUpdatedGoal(match);
+
+  assert.equal(String(persistedGoal._id), goalId);
+  assert.equal(persistedGoal.createdAt?.toISOString(), matchCreatedAt.toISOString());
+});
+
 test("goal creation, editing and deletion are rejected for every non-Live status", async () => {
   for (const status of statuses.filter((value) => value !== "live")) {
     const match = makeMatch(status, [{ _id: new Types.ObjectId(goalId) }]);
