@@ -870,6 +870,7 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     if (match.status !== "postponed") fail(409, "Only Postponed matches can be rescheduled", "MATCH_NOT_POSTPONED");
+    if (match.actualStartedAt) fail(409, "A Match that has already kicked off cannot be rescheduled as a new fixture. Resume the same Match or abandon it.", "MATCH_RESUME_OR_ABANDON_REQUIRED");
     assertMockStatusTransition(match.status, "scheduled", fail);
 
     const kickoff = new Date(input.kickoffAt);
@@ -1000,7 +1001,7 @@ export const seasonPreviewRepository = {
   async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
     const reason = input.resolutionReason.trim();
     if (reason.length < 3 || reason.length > 500) fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
-    return this.updateSeasonMatchStatus(seasonId, matchId, { status: input.status, resolutionReason: reason });
+    return this.changeSeasonMatchStatus(seasonId, matchId, { action: input.status, reason });
   },
   async createSeasonMatch(seasonId: string, input: SeasonMatchCreateWrite) {
     requireAdmin();
@@ -1052,9 +1053,19 @@ export const seasonPreviewRepository = {
     }
     const kickoff = new Date(input.kickoffAt);
     if (Number.isNaN(kickoff.getTime())) fail(422, "Enter a valid kick-off date and time");
-    const status = input.status ?? "scheduled";
-    if (status === "live") assertNoOtherLiveMatch(db, seasonId, home._id, away._id);
-    if (status !== "scheduled") fail(422, "New fixtures must start as Scheduled");
+    const status = "scheduled" as const;
+    const effectiveDuration = input.matchDurationMinutes ?? season.matchRules.defaultMatchDurationMinutes;
+    if (!Number.isSafeInteger(effectiveDuration) || effectiveDuration < 10 || effectiveDuration > 120 || effectiveDuration % 2 !== 0) fail(422, "Regular Match duration must be an even whole number from 10 to 120 minutes.", "INVALID_MATCH_DURATION");
+    const requestedRules = input.decidingRules ?? {
+      extraTime: { isAllowed: season.matchRules.extraTime.isAllowedByDefault, durationMinutes: season.matchRules.extraTime.defaultDurationMinutes },
+      penaltyShootout: { isAllowed: season.matchRules.penaltyShootout.isAllowedByDefault },
+    };
+    if (!validExtraTimeDuration(requestedRules.extraTime.durationMinutes)) fail(422, "Extra Time duration must be a positive even whole number of minutes.", "INVALID_EXTRA_TIME_DURATION");
+    if (input.stage === "group" && (requestedRules.extraTime.isAllowed || requestedRules.penaltyShootout.isAllowed)) fail(422, "Group Stage fixtures must have Extra Time and Penalty Shootout disabled.", "GROUP_DECIDING_RULES");
+    const effectiveRules = {
+      extraTime: { ...requestedRules.extraTime, isAllowed: input.stage === "group" ? false : requestedRules.extraTime.isAllowed },
+      penaltyShootout: { ...requestedRules.penaltyShootout, isAllowed: input.stage === "group" ? false : requestedRules.penaltyShootout.isAllowed },
+    };
     const date = now();
     const match: MockSeasonMatch = {
       _id: newId(),
@@ -1069,8 +1080,8 @@ export const seasonPreviewRepository = {
       homeSeasonTeamRef: home._id,
       awaySeasonTeamRef: away._id,
       status,
-      matchDurationMinutes:input.matchDurationMinutes??season.matchRules!.defaultMatchDurationMinutes,
-      decidingRules:{extraTime:{isAllowed:input.stage==="group"?false:season.matchRules!.extraTime.isAllowedByDefault,durationMinutes:season.matchRules!.extraTime.defaultDurationMinutes},penaltyShootout:{isAllowed:input.stage==="group"?false:season.matchRules!.penaltyShootout.isAllowedByDefault}},
+       matchDurationMinutes: effectiveDuration,
+       decidingRules: effectiveRules,
       actualStartedAt:null,phase:null,clock:{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}},
       goals: [],
       penaltyShootout: null,
@@ -1091,16 +1102,19 @@ export const seasonPreviewRepository = {
     assertActiveSeasonForMatchOperations(season, "Fixture editing");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
-    if (match.status === "completed") fail(409, "Completed fixtures can only be changed through the audited correction workflow.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
-    if (match.status === "postponed" && input.kickoffAt !== undefined) fail(409, "Postponed matches can only be rescheduled through the dedicated reschedule operation.", "MATCH_RESCHEDULE_REQUIRED");
-    const fixtureDetailFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "notes"];
+    const unsupportedFields = Object.keys(input).filter((key) => ["status", "phase", "clock", "actualStartedAt", "decidingRules", "penaltyShootout"].includes(key));
+    if (unsupportedFields.length) fail(422, "Match status, phase, clock, deciding rules and shootout data must use their dedicated Match operations.", "MATCH_OPERATION_REQUIRES_DEDICATED_ENDPOINT");
+    if (["completed", "cancelled", "abandoned"].includes(match.status)) fail(409, "Completed, Cancelled and Abandoned fixtures are terminal.", "MATCH_TERMINAL");
+    const fixtureDetailFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "matchDurationMinutes", "notes"];
+    const coreFields: Array<keyof SeasonMatchWrite> = ["matchNumber", "roundNumber", "stage", "groupRef", "kickoffAt", "venueRef", "homeSeasonTeamRef", "awaySeasonTeamRef", "matchDurationMinutes"];
     const isFixtureDetailsEdit = fixtureDetailFields.some((field) => input[field] !== undefined);
-    const matchCards = (match as MockSeasonMatch & { cards?: unknown[] }).cards ?? [];
+    const coreMutation = coreFields.some((field) => input[field] !== undefined);
+    const matchCards = match.cards ?? [];
+    if (match.actualStartedAt && coreMutation) fail(409, "Fixture identity, schedule, participants, venue and regular duration are immutable after the first actual kickoff, including after postponement.", "FIXTURE_LOCKED_AFTER_KICKOFF");
+    if (match.status === "postponed" && Object.keys(input).length) fail(409, "Postponed fixtures can only be rescheduled before kickoff or resumed/abandoned after kickoff.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
     if (isFixtureDetailsEdit && season.auctionLifecycleStatus !== "completed") fail(409, "Complete the auction before editing fixture details or schedules.", "AUCTION_NOT_COMPLETED");
-    if (isFixtureDetailsEdit) {
-      if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be edited.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
-      if (match.goals.length > 0 || matchCards.length > 0) fail(409, "Match details cannot be edited after goals or cards have been recorded.", "MATCH_HAS_EVENTS");
-    }
+    if (coreMutation && match.status !== "scheduled") fail(409, "Only not-yet-started Scheduled fixtures can be edited.", "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+    if (isFixtureDetailsEdit && (match.goals.length > 0 || matchCards.length > 0)) fail(409, "Fixture details cannot be edited after match events have been recorded.", "MATCH_HAS_EVENTS");
     const homeId = input.homeSeasonTeamRef ?? match.homeSeasonTeamRef;
     const awayId = input.awaySeasonTeamRef ?? match.awaySeasonTeamRef;
     if (match.status === "live") assertNoOtherLiveMatch(db, seasonId, homeId, awayId, matchId);
@@ -1110,7 +1124,7 @@ export const seasonPreviewRepository = {
     const venueRef = input.venueRef ?? match.venueRef;
     const pairingChanged = homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef || roundNumber !== match.roundNumber;
     if (pairingChanged) validateMockPair(db, season, stage, groupRef, roundNumber, homeId, awayId, matchId);
-    const venue = db.venues.find((item) => item._id === venueRef && (item.status === "active" || item._id === match.venueRef));
+    const venue = db.venues.find((item) => item._id === venueRef && item.status === "active");
     if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (homeId === awayId) fail(422, "A team cannot play itself");
     if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
@@ -1123,6 +1137,9 @@ export const seasonPreviewRepository = {
       return fail(422, "Both teams must be eligible participants in this season");
     }
     if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
+    if (stage === "group" && (match.decidingRules.extraTime.isAllowed || match.decidingRules.penaltyShootout.isAllowed)) {
+      fail(422, "Disable Extra Time and Penalty Shootout through Match Deciding Rules before changing this fixture to Group Stage.", "GROUP_DECIDING_RULES");
+    }
     if (stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, stage);
       if (!eligible.has(homeId) || !eligible.has(awayId)) fail(422, "Both teams must have qualified for this knockout stage");
@@ -1139,7 +1156,7 @@ export const seasonPreviewRepository = {
     if (start && day < new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(start)) fail(422, "Fixture date is before the season start date");
     if (end && day > new Intl.DateTimeFormat("en-CA", { timeZone: season.timeZone }).format(end)) fail(422, "Fixture date is after the season end date");
     if (input.matchNumber !== undefined && db.matches.some((item) => item._id !== matchId && item.seasonRef === seasonId && item.matchNumber === input.matchNumber)) fail(409, "Match number already exists in this season");
-    if (input.status !== undefined && input.status !== match.status) fail(422, "Change fixture status through the match status and resolution workflow");
+
     match.matchNumber = input.matchNumber ?? match.matchNumber;
     match.stage = stage;
     match.roundNumber = roundNumber;
@@ -1150,22 +1167,12 @@ export const seasonPreviewRepository = {
 
     match.homeSeasonTeamRef = homeId;
     match.awaySeasonTeamRef = awayId;
-    if(input.matchDurationMinutes!==undefined){if(match.actualStartedAt)fail(409,"Regular match duration cannot change after kickoff","MATCH_DURATION_LOCKED");if(!Number.isInteger(input.matchDurationMinutes)||input.matchDurationMinutes<10||input.matchDurationMinutes>120||input.matchDurationMinutes%2!==0)fail(422,"Regular match duration must be an even whole number from 10 to 120","INVALID_MATCH_DURATION");match.matchDurationMinutes=input.matchDurationMinutes;}
-    match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
-    if(input.decidingRules!==undefined){if(stage==="group"&&(input.decidingRules.extraTime.isAllowed||input.decidingRules.penaltyShootout.isAllowed))fail(422,"Group-stage matches cannot use Extra Time or Penalty Shootout","GROUP_DECIDING_RULES");if(input.decidingRules.extraTime.durationMinutes<=0||input.decidingRules.extraTime.durationMinutes%2!==0)fail(422,"Extra Time duration must be a positive even number","INVALID_EXTRA_TIME_DURATION");match.decidingRules=input.decidingRules;}
-    if (input.penaltyShootout !== undefined) {
-      if (input.penaltyShootout) {
-        if (match.stage === "group") fail(422, "Group-stage matches cannot have penalty shootouts.", "GROUP_SHOOTOUT");
-        assertMockShootoutScore(match, input.penaltyShootout, fail);
-        for (const kick of input.penaltyShootout.kicks) {
-          if (kick.playerRef) {
-            const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === kick.playerRef && item.auctionStatus === "sold");
-            if (!lot || lot.seasonTeamRef !== kick.seasonTeamRef) fail(422, "Shootout player must belong to the kicking team", "INVALID_SHOOTOUT_PLAYER");
-          }
-        }
-      }
-      match.penaltyShootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
+    if (input.matchDurationMinutes !== undefined) {
+      if (!Number.isSafeInteger(input.matchDurationMinutes) || input.matchDurationMinutes < 10 || input.matchDurationMinutes > 120 || input.matchDurationMinutes % 2 !== 0) fail(422, "Regular Match duration must be an even whole number from 10 to 120 minutes.", "INVALID_MATCH_DURATION");
+      match.matchDurationMinutes = input.matchDurationMinutes;
     }
+    match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
+
     this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
