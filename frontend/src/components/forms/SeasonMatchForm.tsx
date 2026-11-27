@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { Controller, useForm, type FieldPath } from "react-hook-form";
+import { Controller, useForm, useWatch, type FieldPath } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarClock, Hash, Info, StickyNote, Swords, Users } from "lucide-react";
 import { FieldError } from "@/components/forms/FieldError";
@@ -99,7 +99,6 @@ export function SeasonMatchForm({
     control,
     register,
     handleSubmit,
-    watch,
     getValues,
     setValue,
     reset,
@@ -118,9 +117,9 @@ export function SeasonMatchForm({
     reset(defaultValues);
   }, [defaultValues, reset]);
 
-  const stage = watch("stage");
-  const groupRef = watch("groupRef") ?? "";
-  const homeTeamRef = watch("homeSeasonTeamRef") ?? "";
+  const stage = useWatch({ control, name: "stage" });
+  const groupRef = useWatch({ control, name: "groupRef" }) ?? "";
+  const homeTeamRef = useWatch({ control, name: "homeSeasonTeamRef" }) ?? "";
 
   useEffect(() => {
     if (stage === "group") {

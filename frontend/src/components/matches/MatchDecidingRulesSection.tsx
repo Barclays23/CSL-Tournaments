@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 import { GlassCard } from "@/components/ui/GlassCard";
@@ -32,11 +32,6 @@ export function MatchDecidingRulesSection({
   const [draft, setDraft] = useState<MatchDecidingRules>(match.decidingRules);
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    setDraft(match.decidingRules);
-    setReason("");
-  }, [match._id, match.decidingRules, match.updatedAt]);
 
   const groupStage = match.stage === "group";
   const extraTimeStarted = ["extra_time_first_half", "extra_time_half_time", "extra_time_second_half", "extra_time_completed", "penalty_shootout", "penalty_shootout_completed", "full_time"].includes(match.phase ?? "")

@@ -852,6 +852,7 @@ export function SeasonMatchDetailsPage(props: {
       />
       {selectedSeason ? (
         <MatchDecidingRulesSection
+          key={`${match._id}:${match.updatedAt}`}
           seasonId={seasonId}
           season={selectedSeason}
           match={match}
