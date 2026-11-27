@@ -10,6 +10,8 @@ import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
+import { assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
+import type { MatchDecidingRules, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
 import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
@@ -162,6 +164,77 @@ function matchScore(match: SeasonMockDatabase["matches"][number], seasonTeamId: 
 function assertLiveMatch(match: MockSeasonMatch): void {
   assertMockGoalManagementAllowed(match.status, fail);
 }
+
+function mockMatchAuditSnapshot(match: MockSeasonMatch): Record<string, unknown> {
+  return {
+    status: match.status,
+    phase: match.phase,
+    actualStartedAt: match.actualStartedAt,
+    kickoffAt: match.kickoffAt,
+    clock: { ...match.clock, periodElapsedSecondsByPeriod: { ...match.clock.periodElapsedSecondsByPeriod } },
+    decidingRules: { extraTime: { ...match.decidingRules.extraTime }, penaltyShootout: { ...match.decidingRules.penaltyShootout } },
+    winnerSeasonTeamRef: match.winnerSeasonTeamRef,
+    penaltyShootout: match.penaltyShootout ? { ...match.penaltyShootout, kicks: match.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null,
+    score: {
+      homeScore: match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
+      awayScore: match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
+    },
+  };
+}
+
+function appendMockMatchAudit(
+  match: MockSeasonMatch,
+  action: string,
+  previousValue: Record<string, unknown>,
+  reason: string | null = null,
+  timestamp = now(),
+): void {
+  const actor = readSession()?._id;
+  if (!actor) fail(401, "An authenticated administrator is required for this Match operation.", "UNAUTHENTICATED");
+  match.auditHistory ??= [];
+  match.auditHistory.push({
+    action,
+    actor,
+    timestamp,
+    previousValue,
+    newValue: mockMatchAuditSnapshot(match),
+    reason,
+  });
+}
+
+function appendMockStatusHistory(
+  match: MockSeasonMatch,
+  fromStatus: MockSeasonMatch["status"],
+  toStatus: MockSeasonMatch["status"],
+  reason: string | null,
+  changedAt: string,
+  toKickoffAt = match.kickoffAt,
+): void {
+  const actor = readSession()?._id;
+  if (!actor) fail(401, "An authenticated administrator is required to change Match status.", "UNAUTHENTICATED");
+  match.statusHistory ??= [];
+  match.statusHistory.push({
+    fromStatus,
+    toStatus,
+    reason,
+    changedBy: actor,
+    changedAt,
+    fromKickoffAt: match.kickoffAt,
+    toKickoffAt,
+  });
+}
+
+function mockNormalScore(match: MockSeasonMatch) {
+  return {
+    home: match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
+    away: match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
+  };
+}
+
+function validExtraTimeDuration(value: number): boolean {
+  return Number.isSafeInteger(value) && value > 0 && value % 2 === 0;
+}
+
 
 function assertNoOtherLiveMatch(
   db: SeasonMockDatabase,
@@ -502,78 +575,287 @@ export const seasonPreviewRepository = {
     if (!match) return fail(404, "Season fixture not found");
     return ok("Season fixture loaded", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatchStatus(
-    seasonId: string,
-    matchId: string,
-    input: { status: MockSeasonMatch["status"]; statusReason?: string; resolutionReason?: string },
-  ) {
+  async startSeasonMatch(seasonId: string, matchId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match kickoff");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    if (match.status !== "scheduled" || match.actualStartedAt || match.phase !== null) {
+      fail(409, "Only a not-yet-started Scheduled Match can be started. Duplicate kickoff actions are rejected.", "MATCH_START_NOT_ALLOWED");
+    }
+    if (match.clock.isRunning || match.clock.clockStartedAt) fail(409, "A scheduled Match cannot already have a running clock segment.", "MATCH_CLOCK_INVALID");
+    if (!match.decidingRules || (match.stage === "group" && (match.decidingRules.extraTime.isAllowed || match.decidingRules.penaltyShootout.isAllowed))) {
+      fail(409, "The saved deciding rules are invalid for this fixture.", "MATCH_DECIDING_RULES_INVALID");
+    }
+    assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
+    const previous = mockMatchAuditSnapshot(match);
+    const changedAt = now();
+    const beforeStatus = match.status;
+    match.status = "live";
+    match.actualStartedAt = changedAt;
+    match.phase = "first_half";
+    match.clock = startMockMatchClock(match, "first_half", new Date(changedAt));
+    match.winnerSeasonTeamRef = null;
+    appendMockStatusHistory(match, beforeStatus, "live", null, changedAt);
+    appendMockMatchAudit(match, "start_match", previous, null, changedAt);
+    match.updatedAt = changedAt;
+    commitSeasonDb(db);
+    return ok("Match started", populatedSeasonMatch(db, match));
+  },
+
+  async pauseSeasonMatchClock(seasonId: string, matchId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match clock operations");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    if (match.status !== "live") fail(409, "Only a Live Match clock can be paused.", "MATCH_NOT_LIVE");
+    if (!match.clock.isRunning) fail(409, "The Match clock is already paused.", "MATCH_CLOCK_NOT_RUNNING");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.clock = stopMockMatchClock(match, new Date(timestamp));
+    appendMockMatchAudit(match, "pause_clock", previous, null, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match clock paused", populatedSeasonMatch(db, match));
+  },
+
+  async resumeSeasonMatchClock(seasonId: string, matchId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match clock operations");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    if (match.status !== "live") fail(409, "Only a Live Match clock can be resumed.", "MATCH_NOT_LIVE");
+    if (match.clock.isRunning) fail(409, "The Match clock is already running.", "MATCH_CLOCK_ALREADY_RUNNING");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.clock = startMockMatchClock(match, match.phase, new Date(timestamp));
+    appendMockMatchAudit(match, "resume_clock", previous, null, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match clock resumed", populatedSeasonMatch(db, match));
+  },
+
+  async transitionSeasonMatchPhase(seasonId: string, matchId: string, action: MatchPhaseAction) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match phase operations");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const score = mockNormalScore(match);
+    assertMockPhaseTransitionAllowed(match, action, score.home, score.away, fail);
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    switch (action) {
+      case "half_time":
+        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.phase = "half_time";
+        break;
+      case "start_second_half":
+        match.phase = "second_half";
+        match.clock = startMockMatchClock(match, "second_half", new Date(timestamp));
+        break;
+      case "regular_full_time":
+        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.phase = "regular_full_time";
+        break;
+      case "start_extra_time":
+        match.phase = "extra_time_first_half";
+        match.clock = startMockMatchClock(match, "extra_time_first_half", new Date(timestamp));
+        break;
+      case "extra_time_half_time":
+        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.phase = "extra_time_half_time";
+        break;
+      case "start_extra_time_second_half":
+        match.phase = "extra_time_second_half";
+        match.clock = startMockMatchClock(match, "extra_time_second_half", new Date(timestamp));
+        break;
+      case "end_extra_time":
+        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.phase = "extra_time_completed";
+        break;
+      case "start_penalty_shootout":
+        if (match.clock.isRunning || match.clock.clockStartedAt) fail(409, "Stop the timed Match clock before starting a Penalty Shootout.", "MATCH_CLOCK_MUST_BE_STOPPED");
+        match.phase = "penalty_shootout";
+        match.penaltyShootout = { status: "pending", homeTeamScore: 0, awayTeamScore: 0, kicks: [] };
+        match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
+        break;
+      case "complete_penalty_shootout": {
+        if (!match.penaltyShootout) fail(409, "Record the shootout before completing it.", "SHOOTOUT_REQUIRED");
+        const completed = { ...match.penaltyShootout, status: "completed" as const };
+        assertMockShootoutScore(match, completed, fail);
+        if (completed.homeTeamScore === completed.awayTeamScore) fail(422, "A completed shootout must have a winner.", "SHOOTOUT_TIED");
+        match.penaltyShootout = completed;
+        match.phase = "penalty_shootout_completed";
+        match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
+        break;
+      }
+    }
+    appendMockMatchAudit(match, "phase_transition", previous, null, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match phase updated", populatedSeasonMatch(db, match));
+  },
+
+  async completeSeasonMatch(seasonId: string, matchId: string) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match completion");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    if (match.status !== "live" || match.clock.isRunning || match.clock.clockStartedAt) fail(409, "A Match can be completed only while Live with the clock stopped.", "MATCH_CLOCK_MUST_BE_STOPPED");
+    if (!match.actualStartedAt) fail(409, "A Match cannot be completed before actual kickoff.", "MATCH_NOT_STARTED");
+    const score = mockNormalScore(match);
+    const stage = match.stage;
+    if (stage === "group") {
+      if (match.phase !== "regular_full_time" || match.decidingRules.extraTime.isAllowed || match.decidingRules.penaltyShootout.isAllowed) {
+        fail(409, "A Group Stage Match must finish after Regular Full Time without deciding stages.", "GROUP_DECIDING_RULES");
+      }
+    } else if (match.phase === "regular_full_time") {
+      const outcome = getMockRegularFullTimeOutcome(match, score.home, score.away);
+      if (outcome !== "complete") fail(409, "This Match still requires its configured deciding stage.", outcome === "extra_time" ? "EXTRA_TIME_REQUIRED" : "SHOOTOUT_REQUIRED");
+    } else if (match.phase === "extra_time_completed") {
+      if (getMockExtraTimeOutcome(match, score.home, score.away) !== "complete") fail(409, "A tied Match after Extra Time requires the configured Penalty Shootout.", "SHOOTOUT_REQUIRED");
+    } else if (match.phase === "penalty_shootout_completed") {
+      if (!match.penaltyShootout || match.penaltyShootout.status !== "completed") fail(409, "The Penalty Shootout has not been completed.", "SHOOTOUT_REQUIRED");
+    } else {
+      fail(409, "Complete all required timed periods and deciding stages before completing the Match.", "MATCH_PHASE_INCOMPLETE");
+    }
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    const resultMatch = { ...match, status: "completed" as const, phase: "full_time" as const };
+    const winner = calculateMockCompletedWinner(resultMatch, season, fail);
+    const fromStatus = match.status;
+    match.status = "completed";
+    match.phase = "full_time";
+    match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
+    match.winnerSeasonTeamRef = winner;
+    appendMockStatusHistory(match, fromStatus, "completed", "Match completed after all required stages were resolved.", timestamp);
+    appendMockMatchAudit(match, "status_change", previous, "Match completed after all required stages were resolved.", timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match completed", populatedSeasonMatch(db, match));
+  },
+
+  async changeSeasonMatchStatus(seasonId: string, matchId: string, action: MatchStatusAction) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match status changes");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
-    if (!match) return fail(404, "Season fixture not found");
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const reason = action.action === "resume" ? null : action.reason.trim();
+    if (action.action !== "resume" && (!reason || reason.length < 3 || reason.length > 500)) fail(422, "Enter a reason between 3 and 500 characters.", "MATCH_STATUS_REASON_REQUIRED");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    const fromStatus = match.status;
 
-    const nextStatus = input.status;
-    assertMockStatusTransition(match.status, nextStatus, fail);
-    if (match.status === "live" && nextStatus === "scheduled" && (match.goals.length > 0 || (match.cards ?? []).length > 0)) {
-      fail(409, "Remove all recorded goal and card events before reverting this Live match to Scheduled.", "MATCH_HAS_GOALS");
-    }
-    if (nextStatus === "live") {
+    if (action.action === "resume") {
+      if (match.status !== "postponed" || !match.actualStartedAt) fail(409, "Only a Postponed Match that has already kicked off can resume as the same fixture.", "MATCH_RESUME_NOT_ALLOWED");
       assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
-    }
-    if (match.status === "postponed" && nextStatus === "scheduled") {
-      fail(409, "Postponed matches can only be returned to Scheduled through the reschedule operation with a new kickoff date and time", "MATCH_RESCHEDULE_REQUIRED");
-    }
-
-    const statusReason = input.statusReason?.trim();
-    const resolutionReason = input.resolutionReason?.trim();
-    if (statusReason !== undefined && resolutionReason !== undefined && statusReason !== resolutionReason) {
-      fail(422, "Use one consistent reason for the status change", "CONFLICTING_STATUS_REASONS", { statusReason: "Use one consistent reason" });
-    }
-    if (resolutionReason !== undefined && nextStatus !== "cancelled" && nextStatus !== "abandoned") {
-      fail(422, "A resolution reason is only valid when cancelling or abandoning a fixture", "INVALID_FIXTURE_RESOLUTION");
-    }
-    const reason = statusReason ?? resolutionReason;
-    const changed = nextStatus !== match.status;
-    if (!changed && reason !== undefined) fail(422, "A status-change reason can only be supplied when the match status changes", "STATUS_REASON_WITHOUT_TRANSITION");
-    const requiresReason = ["postponed", "cancelled", "abandoned"].includes(nextStatus)
-      || (match.status === "live" && nextStatus === "scheduled");
-    if (changed && requiresReason && !reason) {
-      fail(422, "A reason is required when postponing, cancelling, abandoning or reverting a match", "MATCH_STATUS_REASON_REQUIRED", { statusReason: "Enter a reason of at least 3 characters" });
-    }
-    if (reason !== undefined && (reason.length < 3 || reason.length > 500)) {
-      fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
+      if (mockTimedPeriodForPhase(match.phase)) match.clock = startMockMatchClock(match, match.phase, new Date(timestamp));
+      match.status = "live";
+    } else if (action.action === "postpone") {
+      if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be postponed.", "MATCH_POSTPONE_NOT_ALLOWED");
+      if (match.status === "live" && (match.clock.isRunning || match.clock.clockStartedAt)) fail(409, "Pause the Match clock before postponing a Live Match.", "MATCH_CLOCK_MUST_BE_STOPPED");
+      match.status = "postponed";
+    } else if (action.action === "cancel") {
+      if (match.actualStartedAt || (match.status !== "scheduled" && match.status !== "postponed")) fail(409, "A Match can only be cancelled before its first kickoff.", "MATCH_CANCEL_NOT_ALLOWED");
+      match.status = "cancelled";
+      match.resolutionHistory ??= [];
+      match.resolutionHistory.push({ status: "cancelled", reason: reason!, decidedAt: timestamp });
+    } else {
+      if ((match.status !== "live" && match.status !== "postponed") || !match.actualStartedAt) fail(409, "A started Match may be abandoned only while Live or Postponed.", "MATCH_ABANDON_NOT_ALLOWED");
+      if (match.clock.isRunning) match.clock = stopMockMatchClock(match, new Date(timestamp));
+      else match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
+      match.status = "abandoned";
+      match.resolutionHistory ??= [];
+      match.resolutionHistory.push({ status: "abandoned", reason: reason!, decidedAt: timestamp });
     }
 
-    const session = readSession();
-    if (changed && !session?._id) fail(401, "An authenticated user is required to change match status", "UNAUTHENTICATED");
-    if (changed) {
-      const changedAt = now();
-      match.statusHistory ??= [];
-      match.statusHistory.push({
-        fromStatus: match.status,
-        toStatus: nextStatus,
-        reason: reason ?? null,
-        changedBy: session!._id,
-        changedAt,
-        fromKickoffAt: match.kickoffAt,
-        toKickoffAt: match.kickoffAt,
-      });
-      if (nextStatus === "cancelled" || nextStatus === "abandoned") {
-        match.resolutionHistory ??= [];
-        match.resolutionHistory.push({ status: nextStatus, reason: reason!, decidedAt: changedAt });
-      }
-      if (match.status === "live" && nextStatus === "scheduled") {
-        match.winnerSeasonTeamRef = null;
-        match.penaltyShootout = null;
-      }
-      match.status = nextStatus;
-      if (nextStatus === "completed") this.recalculateMockWinner(season, match);
-      match.updatedAt = changedAt;
-      commitSeasonDb(db);
-    }
+    appendMockStatusHistory(match, fromStatus, match.status, reason, timestamp);
+    appendMockMatchAudit(match, "status_change", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
     return ok("Match status updated", populatedSeasonMatch(db, match));
+  },
+
+  async updateSeasonMatchDecidingRules(seasonId: string, matchId: string, input: { decidingRules: MatchDecidingRules; reason?: string }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match deciding rules");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    if (match.status === "completed" || match.phase === "full_time") fail(409, "Completed Match deciding rules are read-only.", "MATCH_DECIDING_RULES_LOCKED");
+    const requested = input.decidingRules;
+    if (match.stage === "group" && (requested.extraTime.isAllowed || requested.penaltyShootout.isAllowed)) fail(422, "Group-stage fixtures must always have Extra Time and Penalty Shootout disabled.", "GROUP_DECIDING_RULES");
+    if (!validExtraTimeDuration(requested.extraTime.durationMinutes)) fail(422, "Extra Time duration must be a positive even whole number of minutes.", "INVALID_EXTRA_TIME_DURATION");
+    const previous = mockMatchAuditSnapshot(match);
+    const extraTimeStarted = ["extra_time_first_half","extra_time_half_time","extra_time_second_half","extra_time_completed","penalty_shootout","penalty_shootout_completed","full_time"].includes(match.phase ?? "")
+      || match.clock.periodElapsedSecondsByPeriod.extraTimeFirstHalf > 0
+      || match.clock.periodElapsedSecondsByPeriod.extraTimeSecondHalf > 0
+      || (match.auditHistory ?? []).some((entry) => ["phase_transition","phase_correction"].includes(entry.action)
+        && ["extra_time_first_half","extra_time_half_time","extra_time_second_half","extra_time_completed"].includes(String(entry.newValue.phase ?? "")));
+    const shootoutStarted = ["penalty_shootout","penalty_shootout_completed","full_time"].includes(match.phase ?? "")
+      || Boolean(match.penaltyShootout)
+      || (match.auditHistory ?? []).some((entry) => ["phase_transition","phase_correction"].includes(entry.action)
+        && ["penalty_shootout","penalty_shootout_completed"].includes(String(entry.newValue.phase ?? "")));
+    if (extraTimeStarted && (requested.extraTime.isAllowed !== match.decidingRules.extraTime.isAllowed || requested.extraTime.durationMinutes !== match.decidingRules.extraTime.durationMinutes)) {
+      fail(409, "Extra Time rules are locked once Extra Time starts.", "EXTRA_TIME_RULES_LOCKED");
+    }
+    if (shootoutStarted) fail(409, "All deciding rules are locked once a Penalty Shootout starts.", "MATCH_DECIDING_RULES_LOCKED");
+    const reason = input.reason?.trim() ?? "";
+    if (match.actualStartedAt && reason.length < 3) fail(422, "A reason is required when deciding rules are changed after kickoff.", "MATCH_AUDIT_REASON_REQUIRED");
+    if (reason.length > 1000) fail(422, "The deciding-rule reason must be 1000 characters or fewer.", "MATCH_AUDIT_REASON_REQUIRED");
+    match.decidingRules = { extraTime: { ...requested.extraTime }, penaltyShootout: { ...requested.penaltyShootout } };
+    const timestamp = now();
+    appendMockMatchAudit(match, "deciding_rules_change", previous, reason || null, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match deciding rules updated", populatedSeasonMatch(db, match));
+  },
+
+  async updateSeasonMatchShootout(seasonId: string, matchId: string, input: { homeTeamScore: number; awayTeamScore: number; kicks: NonNullable<MockSeasonMatch["penaltyShootout"]>["kicks"] }) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Penalty Shootout");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    if (match.status !== "live" || match.phase !== "penalty_shootout" || match.stage === "group" || !match.decidingRules.penaltyShootout.isAllowed) {
+      fail(409, "Shootout kicks can only be edited during an enabled knockout Penalty Shootout.", "SHOOTOUT_NOT_ALLOWED");
+    }
+    const shootout = { status: "pending" as const, homeTeamScore: input.homeTeamScore, awayTeamScore: input.awayTeamScore, kicks: input.kicks.map((kick) => ({ ...kick })) };
+    assertMockShootoutScore(match, shootout, fail);
+    for (const kick of shootout.kicks) {
+      if (!kick.playerRef) continue;
+      const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === kick.playerRef && item.auctionStatus === "sold");
+      if (!lot || lot.seasonTeamRef !== kick.seasonTeamRef) fail(422, "Shootout player must belong to the kicking team.", "INVALID_SHOOTOUT_PLAYER");
+    }
+    const previous = mockMatchAuditSnapshot(match);
+    match.penaltyShootout = shootout;
+    const timestamp = now();
+    appendMockMatchAudit(match, "shootout_update", previous, null, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Penalty Shootout kicks updated", populatedSeasonMatch(db, match));
+  },
+
+  async updateSeasonMatchStatus(
+    seasonId: string,
+    matchId: string,
+    _input: { status: MockSeasonMatch["status"]; statusReason?: string; resolutionReason?: string },
+  ) {
+    fail(422, "Use the dedicated Match start, phase, completion or status action instead of a generic status update.", "MATCH_OPERATION_REQUIRES_DEDICATED_ENDPOINT");
   },
   async rescheduleSeasonMatch(
     seasonId: string,
