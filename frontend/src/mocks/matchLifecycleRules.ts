@@ -139,6 +139,7 @@ export function calculateMockCompletedWinner(match: CompletionMatch, season: Com
     return score.homeScore > score.awayScore ? homeId : awayId;
   }
   if (score.homeScore === score.awayScore) {
+    if(match.decidingRules?.extraTime.isAllowed&&!["extra_time_completed","penalty_shootout_completed","full_time"].includes(match.phase??""))fail(422,"This tied knockout match requires Extra Time before completion","EXTRA_TIME_REQUIRED");
     if(match.decidingRules?.penaltyShootout.isAllowed===false)return null;
     if (!(match.decidingRules?.penaltyShootout.isAllowed ?? rules.penaltyShootout.isAllowedByDefault)) return null;
     const shootout = match.penaltyShootout;

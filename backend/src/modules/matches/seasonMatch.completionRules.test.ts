@@ -30,13 +30,13 @@ function normalGoal(team: Types.ObjectId): SeasonGoalFields {
 function completedMatch(
   overrides: Partial<SeasonMatchFields> = {},
 ): Pick<SeasonMatchFields,"status"|"stage"|"homeSeasonTeamRef"|"awaySeasonTeamRef"|"goals"|"penaltyShootout"> & Partial<Pick<SeasonMatchFields,"phase"|"decidingRules">> {
+  const stage=overrides.stage??"group";
   return {
-    status: "completed",
-    stage: "group",
-    homeSeasonTeamRef: home,
+    status:"completed",stage,
+    homeSeasonTeamRef:home,
     awaySeasonTeamRef: away,
-    goals: [],
-    penaltyShootout: null,
+    goals:[],penaltyShootout:null,
+    phase:"full_time",decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:stage!=="group"}},
     ...overrides,
   };
 }
