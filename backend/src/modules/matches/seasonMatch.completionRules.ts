@@ -5,7 +5,7 @@ import type { SeasonMatchRules, SeasonPointsRules } from "../seasons/season.type
 export type MatchCompletionInput = Pick<
   SeasonMatchFields,
   "status" | "stage" | "homeSeasonTeamRef" | "awaySeasonTeamRef" | "goals" | "penaltyShootout"
->;
+> & Partial<Pick<SeasonMatchFields,"phase"|"decidingRules">>;
 
 export interface MatchScore {
   homeScore: number;
@@ -174,7 +174,7 @@ export function assertPenaltyShootoutScore(
  */
 export function calculateCompletedMatchWinner(
   match: MatchCompletionInput,
-  matchRules: Pick<SeasonMatchRules, "groupStageDrawAllowed" | "knockoutDrawRequiresShootout">,
+  matchRules: Pick<SeasonMatchRules,"groupStageDrawAllowed">,
   pointsRules: SeasonPointsRules | null,
 ): string | null {
   if (match.status !== "completed") return null;
@@ -195,9 +195,7 @@ export function calculateCompletedMatchWinner(
       );
     }
 
-    if (match.penaltyShootout) {
-      throw new AppError("Group-stage matches cannot have penalty shootouts.", 422, "GROUP_SHOOTOUT");
-    }
+    if (match.penaltyShootout || match.decidingRules?.extraTime.isAllowed || match.decidingRules?.penaltyShootout.isAllowed) throw new AppError("Group-stage matches cannot use Extra Time or Penalty Shootout.",422,"GROUP_DECIDING_RULES");
 
     if (score.homeScore === score.awayScore) {
       if (!matchRules.groupStageDrawAllowed) {
@@ -214,10 +212,14 @@ export function calculateCompletedMatchWinner(
     return score.homeScore > score.awayScore ? homeId : awayId;
   }
 
+  const extraTimeAllowed=match.decidingRules?.extraTime.isAllowed??false;
+  const shootoutAllowed=match.decidingRules?.penaltyShootout.isAllowed??false;
   if (score.homeScore === score.awayScore) {
-    if (!matchRules.knockoutDrawRequiresShootout) return null;
+    if(extraTimeAllowed&&!["extra_time_completed","penalty_shootout_completed","full_time"].includes(match.phase??""))throw new AppError("This tied knockout match requires Extra Time before completion.",422,"EXTRA_TIME_REQUIRED");
+    if (!shootoutAllowed) return null;
 
     const shootout = match.penaltyShootout;
+    if(match.decidingRules?.penaltyShootout.isAllowed===false)return null;
     if (!shootout || shootout.status !== "completed") {
       throw new AppError(
         "This knockout match is tied. Record and complete a penalty shootout before completing the match.",

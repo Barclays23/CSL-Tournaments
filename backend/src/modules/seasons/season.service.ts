@@ -167,7 +167,16 @@ export class SeasonService implements ISeasonService {
     if (input.auctionSettings) update.auctionSettings = { ...current.auctionSettings!, ...input.auctionSettings };
     if (input.pointsRules) update.pointsRules = { ...current.pointsRules!, ...input.pointsRules };
     if (input.standingsTieBreakers) update.standingsTieBreakers = input.standingsTieBreakers;
-    if (input.matchRules) update.matchRules = { ...current.matchRules!, ...input.matchRules };
+    if (input.matchRules) {
+      const currentRules = current.matchRules;
+      if (!currentRules) throw new AppError("Match rules are unavailable for this historical season", 409, "SEASON_RULES_UNAVAILABLE");
+      update.matchRules = {
+        ...currentRules,
+        ...input.matchRules,
+        extraTime: { ...currentRules.extraTime, ...input.matchRules.extraTime },
+        penaltyShootout: { ...currentRules.penaltyShootout, ...input.matchRules.penaltyShootout },
+      };
+    }
     try {
       const updated = await this.repo.update(id, update);
       if (!updated) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
@@ -379,7 +388,7 @@ export class SeasonService implements ISeasonService {
       auctionLifecycleStatus: season.auctionLifecycleStatus,
       pointsRules: season.pointsRules,
       standingsTieBreakers: season.standingsTieBreakers,
-      matchRules: season.matchRules,
+      matchRules:season.matchRules?{groupStageDrawAllowed:season.matchRules.groupStageDrawAllowed??true,defaultMatchDurationMinutes:season.matchRules.defaultMatchDurationMinutes??30,extraTime:season.matchRules.extraTime??{isAllowedByDefault:false,defaultDurationMinutes:10},penaltyShootout:season.matchRules.penaltyShootout??{isAllowedByDefault:(season.matchRules as any).knockoutDrawRequiresShootout??true},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false}:null,
       createdAt: season.createdAt.toISOString(),
       updatedAt: season.updatedAt.toISOString(),
     };

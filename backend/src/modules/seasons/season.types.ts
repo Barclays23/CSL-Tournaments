@@ -17,9 +17,13 @@ export interface SeasonAuctionSettings {
 }
 
 export interface SeasonPointsRules { win: number; draw: number; loss: number; }
+export interface SeasonExtraTimeDefaults { isAllowedByDefault: boolean; defaultDurationMinutes: number; }
+export interface SeasonPenaltyShootoutDefaults { isAllowedByDefault: boolean; }
 export interface SeasonMatchRules {
   groupStageDrawAllowed: boolean;
-  knockoutDrawRequiresShootout: boolean;
+  defaultMatchDurationMinutes: number;
+  extraTime: SeasonExtraTimeDefaults;
+  penaltyShootout: SeasonPenaltyShootoutDefaults;
   shootoutCountsForMatchScore: false;
   shootoutCountsForPlayerGoals: false;
 }

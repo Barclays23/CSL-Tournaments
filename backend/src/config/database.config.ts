@@ -2,12 +2,14 @@ import mongoose from "mongoose";
 import { PlayerModel } from "../modules/players/player.model.js";
 import { SeasonModel } from "../modules/seasons/season.model.js";
 import { AuctionLotModel } from "../modules/auctionLots/auctionLot.model.js";
+import type { SeasonMatchFields } from "../modules/matches/seasonMatch.types.js";
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set("strictQuery", true);
   await mongoose.connect(uri);
   await ensureOptionalPlayerMobileIndex();
   await migrateAuctionLifecycleStatus();
+  await migrateMatchTimingFields();
   console.log("MongoDB connected");
 }
 async function ensureOptionalPlayerMobileIndex(): Promise<void> {
@@ -42,6 +44,25 @@ async function ensureOptionalPlayerMobileIndex(): Promise<void> {
       { mobile: 1 },
       { name: "mobile_1", unique: true, partialFilterExpression: { mobile: { $type: "string", $gt: "" } } },
     );
+  }
+}
+
+
+async function migrateMatchTimingFields():Promise<void>{
+  const seasons=await SeasonModel.collection.find({}).toArray();
+  const matches=mongoose.connection.collection("seasonmatches");
+  for(const season of seasons){
+    const rules=(season.matchRules??{}) as {defaultMatchDurationMinutes?:number;extraTime?:{defaultDurationMinutes?:number;isAllowedByDefault?:boolean};penaltyShootout?:{isAllowedByDefault?:boolean};knockoutDrawRequiresShootout?:boolean};
+    const duration=Number.isInteger(rules.defaultMatchDurationMinutes)&&Number(rules.defaultMatchDurationMinutes)>=10&&Number(rules.defaultMatchDurationMinutes)<=120&&Number(rules.defaultMatchDurationMinutes)%2===0?Number(rules.defaultMatchDurationMinutes):30;
+    const extraDuration=Number.isInteger(rules.extraTime?.defaultDurationMinutes)&&Number(rules.extraTime?.defaultDurationMinutes)>0&&Number(rules.extraTime?.defaultDurationMinutes)%2===0?Number(rules.extraTime?.defaultDurationMinutes):10;
+    const penaltyDefault=rules.penaltyShootout?.isAllowedByDefault??rules.knockoutDrawRequiresShootout??true;
+    await matches.updateMany({seasonRef:season._id,matchDurationMinutes:{$exists:false}},{$set:{matchDurationMinutes:duration}});
+    await matches.updateMany({seasonRef:season._id,decidingRules:{$exists:false}},{$set:{decidingRules:{extraTime:{isAllowed:false,durationMinutes:extraDuration},penaltyShootout:{isAllowed:penaltyDefault}}}});
+    await matches.updateMany({seasonRef:season._id,phase:{$exists:false}},{$set:{phase:null}});
+    await matches.updateMany({seasonRef:season._id,actualStartedAt:{$exists:false}},{$set:{actualStartedAt:null}});
+    await matches.updateMany({seasonRef:season._id,clock:{$exists:false}},{$set:{clock:{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}}}});
+    const normalizedRules={groupStageDrawAllowed:(rules as any).groupStageDrawAllowed??true,defaultMatchDurationMinutes:duration,extraTime:{isAllowedByDefault:rules.extraTime?.isAllowedByDefault??false,defaultDurationMinutes:extraDuration},penaltyShootout:{isAllowedByDefault:penaltyDefault},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false};
+    await SeasonModel.collection.updateOne({_id:season._id},{$set:{matchRules:normalizedRules}});
   }
 }
 

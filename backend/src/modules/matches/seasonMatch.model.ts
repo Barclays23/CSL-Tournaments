@@ -1,17 +1,20 @@
 import { Schema, model } from "mongoose";
-import type { SeasonMatchFields, SeasonGoalFields, SeasonMatchCardFields } from "./seasonMatch.types.js";
+import type { SeasonMatchFields, SeasonGoalFields, SeasonMatchCardFields, MatchClock } from "./seasonMatch.types.js";
 
+const eventTimingFields = {period:{type:String,enum:["first_half","second_half","extra_time_first_half","extra_time_second_half"],default:null},minute:{type:Number,default:null,min:1,validate:{validator:(v:number|null)=>v===null||Number.isInteger(v)}},addedMinutes:{type:Number,default:0,min:0,validate:{validator:(v:number|null)=>v===null||Number.isInteger(v)}}};
 const goalSchema = new Schema<SeasonGoalFields>({
   scoringSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   scorerPlayerRef: { type: Schema.Types.ObjectId, ref: "Player", default: null },
   playerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: null },
   goalType: { type: String, enum: ["normal", "own_goal"], required: true },
+  ...eventTimingFields,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const cardSchema = new Schema<SeasonMatchCardFields>({
   seasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   playerRef: { type: Schema.Types.ObjectId, ref: "Player", required: true },
   cardType: { type: String, enum: ["yellow_card", "red_card", "second_yellow"], required: true },
+  ...eventTimingFields,
 }, { timestamps: { createdAt: true, updatedAt: false } });
 
 const kickSchema = new Schema({
@@ -58,6 +61,9 @@ const resolutionSchema = new Schema({
   decidedAt: { type: Date, required: true },
 }, { _id: false, timestamps: false });
 
+const extraTimeRuleSchema=new Schema({isAllowed:{type:Boolean,required:true},durationMinutes:{type:Number,required:true,validate:{validator:(v:number)=>Number.isInteger(v)&&v>0&&v%2===0}}},{_id:false});
+const decidingRulesSchema=new Schema({extraTime:{type:extraTimeRuleSchema,required:true},penaltyShootout:{type:new Schema({isAllowed:{type:Boolean,required:true}},{_id:false}),required:true}},{_id:false});
+const clockSchema=new Schema<MatchClock>({isRunning:{type:Boolean,required:true,default:false},clockStartedAt:{type:Date,default:null},periodElapsedSecondsByPeriod:{type:new Schema({firstHalf:{type:Number,default:0,min:0,validate:Number.isInteger},secondHalf:{type:Number,default:0,min:0,validate:Number.isInteger},extraTimeFirstHalf:{type:Number,default:0,min:0,validate:Number.isInteger},extraTimeSecondHalf:{type:Number,default:0,min:0,validate:Number.isInteger}},{_id:false}),required:true,default:()=>({})}},{_id:false});
 const schema = new Schema<SeasonMatchFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   matchNumber: { type: Number, required: true, min: 1 },
@@ -69,6 +75,10 @@ const schema = new Schema<SeasonMatchFields>({
   homeSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   awaySeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", required: true },
   status: { type: String, enum: ["scheduled", "live", "completed", "postponed", "cancelled", "abandoned"], default: "scheduled" },
+  matchDurationMinutes:{type:Number,required:true,validate:{validator:(v:number)=>Number.isInteger(v)&&v>=10&&v<=120&&v%2===0}},
+  decidingRules:{type:decidingRulesSchema,required:true},actualStartedAt:{type:Date,default:null},
+  phase:{type:String,enum:["first_half","half_time","second_half","regular_full_time","extra_time_first_half","extra_time_half_time","extra_time_second_half","extra_time_completed","penalty_shootout","penalty_shootout_completed","full_time"],default:null},
+  clock:{type:clockSchema as Schema<MatchClock>,required:true,default:()=>({isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}})},
   goals: { type: [goalSchema], default: [] },
   cards: { type: [cardSchema], default: [] },
   penaltyShootout: { type: shootoutSchema, default: null },
@@ -79,6 +89,7 @@ const schema = new Schema<SeasonMatchFields>({
   correctionHistory: { type: [correctionHistorySchema], default: [] },
 }, { timestamps: true, versionKey: false });
 
+// Group-stage deciding-rule restrictions are enforced in Zod and the service layer.
 schema.index({ seasonRef:  1, matchNumber: 1 }, { unique: true });
 schema.index({ seasonRef: 1, kickoffAt: 1 });
 schema.index({ seasonRef: 1, stage: 1, groupRef: 1, roundNumber: 1 });

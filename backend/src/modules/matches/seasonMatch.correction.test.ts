@@ -32,8 +32,8 @@ function completedMatch(overrides: Partial<SeasonMatchEntity> = {}): SeasonMatch
     venueRef: new Types.ObjectId("507f1f77bcf86cd799439018"),
     homeSeasonTeamRef: home,
     awaySeasonTeamRef: away,
-    status: "completed",
-    goals: [{
+    status:"completed",matchDurationMinutes:30,decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:(overrides.stage??"group")!=="group"}},actualStartedAt:null,phase:"full_time",clock:{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}},
+    goals:[{
       _id: new Types.ObjectId("507f1f77bcf86cd799439019"),
       scoringSeasonTeamRef: home,
       scorerPlayerRef: player,

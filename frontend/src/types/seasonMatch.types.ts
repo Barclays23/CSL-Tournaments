@@ -9,6 +9,10 @@ export type SeasonMatchStage =
   | "third_place"
   | "final";
 
+export type MatchPhase=null|"first_half"|"half_time"|"second_half"|"regular_full_time"|"extra_time_first_half"|"extra_time_half_time"|"extra_time_second_half"|"extra_time_completed"|"penalty_shootout"|"penalty_shootout_completed"|"full_time";
+export type MatchTimedPeriod="first_half"|"second_half"|"extra_time_first_half"|"extra_time_second_half";
+export interface MatchDecidingRules {extraTime:{isAllowed:boolean;durationMinutes:number};penaltyShootout:{isAllowed:boolean};}
+export interface MatchClock {isRunning:boolean;clockStartedAt:string|null;periodElapsedSecondsByPeriod:{firstHalf:number;secondHalf:number;extraTimeFirstHalf:number;extraTimeSecondHalf:number};}
 export type SeasonMatchStatus =
   | "scheduled"
   | "live"
@@ -53,8 +57,8 @@ export interface SeasonMatchCard {
   _id: string;
   seasonTeamRef: SeasonMatchTeamRef;
   playerRef: SeasonMatchPlayerRef;
-  cardType: SeasonMatchCardType;
-  createdAt: string;
+  cardType:SeasonMatchCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;
+  createdAt:string;
 }
 
 export interface SeasonMatchGoal {
@@ -63,13 +67,14 @@ export interface SeasonMatchGoal {
   scorerPlayerRef: SeasonMatchPlayerRef | null;
   playerSeasonTeamRef: SeasonMatchTeamRef | null;
   goalType: "normal" | "own_goal";
+  period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;
   createdAt: string;
 }
 
 export interface SeasonMatchCorrectionResult {
   homeScore: number;
   awayScore: number;
-  goals: Array<{ _id: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: "normal" | "own_goal"; createdAt: string }>;
+  goals:Array<{_id:string;scoringSeasonTeamRef:string;scorerPlayerRef:string|null;playerSeasonTeamRef:string|null;goalType:"normal"|"own_goal";period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string}>;
   penaltyShootout: SeasonMatch["penaltyShootout"] | null;
   winnerSeasonTeamRef: string | null;
 }
@@ -82,7 +87,7 @@ export interface SeasonMatchCorrectionHistory {
 }
 export interface SeasonMatchCorrectionWrite {
   reason: string;
-  goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+  goals:Array<{scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:"normal"|"own_goal";period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number}>;
   penaltyShootout: SeasonMatch["penaltyShootout"];
 }
 
@@ -99,6 +104,7 @@ export interface SeasonMatch {
   homeSeasonTeamRef: SeasonMatchTeamRef;
   awaySeasonTeamRef: SeasonMatchTeamRef;
   status: SeasonMatchStatus;
+  matchDurationMinutes:number;decidingRules:MatchDecidingRules;actualStartedAt:string|null;phase:MatchPhase;clock:MatchClock;
   resolutionHistory: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
   correctionHistory: SeasonMatchCorrectionHistory[];
   statusHistory: Array<{
@@ -151,6 +157,8 @@ export interface SeasonMatchWrite {
   awaySeasonTeamRef: string;
   status?: SeasonMatchStatus;
   notes?: string | null;
+  matchDurationMinutes?:number;
+  decidingRules?:MatchDecidingRules;
   penaltyShootout?: SeasonMatch["penaltyShootout"];
 }
 

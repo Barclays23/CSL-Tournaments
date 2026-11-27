@@ -29,14 +29,14 @@ function normalGoal(team: Types.ObjectId): SeasonGoalFields {
 
 function completedMatch(
   overrides: Partial<SeasonMatchFields> = {},
-): Pick<SeasonMatchFields, "status" | "stage" | "homeSeasonTeamRef" | "awaySeasonTeamRef" | "goals" | "penaltyShootout"> {
+): Pick<SeasonMatchFields,"status"|"stage"|"homeSeasonTeamRef"|"awaySeasonTeamRef"|"goals"|"penaltyShootout"> & Partial<Pick<SeasonMatchFields,"phase"|"decidingRules">> {
+  const stage=overrides.stage??"group";
   return {
-    status: "completed",
-    stage: "group",
-    homeSeasonTeamRef: home,
+    status:"completed",stage,
+    homeSeasonTeamRef:home,
     awaySeasonTeamRef: away,
-    goals: [],
-    penaltyShootout: null,
+    goals:[],penaltyShootout:null,
+    phase:"full_time",decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:stage!=="group"}},
     ...overrides,
   };
 }
@@ -143,10 +143,8 @@ test("a valid knockout win without a shootout is accepted", () => {
 test("a tied knockout match requires a completed shootout when configured", () => {
   getErrorCode(
     () => calculateCompletedMatchWinner(
-      completedMatch({ stage: "semi_final", goals: [normalGoal(home), normalGoal(away)] }),
-      matchRules,
-      pointsRules,
-    ),
+      completedMatch({ stage:"semi_final",goals:[normalGoal(home),normalGoal(away)],decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:true}}}),
+      matchRules,pointsRules),
     "SHOOTOUT_REQUIRED",
   );
 });
@@ -154,11 +152,8 @@ test("a tied knockout match requires a completed shootout when configured", () =
 test("a knockout draw can remain unresolved only when the season does not require a shootout", () => {
   assert.equal(
     calculateCompletedMatchWinner(
-      completedMatch({ stage: "semi_final", goals: [normalGoal(home), normalGoal(away)] }),
-      { ...matchRules, knockoutDrawRequiresShootout: false },
-      pointsRules,
-    ),
-    null,
+      completedMatch({stage:"semi_final",goals:[normalGoal(home),normalGoal(away)],decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:false}}}),
+      matchRules,pointsRules),null,
   );
 });
 
@@ -177,7 +172,7 @@ test("a valid knockout shootout determines the winner without changing normal-ti
       completedMatch({
         stage: "final",
         goals: [normalGoal(home), normalGoal(away)],
-        penaltyShootout: recordedShootout,
+        penaltyShootout:recordedShootout,decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:true}},
       }),
       matchRules,
       pointsRules,
@@ -192,7 +187,7 @@ test("invalid completed shootouts are rejected when tied or inconsistent with su
       completedMatch({
         stage: "final",
         goals: [normalGoal(home), normalGoal(away)],
-        penaltyShootout: shootout({ homeTeamScore: 3, awayTeamScore: 3 }),
+        penaltyShootout:shootout({homeTeamScore:3,awayTeamScore:3}),decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:true}},
       }),
       matchRules,
       pointsRules,

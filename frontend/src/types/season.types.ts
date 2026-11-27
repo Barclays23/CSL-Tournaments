@@ -16,6 +16,8 @@ export interface SeasonAuctionSettings {
   goalkeeperLimit: number;
 }
 
+export interface SeasonMatchDefaults {groupStageDrawAllowed:boolean;defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean};shootoutCountsForMatchScore:false;shootoutCountsForPlayerGoals:false;}
+
 export interface Season {
   _id: string;
   seasonNumber: number;
@@ -30,12 +32,7 @@ export interface Season {
   historyCompleteness?: "not_applicable" | "metadata_only" | "partial" | "full";
   pointsRules?: { win: number; draw: number; loss: number } | null;
   standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc"> | null;
-  matchRules?: {
-    groupStageDrawAllowed: boolean;
-    knockoutDrawRequiresShootout: boolean;
-    shootoutCountsForMatchScore: false;
-    shootoutCountsForPlayerGoals: false;
-  } | null;
+  matchRules?:SeasonMatchDefaults|null;
   auctionSettings: SeasonAuctionSettings | null;
   auctionLifecycleStatus: AuctionLifecycleStatus;
   createdAt: string;
@@ -54,18 +51,10 @@ export interface SeasonWrite {
   auctionSettings: SeasonAuctionSettings;
   pointsRules?: { win: number; draw: number; loss: number };
   standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;
-  matchRules?: {
-    groupStageDrawAllowed: boolean;
-    knockoutDrawRequiresShootout: boolean;
-    shootoutCountsForMatchScore: false;
-    shootoutCountsForPlayerGoals: false;
-  };
+  matchRules?:SeasonMatchDefaults;
 }
 
-export type SeasonPatch = Partial<SeasonWrite> & {
-  auctionSettings?: Partial<SeasonAuctionSettings>;
-  pointsRules?: Partial<{ win: number; draw: number; loss: number }>;
-};
+export type SeasonPatch=Omit<Partial<SeasonWrite>,"matchRules">&{auctionSettings?:Partial<SeasonAuctionSettings>;pointsRules?:Partial<{win:number;draw:number;loss:number}>;matchRules?:Partial<Omit<SeasonMatchDefaults,"extraTime"|"penaltyShootout">>&{extraTime?:Partial<SeasonMatchDefaults["extraTime"]>;penaltyShootout?:Partial<SeasonMatchDefaults["penaltyShootout"]>};};
 
 export interface AuctionTeamRef {
   _id: string;

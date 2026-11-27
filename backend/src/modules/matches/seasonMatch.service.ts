@@ -57,7 +57,7 @@ function statusPostponementDateChanged(
 }
 
 export class SeasonMatchService implements ISeasonMatchService {
-  constructor(private readonly repo: SeasonMatchRepository) {}
+  constructor(private readonly _seasonMatchRepo: SeasonMatchRepository) {}
   async list(
     seasonId: string,
     query: SeasonMatchQueryDto,
@@ -96,7 +96,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       > = [];
       const numberMatch = search.match(/\d+/)?.[0];
       if (numberMatch) conditions.push({ matchNumber: Number(numberMatch) });
-      const matchingTeams = await this.repo.findSeasonTeamIdsByName(
+      const matchingTeams = await this._seasonMatchRepo.findSeasonTeamIdsByName(
         seasonId,
         search,
       );
@@ -120,7 +120,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (clauses.length === 1) filter.$or = clauses[0].$or;
     else if (clauses.length > 1) filter.$and = clauses;
 
-    const result = await this.repo.find(filter, query.page, query.limit);
+    const result = await this._seasonMatchRepo.find(filter, query.page, query.limit);
     return {
       items: result.items.map((m) => this.map(m)),
       pagination: {
@@ -133,7 +133,7 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
   async get(id: string): Promise<SeasonMatchResponseDto> {
     this.id(id, "match");
-    const m = await this.repo.findPopulatedById(id);
+    const m = await this._seasonMatchRepo.findPopulatedById(id);
     if (!m) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     return this.map(m);
   }
@@ -142,7 +142,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     input: CreateSeasonMatchDto,
   ): Promise<SeasonMatchResponseDto> {
     this.id(seasonId, "season");
-    const season = await this.repo.findSeason(seasonId);
+    const season = await this._seasonMatchRepo.findSeason(seasonId);
     if (!season || season.status !== "active")
       throw new AppError(
         "Fixtures can only be created after the season has been activated",
@@ -156,7 +156,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         "AUCTION_NOT_COMPLETED",
       );
     if (season.groupStageEnabled !== false) {
-      const readiness = await this.repo.getGroupReadiness(seasonId);
+      const readiness = await this._seasonMatchRepo.getGroupReadiness(seasonId);
       const blockers = getFixtureGroupReadinessBlockers(true, readiness);
       if (blockers.length)
         throw new AppError(
@@ -181,7 +181,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         "GROUP_STAGE_DISABLED",
       );
     this.assertKickoffWithinSeason(season, input.kickoffAt);
-    if (await this.repo.findByNumber(seasonId, input.matchNumber))
+    if (await this._seasonMatchRepo.findByNumber(seasonId, input.matchNumber))
       throw new AppError(
         "Match number already exists in this season",
         409,
@@ -205,7 +205,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       awayId,
       season.homeAndAwayFixtures ?? false,
     );
-    const venue = await this.repo.findVenue(input.venueRef);
+    const venue = await this._seasonMatchRepo.findVenue(input.venueRef);
     if (!venue || venue.status !== "active")
       throw new AppError(
         "Choose an active venue from the venue list",
@@ -220,6 +220,15 @@ export class SeasonMatchService implements ISeasonMatchService {
       awayId,
       season,
     );
+    const matchDurationMinutes=input.matchDurationMinutes??season.matchRules.defaultMatchDurationMinutes;
+    const decidingRules=input.stage==="group"?{
+      extraTime:{isAllowed:false,durationMinutes:season.matchRules.extraTime.defaultDurationMinutes},
+      penaltyShootout:{isAllowed:false},
+    }:{
+      extraTime:{isAllowed:input.decidingRules?.extraTime.isAllowed??season.matchRules.extraTime.isAllowedByDefault,durationMinutes:input.decidingRules?.extraTime.durationMinutes??season.matchRules.extraTime.defaultDurationMinutes},
+      penaltyShootout:{isAllowed:input.decidingRules?.penaltyShootout.isAllowed??season.matchRules.penaltyShootout.isAllowedByDefault},
+    };
+    if(input.stage==="group"&&(decidingRules.extraTime.isAllowed||decidingRules.penaltyShootout.isAllowed))throw new AppError("Group-stage fixtures cannot enable Extra Time or Penalty Shootout",422,"GROUP_DECIDING_RULES");
     const fields: SeasonMatchFields = {
       seasonRef: new Types.ObjectId(seasonId),
       matchNumber: input.matchNumber,
@@ -234,6 +243,11 @@ export class SeasonMatchService implements ISeasonMatchService {
       homeSeasonTeamRef: new Types.ObjectId(homeId),
       awaySeasonTeamRef: new Types.ObjectId(awayId),
       status: "scheduled",
+      matchDurationMinutes,
+      decidingRules,
+      actualStartedAt:null,
+      phase:null,
+      clock:{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}},
       goals: [],
       penaltyShootout: null,
       winnerSeasonTeamRef: null,
@@ -252,11 +266,11 @@ export class SeasonMatchService implements ISeasonMatchService {
         422,
         "INVALID_MATCH_COMPLETION",
       );
-    const created = await this.repo.create(
+    const created = await this._seasonMatchRepo.create(
       fields,
       season.homeAndAwayFixtures ?? false,
     );
-    const populated = await this.repo.findPopulatedById(String(created._id));
+    const populated = await this._seasonMatchRepo.findPopulatedById(String(created._id));
     if (!populated)
       throw new AppError(
         "Created fixture could not be retrieved",
@@ -271,10 +285,10 @@ export class SeasonMatchService implements ISeasonMatchService {
     changedBy?: string,
   ): Promise<SeasonMatchResponseDto> {
     this.id(id, "match");
-    const existing = await this.repo.findById(id);
+    const existing = await this._seasonMatchRepo.findById(id);
     if (!existing)
       throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    const season = await this.repo.findSeason(String(existing.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(existing.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.status !== "active")
@@ -474,7 +488,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         season.homeAndAwayFixtures ?? false,
         id,
       );
-    const venue = await this.repo.findVenue(venueRef);
+    const venue = await this._seasonMatchRepo.findVenue(venueRef);
     if (
       !venue ||
       (venue.status !== "active" && venueRef !== String(existing.venueRef))
@@ -518,7 +532,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       );
     const number = input.matchNumber ?? existing.matchNumber;
     if (number !== existing.matchNumber) {
-      const duplicate = await this.repo.findByNumber(
+      const duplicate = await this._seasonMatchRepo.findByNumber(
         String(existing.seasonRef),
         number,
       );
@@ -540,8 +554,10 @@ export class SeasonMatchService implements ISeasonMatchService {
         decidedAt: changedAt!,
       });
     }
+    if(input.matchDurationMinutes!==undefined&&existing.actualStartedAt)throw new AppError("Regular match duration is locked after kickoff",409,"MATCH_DURATION_LOCKED");
     const merged: SeasonMatchFields = {
       ...existing,
+      matchDurationMinutes:input.matchDurationMinutes??existing.matchDurationMinutes,
       matchNumber: number,
       roundNumber,
       stage,
@@ -583,7 +599,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       season.matchRules,
       season.pointsRules,
     );
-    const saved = await this.repo.update(
+    const saved = await this._seasonMatchRepo.update(
       id,
       {
         matchNumber: merged.matchNumber,
@@ -615,7 +631,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       },
     );
     if (!saved) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated fixture could not be retrieved",
@@ -630,7 +646,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     changedBy?: string,
   ): Promise<SeasonMatchResponseDto> {
     this.id(id, "match");
-    const existing = await this.repo.findById(id);
+    const existing = await this._seasonMatchRepo.findById(id);
     if (!existing)
       throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     if (existing.status !== "postponed")
@@ -640,7 +656,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         "MATCH_NOT_POSTPONED",
       );
     assertMatchStatusTransition(existing.status, "scheduled");
-    const season = await this.repo.findSeason(String(existing.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(existing.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.auctionLifecycleStatus !== "completed")
@@ -706,14 +722,14 @@ export class SeasonMatchService implements ISeasonMatchService {
         fromKickoffAt: existing.kickoffAt,
         toKickoffAt: input.kickoffAt,
       };
-    const saved = await this.repo.update(
+    const saved = await this._seasonMatchRepo.update(
       id,
       { status: "scheduled", kickoffAt: input.kickoffAt },
       season.homeAndAwayFixtures ?? false,
       { expectedStatus: "postponed", entry: statusHistoryEntry },
     );
     if (!saved) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Rescheduled match could not be retrieved",
@@ -742,7 +758,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         "MATCH_CORRECTION_REASON_REQUIRED",
         { reason: "A correction reason is required" },
       );
-    const existing = await this.repo.findById(id);
+    const existing = await this._seasonMatchRepo.findById(id);
     if (!existing)
       throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     if (existing.status !== "completed")
@@ -751,7 +767,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         409,
         "MATCH_NOT_COMPLETED",
       );
-    const season = await this.repo.findSeason(String(existing.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(existing.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.status !== "active")
@@ -840,7 +856,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         originalResult: snapshot(existing, originalScore),
         correctedResult: snapshot(correctedMatch, correctedScore),
       };
-    const saved = await this.repo.correctCompletedMatch(
+    const saved = await this._seasonMatchRepo.correctCompletedMatch(
       id,
       existing.updatedAt,
       correctedGoals,
@@ -849,7 +865,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       historyEntry,
     );
     if (!saved) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Corrected match could not be retrieved",
@@ -861,7 +877,7 @@ export class SeasonMatchService implements ISeasonMatchService {
 
   async delete(id: string): Promise<void> {
     this.id(id, "match");
-    const existing = await this.repo.findById(id);
+    const existing = await this._seasonMatchRepo.findById(id);
     if (!existing)
       throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     if (hasRecordedMatchIncidents(existing))
@@ -870,7 +886,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         409,
         "MATCH_HAS_EVENTS",
       );
-    const season = await this.repo.findSeason(String(existing.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(existing.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.status !== "active")
@@ -885,7 +901,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         409,
         "AUCTION_NOT_COMPLETED",
       );
-    const deleted = await this.repo.delete(id);
+    const deleted = await this._seasonMatchRepo.delete(id);
     if (!deleted) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
@@ -898,9 +914,9 @@ export class SeasonMatchService implements ISeasonMatchService {
     const card = await this.buildCard(match, input);
     card._id = new Types.ObjectId();
     card.createdAt = new Date();
-    const saved = await this.repo.appendCard(id, card);
+    const saved = await this._seasonMatchRepo.appendCard(id, card);
     if (!saved) {
-      const latest = await this.repo.findById(id);
+      const latest = await this._seasonMatchRepo.findById(id);
       if (latest && latest.status !== "live")
         throw new AppError(
           "Cards can only be added, edited or removed while the match is Live.",
@@ -909,7 +925,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         );
       throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     }
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated match could not be retrieved",
@@ -931,9 +947,9 @@ export class SeasonMatchService implements ISeasonMatchService {
     const card = await this.buildCard(match, input);
     card._id = new Types.ObjectId(cardId);
     card.createdAt = old.createdAt ?? new Date();
-    const saved = await this.repo.updateCard(id, cardId, card);
+    const saved = await this._seasonMatchRepo.updateCard(id, cardId, card);
     if (!saved) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated match could not be retrieved",
@@ -951,9 +967,9 @@ export class SeasonMatchService implements ISeasonMatchService {
     this.id(cardId, "card");
     if (!(match.cards ?? []).some((card) => String(card._id) === cardId))
       throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
-    const saved = await this.repo.removeCard(id, cardId);
+    const saved = await this._seasonMatchRepo.removeCard(id, cardId);
     if (!saved) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated match could not be retrieved",
@@ -970,7 +986,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     this.assertGoalManagementAllowed(match);
     const goal = await this.buildGoal(match, input);
     const result = { ...match, goals: [...match.goals, goal] };
-    const season = await this.repo.findSeason(String(match.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!season.matchRules)
@@ -984,13 +1000,13 @@ export class SeasonMatchService implements ISeasonMatchService {
       season.matchRules,
       season.pointsRules,
     );
-    const saved = await this.repo.appendGoalWithWinner(
+    const saved = await this._seasonMatchRepo.appendGoalWithWinner(
       id,
       goal,
       winner ? new Types.ObjectId(String(winner)) : null,
     );
     if (!saved) {
-      const latest = await this.repo.findById(id);
+      const latest = await this._seasonMatchRepo.findById(id);
       if (latest && latest.status !== "live")
         throw new AppError(
           "Goals can only be added, edited or removed while the match is Live.",
@@ -999,7 +1015,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         );
       throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     }
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated match could not be retrieved",
@@ -1025,7 +1041,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     goal._id = existingGoal._id;
     goal.createdAt = existingGoal.createdAt ?? match.createdAt;
     const goals = match.goals.map((g) => (String(g._id) === goalId ? goal : g));
-    const season = await this.repo.findSeason(String(match.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!season.matchRules)
@@ -1039,14 +1055,14 @@ export class SeasonMatchService implements ISeasonMatchService {
       season.matchRules,
       season.pointsRules,
     );
-    const saved = await this.repo.updateGoalWithWinner(
+    const saved = await this._seasonMatchRepo.updateGoalWithWinner(
       id,
       goalId,
       goal,
       winner ? new Types.ObjectId(String(winner)) : null,
     );
     if (!saved) {
-      const latest = await this.repo.findById(id);
+      const latest = await this._seasonMatchRepo.findById(id);
       if (latest && latest.status !== "live")
         throw new AppError(
           "Goals can only be added, edited or removed while the match is Live.",
@@ -1055,7 +1071,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         );
       throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
     }
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated match could not be retrieved",
@@ -1074,7 +1090,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     const goals = match.goals.filter((g) => String(g._id) !== goalId);
     if (goals.length === match.goals.length)
       throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
-    const season = await this.repo.findSeason(String(match.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!season.matchRules)
@@ -1088,13 +1104,13 @@ export class SeasonMatchService implements ISeasonMatchService {
       season.matchRules,
       season.pointsRules,
     );
-    const saved = await this.repo.removeGoalWithWinner(
+    const saved = await this._seasonMatchRepo.removeGoalWithWinner(
       id,
       goalId,
       winner ? new Types.ObjectId(String(winner)) : null,
     );
     if (!saved) throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
-    const populated = await this.repo.findPopulatedById(id);
+    const populated = await this._seasonMatchRepo.findPopulatedById(id);
     if (!populated)
       throw new AppError(
         "Updated match could not be retrieved",
@@ -1115,11 +1131,11 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (stage === "group") return;
     const [teams, groupMatches, roundOf16, quarterFinals, semiFinals] =
       await Promise.all([
-        this.repo.findSeasonTeams(seasonId),
-        this.repo.findByStage(seasonId, "group"),
-        this.repo.findByStage(seasonId, "round_of_16"),
-        this.repo.findByStage(seasonId, "quarter_final"),
-        this.repo.findByStage(seasonId, "semi_final"),
+        this._seasonMatchRepo.findSeasonTeams(seasonId),
+        this._seasonMatchRepo.findByStage(seasonId, "group"),
+        this._seasonMatchRepo.findByStage(seasonId, "round_of_16"),
+        this._seasonMatchRepo.findByStage(seasonId, "quarter_final"),
+        this._seasonMatchRepo.findByStage(seasonId, "semi_final"),
       ]);
     let groupQualifiers = new Set<string>();
     if (season.groupStageEnabled !== false) {
@@ -1216,7 +1232,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     homeAndAway: boolean,
     excludeId?: string,
   ): Promise<void> {
-    const fixtures = await this.repo.findPairFixtures(
+    const fixtures = await this._seasonMatchRepo.findPairFixtures(
       seasonId,
       stage,
       stage === "group" ? groupId : null,
@@ -1311,8 +1327,8 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (homeId === awayId)
       throw new AppError("A team cannot play itself", 422, "SAME_TEAMS");
     const [home, away] = await Promise.all([
-      this.repo.findSeasonTeam(seasonId, homeId),
-      this.repo.findSeasonTeam(seasonId, awayId),
+      this._seasonMatchRepo.findSeasonTeam(seasonId, homeId),
+      this._seasonMatchRepo.findSeasonTeam(seasonId, awayId),
     ]);
     if (
       !home ||
@@ -1341,7 +1357,7 @@ export class SeasonMatchService implements ISeasonMatchService {
           422,
           "GROUP_REQUIRED",
         );
-      const group = await this.repo.findGroup(seasonId, groupId);
+      const group = await this._seasonMatchRepo.findGroup(seasonId, groupId);
       if (!group)
         throw new AppError(
           "Select a group from this season",
@@ -1398,8 +1414,8 @@ export class SeasonMatchService implements ISeasonMatchService {
         "INVALID_CARD_TEAM",
       );
     const [player, lot] = await Promise.all([
-      this.repo.findPlayer(input.playerRef),
-      this.repo.findSoldLot(String(match.seasonRef), input.playerRef),
+      this._seasonMatchRepo.findPlayer(input.playerRef),
+      this._seasonMatchRepo.findSoldLot(String(match.seasonRef), input.playerRef),
     ]);
     if (
       !player ||
@@ -1415,7 +1431,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     return {
       seasonTeamRef: new Types.ObjectId(teamId),
       playerRef: new Types.ObjectId(input.playerRef),
-      cardType: input.cardType,
+      cardType:input.cardType,period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
     };
   }
   private async buildGoal(
@@ -1435,8 +1451,8 @@ export class SeasonMatchService implements ISeasonMatchService {
       if (!input.scorerPlayerRef)
         throw new AppError("Select the goal scorer", 422, "SCORER_REQUIRED");
       const [player, lot] = await Promise.all([
-        this.repo.findPlayer(input.scorerPlayerRef),
-        this.repo.findSoldLot(String(match.seasonRef), input.scorerPlayerRef),
+        this._seasonMatchRepo.findPlayer(input.scorerPlayerRef),
+        this._seasonMatchRepo.findSoldLot(String(match.seasonRef), input.scorerPlayerRef),
       ]);
       if (
         !player ||
@@ -1453,7 +1469,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         scoringSeasonTeamRef: new Types.ObjectId(scoring),
         scorerPlayerRef: new Types.ObjectId(input.scorerPlayerRef),
         playerSeasonTeamRef: new Types.ObjectId(scoring),
-        goalType: "normal",
+        goalType:"normal",period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
       };
     }
     if (!input.scorerPlayerRef)
@@ -1461,11 +1477,11 @@ export class SeasonMatchService implements ISeasonMatchService {
         scoringSeasonTeamRef: new Types.ObjectId(scoring),
         scorerPlayerRef: null,
         playerSeasonTeamRef: null,
-        goalType: "own_goal",
+        goalType:"own_goal",period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
       };
     const [player, lot] = await Promise.all([
-      this.repo.findPlayer(input.scorerPlayerRef),
-      this.repo.findSoldLot(String(match.seasonRef), input.scorerPlayerRef),
+      this._seasonMatchRepo.findPlayer(input.scorerPlayerRef),
+      this._seasonMatchRepo.findSoldLot(String(match.seasonRef), input.scorerPlayerRef),
     ]);
     const responsibleTeam = scoring === home ? away : home;
     if (!player || !lot || String(lot.seasonTeamRef) !== responsibleTeam)
@@ -1478,7 +1494,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       scoringSeasonTeamRef: new Types.ObjectId(scoring),
       scorerPlayerRef: new Types.ObjectId(input.scorerPlayerRef),
       playerSeasonTeamRef: new Types.ObjectId(responsibleTeam),
-      goalType: "own_goal",
+      goalType:"own_goal",period:input.period??null,minute:input.minute??null,addedMinutes:input.addedMinutes??0,
     };
   }
   private buildShootout(
@@ -1505,7 +1521,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     for (const kick of shootout.kicks) {
       if (kick.playerRef) {
         const team = String(kick.seasonTeamRef);
-        const lot = await this.repo.findSoldLot(
+        const lot = await this._seasonMatchRepo.findSoldLot(
           seasonId,
           String(kick.playerRef),
         );
@@ -1521,8 +1537,7 @@ export class SeasonMatchService implements ISeasonMatchService {
   private calculateWinner(
     match: SeasonMatchFields,
     rules: {
-      groupStageDrawAllowed: boolean;
-      knockoutDrawRequiresShootout: boolean;
+      groupStageDrawAllowed:boolean;
     },
     pointsRules: import("../seasons/season.types.js").SeasonPointsRules | null,
   ): Types.ObjectId | null {
@@ -1568,6 +1583,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       scorerPlayerRef: this.mapPlayer(g.scorerPlayerRef),
       playerSeasonTeamRef: this.mapTeam(g.playerSeasonTeamRef),
       goalType: g.goalType,
+      period:g.period??null,minute:g.minute??null,addedMinutes:g.addedMinutes??0,
       // Older match records may not have timestamps on embedded goal documents.
       createdAt: (g.createdAt ?? fallbackCreatedAt).toISOString(),
     };
@@ -1582,6 +1598,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       seasonTeamRef: this.mapTeam(c.seasonTeamRef)!,
       playerRef: this.mapPlayer(c.playerRef)!,
       cardType: c.cardType,
+      period:c.period??null,minute:c.minute??null,addedMinutes:c.addedMinutes??0,
       createdAt: (c.createdAt ?? fallbackCreatedAt).toISOString(),
     };
   }
@@ -1608,7 +1625,14 @@ export class SeasonMatchService implements ISeasonMatchService {
       venue: typeof venue === "string" ? null : venue.name,
       homeSeasonTeamRef: this.mapTeam(m.homeSeasonTeamRef)!,
       awaySeasonTeamRef: this.mapTeam(m.awaySeasonTeamRef)!,
-      status: m.status,
+      status:m.status,
+      matchDurationMinutes:m.matchDurationMinutes??30,
+      decidingRules:m.decidingRules??{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:m.stage!=="group"}},
+      actualStartedAt:m.actualStartedAt?.toISOString()??null,
+      phase:m.phase??null,
+      clock:{isRunning:m.clock?.isRunning??false,clockStartedAt:m.clock?.clockStartedAt?.toISOString()??null,periodElapsedSecondsByPeriod:{
+        firstHalf:m.clock?.periodElapsedSecondsByPeriod?.firstHalf??0,secondHalf:m.clock?.periodElapsedSecondsByPeriod?.secondHalf??0,
+        extraTimeFirstHalf:m.clock?.periodElapsedSecondsByPeriod?.extraTimeFirstHalf??0,extraTimeSecondHalf:m.clock?.periodElapsedSecondsByPeriod?.extraTimeSecondHalf??0}},
       goals: m.goals.map((g) => this.mapGoal(g, m.createdAt)),
       cards: (m.cards ?? []).map((c) => this.mapCard(c, m.createdAt)),
       resolutionHistory: (m.resolutionHistory ?? []).map((entry) => ({
@@ -1641,7 +1665,7 @@ export class SeasonMatchService implements ISeasonMatchService {
             playerSeasonTeamRef: g.playerSeasonTeamRef
               ? String(g.playerSeasonTeamRef)
               : null,
-            goalType: g.goalType,
+            goalType:g.goalType,period:g.period??null,minute:g.minute??null,addedMinutes:g.addedMinutes??0,
             createdAt:
               g.createdAt?.toISOString() ?? entry.correctedAt.toISOString(),
           })),
@@ -1710,9 +1734,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
   private async getExisting(id: string): Promise<SeasonMatchEntity> {
     this.id(id, "match");
-    const match = await this.repo.findById(id);
+    const match = await this._seasonMatchRepo.findById(id);
     if (!match) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    const season = await this.repo.findSeason(String(match.seasonRef));
+    const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.status !== "active")

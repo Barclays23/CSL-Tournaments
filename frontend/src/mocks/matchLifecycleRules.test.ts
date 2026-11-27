@@ -19,7 +19,7 @@ const normalGoal = (scoringSeasonTeamRef: string, scorer = "player", playerSeaso
   scoringSeasonTeamRef, scorerPlayerRef: scorer, playerSeasonTeamRef, goalType: "normal" as const,
 });
 const season = (overrides = {}) => ({
-  matchRules: { groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true },
+  matchRules:{groupStageDrawAllowed:true,defaultMatchDurationMinutes:30,extraTime:{isAllowedByDefault:false,defaultDurationMinutes:10},penaltyShootout:{isAllowedByDefault:true}},
   pointsRules: { win: 3, draw: 1, loss: 0 },
   ...overrides,
 });
@@ -53,14 +53,14 @@ test("goal management is permitted only while Live for all six statuses", () => 
 });
 
 test("group completion validates points, disallowed draws and shootout prohibition", () => {
-  const base = { status: "completed" as const, stage: "group", homeSeasonTeamRef: home, awaySeasonTeamRef: away, goals: [], penaltyShootout: null };
+  const base={status:"completed" as const,stage:"group",homeSeasonTeamRef:home,awaySeasonTeamRef:away,goals:[],penaltyShootout:null,decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:false}}};
   assert.equal(calculateMockCompletedWinner(base, season(), failure), null);
-  assert.throws(() => calculateMockCompletedWinner(base, season({ matchRules: { groupStageDrawAllowed: false, knockoutDrawRequiresShootout: true } }), failure),
+  assert.throws(() => calculateMockCompletedWinner(base, season({matchRules:{...season().matchRules,groupStageDrawAllowed:false}}), failure),
     (error: unknown) => isMockError(error, 422, "GROUP_DRAW_NOT_ALLOWED"));
   assert.throws(() => calculateMockCompletedWinner(base, season({ pointsRules: null }), failure),
     (error: unknown) => isMockError(error, 409, "SEASON_POINTS_RULES_UNAVAILABLE"));
   assert.throws(() => calculateMockCompletedWinner({ ...base, penaltyShootout: { status: "completed", homeTeamScore: 2, awayTeamScore: 1, kicks: [] } }, season(), failure),
-    (error: unknown) => isMockError(error, 422, "GROUP_SHOOTOUT"));
+    (error: unknown) => isMockError(error, 422, "GROUP_DECIDING_RULES"));
 });
 
 test("completed group result calculates winner from goal events only", () => {
@@ -69,7 +69,7 @@ test("completed group result calculates winner from goal events only", () => {
 });
 
 test("knockout tied result requires a valid completed shootout and derives its winner", () => {
-  const match = { status: "completed" as const, stage: "final", homeSeasonTeamRef: home, awaySeasonTeamRef: away, goals: [], penaltyShootout: { status: "completed" as const, homeTeamScore: 4, awayTeamScore: 3, kicks: [] } };
+  const match={status:"completed" as const,stage:"final",homeSeasonTeamRef:home,awaySeasonTeamRef:away,goals:[],decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:true}},penaltyShootout:{status:"completed" as const,homeTeamScore:4,awayTeamScore:3,kicks:[]}};
   assert.equal(calculateMockCompletedWinner(match, season(), failure), home);
   assert.throws(() => calculateMockCompletedWinner({ ...match, penaltyShootout: null }, season(), failure),
     (error: unknown) => isMockError(error, 422, "SHOOTOUT_REQUIRED"));

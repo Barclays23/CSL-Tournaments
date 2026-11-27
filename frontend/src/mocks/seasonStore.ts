@@ -63,8 +63,13 @@ function loadDatabase(): SeasonMockDatabase {
         const isScheduled = match.status === "scheduled";
         return {
           ...match,
-          _id: matchId,
-          goals: isScheduled ? [] : Array.isArray(match.goals) ? match.goals : [],
+          _id:matchId,
+          matchDurationMinutes:Number.isInteger(match.matchDurationMinutes)&&match.matchDurationMinutes>=10&&match.matchDurationMinutes<=120&&match.matchDurationMinutes%2===0?match.matchDurationMinutes:30,
+          decidingRules:match.decidingRules??{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:match.stage!=="group"&&(match as any).legacyKnockoutShootoutRequired!==false}},
+          actualStartedAt:match.actualStartedAt??null,phase:match.phase??null,
+          clock:match.clock??{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}},
+          goals:isScheduled?[]:Array.isArray(match.goals)?match.goals.map((goal:any)=>({...goal,period:goal.period??null,minute:goal.minute??null,addedMinutes:goal.addedMinutes??0})):[],
+          cards:Array.isArray(match.cards)?match.cards.map((card:any)=>({...card,period:card.period??null,minute:card.minute??null,addedMinutes:card.addedMinutes??0})):[],
           winnerSeasonTeamRef: isScheduled ? null : match.winnerSeasonTeamRef ?? null,
         };
       });
@@ -104,7 +109,7 @@ function loadDatabase(): SeasonMockDatabase {
         sponsors: Array.isArray(stored.sponsors) ? stored.sponsors : seeded.sponsors,
         organizers: Array.isArray(stored.organizers) ? stored.organizers : seeded.organizers,
         news: Array.isArray(stored.news) ? stored.news : seeded.news,
-        seasons: Array.isArray(stored.seasons) ? stored.seasons.map((season: any) => ({ ...season, homeAndAwayFixtures: season.homeAndAwayFixtures ?? false })) : seeded.seasons,
+        seasons:Array.isArray(stored.seasons)?stored.seasons.map((season:any)=>{const legacy=season.matchRules??{};return {...season,homeAndAwayFixtures:season.homeAndAwayFixtures??false,matchRules:{groupStageDrawAllowed:legacy.groupStageDrawAllowed??true,defaultMatchDurationMinutes:legacy.defaultMatchDurationMinutes??30,extraTime:legacy.extraTime??{isAllowedByDefault:false,defaultDurationMinutes:10},penaltyShootout:legacy.penaltyShootout??{isAllowedByDefault:legacy.knockoutDrawRequiresShootout??true},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false}};}):seeded.seasons,
         seasonTeams: Array.isArray(stored.seasonTeams) ? stored.seasonTeams : seeded.seasonTeams,
         auctionLots: Array.isArray(stored.auctionLots) ? stored.auctionLots : seeded.auctionLots,
         matches: normalizedMatches.map((match: any) => {

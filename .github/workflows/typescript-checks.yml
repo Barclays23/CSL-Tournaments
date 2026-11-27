@@ -16,6 +16,7 @@ on:
       - feature/match-status-management-ui
       - feature/match-goal-status-restrictions
       - feature/completed-match-correction
+      - feature/match-timing-foundation
       - feature/match-status-mock-sync-tests
       - fix/auction-lifecycle-and-fixture-validation
       - fix/auction-lot-management-actions

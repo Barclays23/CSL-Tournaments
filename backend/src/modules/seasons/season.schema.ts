@@ -23,9 +23,15 @@ const pointsRules = z.object({
   loss: z.coerce.number().finite().min(0),
 }).strict();
 
+const regularMatchDuration = z.coerce.number().int().min(10).max(120).refine((value) => value % 2 === 0, "Regular match duration must be an even number from 10 to 120 minutes");
+const extraTimeDuration = z.coerce.number().int().positive().refine((value) => value % 2 === 0, "Extra Time duration must be a positive even number of minutes");
+const extraTimeDefaults = z.object({ isAllowedByDefault: z.boolean(), defaultDurationMinutes: extraTimeDuration }).strict();
+const penaltyShootoutDefaults = z.object({ isAllowedByDefault: z.boolean() }).strict();
 const matchRules = z.object({
   groupStageDrawAllowed: z.boolean(),
-  knockoutDrawRequiresShootout: z.boolean(),
+  defaultMatchDurationMinutes: regularMatchDuration,
+  extraTime: extraTimeDefaults,
+  penaltyShootout: penaltyShootoutDefaults,
   shootoutCountsForMatchScore: z.literal(false),
   shootoutCountsForPlayerGoals: z.literal(false),
 }).strict();
@@ -61,7 +67,14 @@ export const seasonCreateSchema = z.object({
   auctionSettings,
   pointsRules: pointsRules.default({ win: 3, draw: 1, loss: 0 }),
   standingsTieBreakers: tieBreakers.default(["points", "goalDifference", "goalsScored", "teamNameAsc"]),
-  matchRules: matchRules.default({ groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false }),
+  matchRules: matchRules.default({
+    groupStageDrawAllowed:true,
+    defaultMatchDurationMinutes:30,
+    extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
+    penaltyShootout: { isAllowedByDefault: true },
+    shootoutCountsForMatchScore: false,
+    shootoutCountsForPlayerGoals: false,
+  }),
 }).strict().superRefine((value, context) => {
   dateRules(value, context);
 });
@@ -78,7 +91,14 @@ export const seasonUpdateSchema = z.object({
   auctionSettings: auctionSettingsBase.partial().optional(),
   pointsRules: pointsRules.partial().optional(),
   standingsTieBreakers: tieBreakers.optional(),
-  matchRules: matchRules.partial().optional(),
+  matchRules: z.object({
+    groupStageDrawAllowed: z.boolean().optional(),
+    defaultMatchDurationMinutes: regularMatchDuration.optional(),
+    extraTime: z.object({ isAllowedByDefault: z.boolean().optional(), defaultDurationMinutes: extraTimeDuration.optional() }).strict().optional(),
+    penaltyShootout: z.object({ isAllowedByDefault: z.boolean().optional() }).strict().optional(),
+    shootoutCountsForMatchScore: z.literal(false).optional(),
+    shootoutCountsForPlayerGoals: z.literal(false).optional(),
+  }).strict().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "At least one season field is required").superRefine(dateRules);
 
 export const seasonQuerySchema = z.object({

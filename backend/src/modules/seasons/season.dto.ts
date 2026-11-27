@@ -27,7 +27,10 @@ export interface UpdateSeasonDto {
   auctionSettings?: Partial<SeasonAuctionSettings>;
   pointsRules?: Partial<SeasonPointsRules>;
   standingsTieBreakers?: SeasonTieBreaker[];
-  matchRules?: Partial<SeasonMatchRules>;
+  matchRules?: Partial<Omit<SeasonMatchRules, "extraTime" | "penaltyShootout">> & {
+    extraTime?: Partial<SeasonMatchRules["extraTime"]>;
+    penaltyShootout?: Partial<SeasonMatchRules["penaltyShootout"]>;
+  };
 }
 
 export interface RegisterSeasonTeamsDto { teamIds: string[]; }
