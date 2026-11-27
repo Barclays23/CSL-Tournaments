@@ -46,6 +46,7 @@ export interface SeasonFields {
   standingsTieBreakers: SeasonTieBreaker[] | null;
   matchRules: SeasonMatchRules | null;
   auctionRevision: number;
+  matchOperationRevision?: number;
 }
 
 export interface SeasonEntity extends SeasonFields {

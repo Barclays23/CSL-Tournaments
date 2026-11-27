@@ -3,8 +3,8 @@ import type { SeasonMatchStatus } from "./seasonMatch.types.js";
 
 export const MATCH_STATUS_TRANSITIONS: Readonly<Record<SeasonMatchStatus, readonly SeasonMatchStatus[]>> = {
   scheduled: ["live", "postponed", "cancelled"],
-  live: ["completed", "scheduled", "postponed", "abandoned"],
-  postponed: ["scheduled", "cancelled"],
+  live: ["postponed", "abandoned"],
+  postponed: ["scheduled", "live", "cancelled", "abandoned"],
   completed: [],
   cancelled: [],
   abandoned: [],

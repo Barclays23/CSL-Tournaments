@@ -110,6 +110,31 @@ function makeHarness(
       };
       return document;
     },
+    applyOperationalUpdate: async (
+      _id: string,
+      _expectedUpdatedAt: Date,
+      data: Partial<SeasonMatchFields>,
+      auditEntry: import("./seasonMatch.types.js").MatchAuditHistoryEntry,
+    ) => {
+      writes.push({ data });
+      const changedStatus = data.status !== undefined && data.status !== document.status;
+      document = {
+        ...document,
+        ...data,
+        auditHistory: [...(document.auditHistory ?? []), auditEntry],
+        statusHistory: changedStatus ? [...(document.statusHistory ?? []), {
+          fromStatus: document.status,
+          toStatus: data.status!,
+          reason: auditEntry.reason,
+          changedBy: auditEntry.actor,
+          changedAt: auditEntry.timestamp,
+          fromKickoffAt: document.kickoffAt,
+          toKickoffAt: data.kickoffAt ?? document.kickoffAt,
+        }] : document.statusHistory,
+        updatedAt: new Date(),
+      };
+      return document;
+    },
     findPopulatedById: async () => document,
   };
 
@@ -123,9 +148,9 @@ function makeHarness(
 test("Scheduled matches can be postponed with a reason and preserve the original kickoff", async () => {
   const harness = makeHarness(createMatch({ status: "scheduled" }));
 
-  const response = await harness.service.update(
+  const response = await harness.service.changeStatus(
     matchId,
-    { status: "postponed", statusReason: "Heavy rain at the venue" },
+    { action: "postpone", reason: "Heavy rain at the venue" },
     actorId,
   );
 
@@ -140,11 +165,14 @@ test("Scheduled matches can be postponed with a reason and preserve the original
 });
 
 test("Live matches can be postponed with a reason and preserve the scheduled kickoff", async () => {
-  const harness = makeHarness(createMatch({ status: "live" }));
+  const harness = makeHarness(createMatch({
+    status: "live",
+    actualStartedAt: new Date("2026-12-10T14:00:00.000Z"),
+  }));
 
-  const response = await harness.service.update(
+  const response = await harness.service.changeStatus(
     matchId,
-    { status: "postponed", statusReason: "Unsafe weather conditions" },
+    { action: "postpone", reason: "Unsafe weather conditions" },
     actorId,
   );
 
@@ -160,7 +188,7 @@ test("postponement without a reason is rejected without writing status history",
   const harness = makeHarness(createMatch({ status: "scheduled" }));
 
   await assert.rejects(
-    () => harness.service.update(matchId, { status: "postponed" }, actorId),
+    () => harness.service.changeStatus(matchId, { action: "postpone", reason: "" }, actorId),
     (error: unknown) => error instanceof AppError
       && error.errorCode === "MATCH_STATUS_REASON_REQUIRED",
   );
@@ -209,11 +237,11 @@ test("postponement cannot change the original kickoff in the same generic update
   await assert.rejects(
     () => harness.service.update(
       matchId,
-      { status: "postponed", statusReason: "Weather", kickoffAt: newKickoffAt },
+      { status: "postponed", kickoffAt: newKickoffAt } as unknown as import("./seasonMatch.dto.js").UpdateSeasonMatchDto,
       actorId,
     ),
     (error: unknown) => error instanceof AppError
-      && error.errorCode === "POSTPONEMENT_KICKOFF_CHANGE_NOT_ALLOWED",
+      && error.errorCode === "MATCH_OPERATION_REQUIRES_DEDICATED_ENDPOINT",
   );
 
   assert.equal(harness.writes.length, 0);
@@ -298,15 +326,15 @@ test("generic update cannot reopen a postponed match or alter its kickoff", asyn
   const harness = makeHarness(createMatch({ status: "postponed" }));
 
   await assert.rejects(
-    () => harness.service.update(matchId, { status: "scheduled", kickoffAt: newKickoffAt }, actorId),
+    () => harness.service.update(matchId, { status: "scheduled", kickoffAt: newKickoffAt } as unknown as import("./seasonMatch.dto.js").UpdateSeasonMatchDto, actorId),
     (error: unknown) => error instanceof AppError
-      && error.errorCode === "MATCH_RESCHEDULE_REQUIRED",
+      && error.errorCode === "MATCH_OPERATION_REQUIRES_DEDICATED_ENDPOINT",
   );
 
   await assert.rejects(
     () => harness.service.update(matchId, { kickoffAt: newKickoffAt }, actorId),
     (error: unknown) => error instanceof AppError
-      && error.errorCode === "MATCH_RESCHEDULE_REQUIRED",
+      && error.errorCode === "MATCH_DETAILS_EDIT_NOT_ALLOWED",
   );
 
   assert.equal(harness.writes.length, 0);
@@ -317,9 +345,9 @@ test("invalid transitions from Postponed remain blocked", async () => {
   const harness = makeHarness(createMatch({ status: "postponed" }));
 
   await assert.rejects(
-    () => harness.service.update(matchId, { status: "live" }, actorId),
+    () => harness.service.changeStatus(matchId, { action: "resume" }, actorId),
     (error: unknown) => error instanceof AppError
-      && error.errorCode === "INVALID_MATCH_STATUS_TRANSITION",
+      && error.errorCode === "MATCH_RESUME_NOT_ALLOWED",
   );
 
   assert.equal(harness.writes.length, 0);

@@ -174,7 +174,7 @@ export function assertPenaltyShootoutScore(
  */
 export function calculateCompletedMatchWinner(
   match: MatchCompletionInput,
-  matchRules: Pick<SeasonMatchRules,"groupStageDrawAllowed">,
+  _matchRules: Pick<SeasonMatchRules,"groupStageDrawAllowed">,
   pointsRules: SeasonPointsRules | null,
 ): string | null {
   if (match.status !== "completed") return null;
@@ -197,17 +197,9 @@ export function calculateCompletedMatchWinner(
 
     if (match.penaltyShootout || match.decidingRules?.extraTime.isAllowed || match.decidingRules?.penaltyShootout.isAllowed) throw new AppError("Group-stage matches cannot use Extra Time or Penalty Shootout.",422,"GROUP_DECIDING_RULES");
 
-    if (score.homeScore === score.awayScore) {
-      if (!matchRules.groupStageDrawAllowed) {
-        throw new AppError(
-          "This season does not allow group-stage draws. Record a valid winning score before completing the match.",
-          422,
-          "GROUP_DRAW_NOT_ALLOWED",
-          { status: "A group-stage match must have a winner under this season's rules." },
-        );
-      }
-      return null;
-    }
+    // Section 17 makes a tied Group Stage fixture a draw. Deciding stages
+    // are never used to manufacture a winner for a group-stage Match.
+    if (score.homeScore === score.awayScore) return null;
 
     return score.homeScore > score.awayScore ? homeId : awayId;
   }

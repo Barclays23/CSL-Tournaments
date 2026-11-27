@@ -3,9 +3,8 @@ import test from "node:test";
 import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import { calculateCompletedMatchWinner } from "./seasonMatch.completionRules.js";
-import { SeasonMatchService } from "./seasonMatch.service.js";
-import type { SeasonMatchRepository } from "./seasonMatch.repository.js";
 import type { SeasonMatchFields, SeasonGoalFields, SeasonPenaltyShootout } from "./seasonMatch.types.js";
+import { assertMatchStatusTransition } from "./seasonMatch.statusRules.js";
 
 const home = new Types.ObjectId("507f1f77bcf86cd799439011");
 const away = new Types.ObjectId("507f1f77bcf86cd799439012");
@@ -106,18 +105,14 @@ test("an incomplete or inconsistent goal record blocks match completion", () => 
   );
 });
 
-test("group-stage draws are accepted or rejected using the season match and points rules", () => {
+test("a tied Group Stage fixture completes as a draw under the Section 17 rule", () => {
   const draw = completedMatch({ goals: [normalGoal(home), normalGoal(away)] });
 
   assert.equal(calculateCompletedMatchWinner(draw, matchRules, pointsRules), null);
-
-  getErrorCode(
-    () => calculateCompletedMatchWinner(
-      draw,
-      { ...matchRules, groupStageDrawAllowed: false },
-      pointsRules,
-    ),
-    "GROUP_DRAW_NOT_ALLOWED",
+  // The legacy season toggle cannot override the authoritative Match phase rule.
+  assert.equal(
+    calculateCompletedMatchWinner(draw, { ...matchRules, groupStageDrawAllowed: false }, pointsRules),
+    null,
   );
 
   getErrorCode(
@@ -231,24 +226,12 @@ test("shootout scores must be non-negative whole numbers", () => {
   );
 });
 
-function serviceForStatus(status: "scheduled" | "postponed"): SeasonMatchService {
-  const repository = {
-    findById: async () => ({
-      seasonRef: new Types.ObjectId("507f1f77bcf86cd799439015"),
-      status,
-    }),
-    findSeason: async () => ({ status: "active" }),
-  };
-
-  return new SeasonMatchService(repository as unknown as SeasonMatchRepository);
-}
-
-test("Scheduled and Postponed fixtures cannot be completed directly", async () => {
+test("Scheduled and Postponed fixtures cannot transition directly to Completed", () => {
   for (const status of ["scheduled", "postponed"] as const) {
-    await assert.rejects(
-      () => serviceForStatus(status).update("507f1f77bcf86cd799439016", { status: "completed" }),
-      (error: unknown) => error instanceof AppError
-        && error.errorCode === "INVALID_MATCH_STATUS_TRANSITION",
+    assert.throws(
+      () => assertMatchStatusTransition(status, "completed"),
+      (error: unknown) => error instanceof AppError && error.errorCode === "INVALID_MATCH_STATUS_TRANSITION",
     );
   }
 });
+

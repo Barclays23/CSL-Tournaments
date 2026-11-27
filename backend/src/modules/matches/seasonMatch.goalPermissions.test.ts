@@ -24,7 +24,10 @@ function makeMatch(status: SeasonMatchStatus, goals: unknown[] = [], cards: unkn
     venueRef: new Types.ObjectId("507f1f77bcf86cd799439016"),
     homeSeasonTeamRef: new Types.ObjectId("507f1f77bcf86cd799439013"),
     awaySeasonTeamRef: new Types.ObjectId("507f1f77bcf86cd799439014"),
-    status,matchDurationMinutes:30,decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:false}},actualStartedAt:null,phase:null,clock:{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}},
+    status,matchDurationMinutes:30,decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:false}},
+    actualStartedAt:status==="live"?new Date("2027-01-01T12:00:00.000Z"):null,
+    phase:status==="live"?"first_half":status==="completed"?"full_time":null,
+    clock:{isRunning:false,clockStartedAt:null,periodElapsedSecondsByPeriod:{firstHalf:600,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0}},
     goals:goals as SeasonMatchEntity["goals"],
     penaltyShootout: null,
     winnerSeasonTeamRef: null,
@@ -139,7 +142,7 @@ test("goal creation, editing and deletion are rejected for every non-Live status
       await assert.rejects(run, (error: unknown) =>
         error instanceof AppError
         && error.statusCode === 409
-        && error.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED",
+        && error.errorCode === (["completed", "cancelled", "abandoned"].includes(status) ? "MATCH_TERMINAL" : "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED"),
         `${operation} must be blocked for ${status}`,
       );
     }
@@ -161,30 +164,32 @@ test("Live status is the only status accepted by the goal permission guard", asy
   }
 });
 
-test("match details cannot be edited after goals or cards exist", async () => {
-  for (const status of ["scheduled", "live"] as const) {
-    for (const eventKind of ["goal", "card"] as const) {
-      const match = makeMatch(status, eventKind === "goal" ? [{}] : [], eventKind === "card" ? [{}] : []);
-      const service = makeService(match);
-      await assert.rejects(
-        () => service.update(matchId, { notes: "Updated venue details" }),
-        (error: unknown) => error instanceof AppError
-          && error.statusCode === 409
-          && error.errorCode === "MATCH_HAS_EVENTS",
-        `A ${status} match with a ${eventKind} must not be editable`,
-      );
-    }
-  }
+test("fixture scheduling fields cannot be changed once a Match has actually started", async () => {
+  const service = makeService(makeMatch("live"));
+  await assert.rejects(
+    () => service.update(matchId, { kickoffAt: new Date("2027-01-02T12:00:00.000Z") }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === "FIXTURE_LOCKED_AFTER_KICKOFF",
+  );
 });
 
-test("match details are not editable in Postponed, Completed, Cancelled or Abandoned statuses", async () => {
-  for (const status of ["postponed", "completed", "cancelled", "abandoned"] as const) {
+test("Postponed fixtures require a dedicated operation and terminal matches remain locked", async () => {
+  const postponedService = makeService(makeMatch("postponed"));
+  await assert.rejects(
+    () => postponedService.update(matchId, { notes: "Attempted edit" }),
+    (error: unknown) => error instanceof AppError
+      && error.statusCode === 409
+      && error.errorCode === "MATCH_DETAILS_EDIT_NOT_ALLOWED",
+  );
+
+  for (const status of ["completed", "cancelled", "abandoned"] as const) {
     const service = makeService(makeMatch(status));
     await assert.rejects(
       () => service.update(matchId, { notes: "Attempted edit" }),
       (error: unknown) => error instanceof AppError
         && error.statusCode === 409
-        && error.errorCode === "MATCH_DETAILS_EDIT_NOT_ALLOWED",
+        && error.errorCode === "MATCH_TERMINAL",
       `Match details must not be editable for ${status}`,
     );
   }

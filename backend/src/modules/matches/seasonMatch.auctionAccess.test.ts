@@ -12,13 +12,14 @@ test("fixture creation, schedule, identity and participant changes require compl
     { venueRef: "507f1f77bcf86cd799439012" },
     { homeSeasonTeamRef: "507f1f77bcf86cd799439013" },
     { awaySeasonTeamRef: "507f1f77bcf86cd799439014" },
+    { matchDurationMinutes: 60 },
     { notes: "Updated fixture note" },
   ];
   for (const mutation of mutations) assert.equal(requiresAuctionForFixtureMutation(mutation), true);
 });
 
 test("match status and penalty-shootout operations do not require completed auction", () => {
-  assert.equal(requiresAuctionForFixtureMutation({ status: "live" }), false);
-  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: null }), false);
-  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: { homeScore: 4, awayScore: 3, kicks: [] } as never }), false);
+  assert.equal(requiresAuctionForFixtureMutation({ status: "live" } as never), false);
+  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: null } as never), false);
+  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: { homeScore: 4, awayScore: 3, kicks: [] } as never } as never), false);
 });
