@@ -479,9 +479,8 @@ export function SeasonMatchDetailsPage(props: {
     match.status === "scheduled" && match.goals.length > 0;
   const events = buildEvents(match.goals, match.cards ?? []);
   const availableEventPeriods = getAvailableEventPeriods(match);
-  const defaultEventTiming = getDefaultEventTiming(match);
-  const goalTimeIsAhead = isEventTimeAheadOfClock(match, goalPeriod, goalMinute, goalAddedMinutes);
-  const cardTimeIsAhead = isEventTimeAheadOfClock(match, cardPeriod, cardMinute, cardAddedMinutes);
+  const goalTimeIsAhead = isEventTimeAheadOfClock(match, goalPeriod, goalMinute, goalAddedMinutes, Date.now());
+  const cardTimeIsAhead = isEventTimeAheadOfClock(match, cardPeriod, cardMinute, cardAddedMinutes, Date.now());
   const goalStoppageTimeAllowed = Boolean(goalPeriod && goalMinute === getPeriodBoundaryMinute(match, goalPeriod));
   const cardStoppageTimeAllowed = Boolean(cardPeriod && cardMinute === getPeriodBoundaryMinute(match, cardPeriod));
   const eligibleCardPlayers = (lotsQuery.data?.data ?? []).filter(
@@ -531,7 +530,7 @@ export function SeasonMatchDetailsPage(props: {
     }
     setSavingGoal(true);
     try {
-      if (goalTimeIsAhead || !goalPeriod) {
+      if (!goalPeriod || isEventTimeAheadOfClock(match, goalPeriod, goalMinute, goalAddedMinutes, Date.now())) {
         toast.error("Choose an available period and an event time that is not ahead of the Match clock.");
         return;
       }
@@ -617,7 +616,7 @@ export function SeasonMatchDetailsPage(props: {
     }
     setSavingCard(true);
     try {
-      if (cardTimeIsAhead || !cardPeriod) {
+      if (!cardPeriod || isEventTimeAheadOfClock(match, cardPeriod, cardMinute, cardAddedMinutes, Date.now())) {
         toast.error("Choose an available period and an event time that is not ahead of the Match clock.");
         return;
       }
@@ -1021,9 +1020,10 @@ export function SeasonMatchDetailsPage(props: {
                       setGoalTeamId(home.id);
                       setGoalType("normal");
                       setGoalPlayerId("");
-                      setGoalPeriod(defaultEventTiming.period);
-                      setGoalMinute(defaultEventTiming.minute);
-                      setGoalAddedMinutes(defaultEventTiming.addedMinutes);
+                      const timing = getDefaultEventTiming(match, Date.now());
+                      setGoalPeriod(timing.period);
+                      setGoalMinute(timing.minute);
+                      setGoalAddedMinutes(timing.addedMinutes);
                       setGoalOpen(true);
                     }}
                   >
@@ -1039,9 +1039,10 @@ export function SeasonMatchDetailsPage(props: {
                       setCardTeamId(home.id);
                       setCardPlayerId("");
                       setCardType("yellow_card");
-                      setCardPeriod(defaultEventTiming.period);
-                      setCardMinute(defaultEventTiming.minute);
-                      setCardAddedMinutes(defaultEventTiming.addedMinutes);
+                      const timing = getDefaultEventTiming(match, Date.now());
+                      setCardPeriod(timing.period);
+                      setCardMinute(timing.minute);
+                      setCardAddedMinutes(timing.addedMinutes);
                       setCardOpen(true);
                     }}
                   >
@@ -1125,7 +1126,7 @@ export function SeasonMatchDetailsPage(props: {
         onPlayerChange={setGoalPlayerId}
         period={goalPeriod}
         periodOptions={availableEventPeriods}
-        onPeriodChange={(value) => { setGoalPeriod(value); setGoalAddedMinutes(0); }}
+        onPeriodChange={(value) => { const timing = getDefaultEventTiming(match, Date.now()); setGoalPeriod(value); setGoalMinute(value === timing.period ? timing.minute : getPeriodBoundaryMinute(match, value)); setGoalAddedMinutes(0); }}
         minute={goalMinute}
         onMinuteChange={(value) => { setGoalMinute(value); setGoalAddedMinutes(0); }}
         addedMinutes={goalAddedMinutes}
@@ -1175,7 +1176,7 @@ export function SeasonMatchDetailsPage(props: {
         onPlayerChange={setCardPlayerId}
         period={cardPeriod}
         periodOptions={availableEventPeriods}
-        onPeriodChange={(value) => { setCardPeriod(value); setCardAddedMinutes(0); }}
+        onPeriodChange={(value) => { const timing = getDefaultEventTiming(match, Date.now()); setCardPeriod(value); setCardMinute(value === timing.period ? timing.minute : getPeriodBoundaryMinute(match, value)); setCardAddedMinutes(0); }}
         minute={cardMinute}
         onMinuteChange={(value) => { setCardMinute(value); setCardAddedMinutes(0); }}
         addedMinutes={cardAddedMinutes}
