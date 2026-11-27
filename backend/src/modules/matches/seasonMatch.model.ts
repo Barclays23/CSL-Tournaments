@@ -64,6 +64,25 @@ const resolutionSchema = new Schema({
 const extraTimeRuleSchema=new Schema({isAllowed:{type:Boolean,required:true},durationMinutes:{type:Number,required:true,validate:{validator:(v:number)=>Number.isInteger(v)&&v>0&&v%2===0}}},{_id:false});
 const decidingRulesSchema=new Schema({extraTime:{type:extraTimeRuleSchema,required:true},penaltyShootout:{type:new Schema({isAllowed:{type:Boolean,required:true}},{_id:false}),required:true}},{_id:false});
 const clockSchema=new Schema<MatchClock>({isRunning:{type:Boolean,required:true,default:false},clockStartedAt:{type:Date,default:null},periodElapsedSecondsByPeriod:{type:new Schema({firstHalf:{type:Number,default:0,min:0,validate:Number.isInteger},secondHalf:{type:Number,default:0,min:0,validate:Number.isInteger},extraTimeFirstHalf:{type:Number,default:0,min:0,validate:Number.isInteger},extraTimeSecondHalf:{type:Number,default:0,min:0,validate:Number.isInteger}},{_id:false}),required:true,default:()=>({})}},{_id:false});
+const auditSnapshotSchema=new Schema({
+ status:{type:String,enum:["scheduled","live","completed","postponed","cancelled","abandoned"],default:undefined},
+ phase:{type:String,enum:["first_half","half_time","second_half","regular_full_time","extra_time_first_half","extra_time_half_time","extra_time_second_half","extra_time_completed","penalty_shootout","penalty_shootout_completed","full_time"],default:undefined},
+ actualStartedAt:{type:Date,default:undefined},
+ clock:{type:clockSchema,default:undefined},
+ decidingRules:{type:decidingRulesSchema,default:undefined},
+ kickoffAt:{type:Date,default:undefined},
+ winnerSeasonTeamRef:{type:Schema.Types.ObjectId,ref:"SeasonTeam",default:undefined},
+ penaltyShootout:{type:shootoutSchema,default:undefined},
+ score:{type:new Schema({homeScore:{type:Number,required:true},awayScore:{type:Number,required:true}},{_id:false}),default:undefined},
+},{_id:false,strict:true});
+const auditHistorySchema=new Schema({
+ action:{type:String,enum:["start_match","pause_clock","resume_clock","phase_transition","phase_correction","status_change","deciding_rules_change","actual_kickoff_correction","clock_correction","shootout_update","completed_match_correction"],required:true},
+ actor:{type:Schema.Types.ObjectId,ref:"User",required:true},
+ timestamp:{type:Date,required:true},
+ previousValue:{type:auditSnapshotSchema,required:true},
+ newValue:{type:auditSnapshotSchema,required:true},
+ reason:{type:String,default:null,trim:true,maxlength:1000},
+},{_id:false,timestamps:false});
 const schema = new Schema<SeasonMatchFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   matchNumber: { type: Number, required: true, min: 1 },
@@ -87,6 +106,7 @@ const schema = new Schema<SeasonMatchFields>({
   resolutionHistory: { type: [resolutionSchema], default: [] },
   statusHistory: { type: [statusHistorySchema], default: [] },
   correctionHistory: { type: [correctionHistorySchema], default: [] },
+  auditHistory: { type: [auditHistorySchema], default: [] },
 }, { timestamps: true, versionKey: false });
 
 // Group-stage deciding-rule restrictions are enforced in Zod and the service layer.

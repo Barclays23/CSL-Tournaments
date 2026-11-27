@@ -1,11 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { Types } from "mongoose";
 import { AppError } from "../../shared/errors/appError.js";
 import { calculateCompletedMatchWinner } from "./seasonMatch.completionRules.js";
-import { SeasonMatchService } from "./seasonMatch.service.js";
-import type { SeasonMatchRepository } from "./seasonMatch.repository.js";
 import type { SeasonMatchFields, SeasonGoalFields, SeasonPenaltyShootout } from "./seasonMatch.types.js";
+import { assertMatchStatusTransition } from "./seasonMatch.statusRules.js";
 
 const home = new Types.ObjectId("507f1f77bcf86cd799439011");
 const away = new Types.ObjectId("507f1f77bcf86cd799439012");
@@ -231,24 +229,12 @@ test("shootout scores must be non-negative whole numbers", () => {
   );
 });
 
-function serviceForStatus(status: "scheduled" | "postponed"): SeasonMatchService {
-  const repository = {
-    findById: async () => ({
-      seasonRef: new Types.ObjectId("507f1f77bcf86cd799439015"),
-      status,
-    }),
-    findSeason: async () => ({ status: "active" }),
-  };
-
-  return new SeasonMatchService(repository as unknown as SeasonMatchRepository);
-}
-
-test("Scheduled and Postponed fixtures cannot be completed directly", async () => {
+test("Scheduled and Postponed fixtures cannot transition directly to Completed", () => {
   for (const status of ["scheduled", "postponed"] as const) {
-    await assert.rejects(
-      () => serviceForStatus(status).update("507f1f77bcf86cd799439016", { status: "completed" }),
-      (error: unknown) => error instanceof AppError
-        && error.errorCode === "INVALID_MATCH_STATUS_TRANSITION",
+    assert.throws(
+      () => assertMatchStatusTransition(status, "completed"),
+      (error: unknown) => error instanceof AppError && error.errorCode === "INVALID_MATCH_STATUS_TRANSITION",
     );
   }
 });
+

@@ -12,6 +12,7 @@ test("fixture creation, schedule, identity and participant changes require compl
     { venueRef: "507f1f77bcf86cd799439012" },
     { homeSeasonTeamRef: "507f1f77bcf86cd799439013" },
     { awaySeasonTeamRef: "507f1f77bcf86cd799439014" },
+    { matchDurationMinutes: 60 },
     { notes: "Updated fixture note" },
   ];
   for (const mutation of mutations) assert.equal(requiresAuctionForFixtureMutation(mutation), true);

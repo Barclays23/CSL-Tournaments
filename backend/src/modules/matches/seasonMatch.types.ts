@@ -12,13 +12,26 @@ export type ShootoutStatus="pending"|"completed";
 export type ShootoutKickResult="scored"|"missed"|"saved";
 export interface SeasonMatchResolutionEntry{status:"cancelled"|"abandoned";reason:string;decidedAt:Date;}
 export interface SeasonMatchCorrectionResult{homeScore:number;awayScore:number;goals:SeasonGoalFields[];penaltyShootout:SeasonPenaltyShootout|null;winnerSeasonTeamRef:Types.ObjectId|null;}
+export type MatchAuditAction="start_match"|"pause_clock"|"resume_clock"|"phase_transition"|"phase_correction"|"status_change"|"deciding_rules_change"|"actual_kickoff_correction"|"clock_correction"|"shootout_update"|"completed_match_correction";
+export interface MatchAuditSnapshot{
+ status?:SeasonMatchStatus;
+ phase?:MatchPhase;
+ actualStartedAt?:Date|null;
+ clock?:MatchClock;
+ decidingRules?:MatchDecidingRules;
+ kickoffAt?:Date;
+ winnerSeasonTeamRef?:Types.ObjectId|null;
+ penaltyShootout?:SeasonPenaltyShootout|null;
+ score?:{homeScore:number;awayScore:number};
+}
+export interface MatchAuditHistoryEntry{action:MatchAuditAction;actor:Types.ObjectId;timestamp:Date;previousValue:MatchAuditSnapshot;newValue:MatchAuditSnapshot;reason:string|null;}
 export interface SeasonMatchCorrectionHistoryEntry{reason:string;correctedBy:Types.ObjectId;correctedAt:Date;originalResult:SeasonMatchCorrectionResult;correctedResult:SeasonMatchCorrectionResult;}
 export interface SeasonMatchStatusHistoryEntry{fromStatus:SeasonMatchStatus;toStatus:SeasonMatchStatus;reason:string|null;changedBy:Types.ObjectId;changedAt:Date;fromKickoffAt?:Date|null;toKickoffAt?:Date|null;}
 export interface SeasonGoalFields{_id?:Types.ObjectId;scoringSeasonTeamRef:Types.ObjectId;scorerPlayerRef:Types.ObjectId|null;playerSeasonTeamRef:Types.ObjectId|null;goalType:SeasonGoalType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt?:Date;}
 export interface SeasonShootoutKick{seasonTeamRef:Types.ObjectId;playerRef:Types.ObjectId|null;result:ShootoutKickResult;}
 export interface SeasonMatchCardFields{_id?:Types.ObjectId;seasonTeamRef:Types.ObjectId;playerRef:Types.ObjectId;cardType:SeasonCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt?:Date;}
 export interface SeasonPenaltyShootout{status:ShootoutStatus;homeTeamScore:number;awayTeamScore:number;kicks:SeasonShootoutKick[];}
-export interface SeasonMatchFields{seasonRef:Types.ObjectId;matchNumber:number;roundNumber:number;stage:SeasonMatchStage;groupRef:Types.ObjectId|null;kickoffAt:Date;venueRef:Types.ObjectId;homeSeasonTeamRef:Types.ObjectId;awaySeasonTeamRef:Types.ObjectId;status:SeasonMatchStatus;matchDurationMinutes:number;decidingRules:MatchDecidingRules;actualStartedAt:Date|null;phase:MatchPhase;clock:MatchClock;goals:SeasonGoalFields[];cards?:SeasonMatchCardFields[];penaltyShootout:SeasonPenaltyShootout|null;winnerSeasonTeamRef:Types.ObjectId|null;notes:string|null;resolutionHistory:SeasonMatchResolutionEntry[];statusHistory?:SeasonMatchStatusHistoryEntry[];correctionHistory?:SeasonMatchCorrectionHistoryEntry[];}
+export interface SeasonMatchFields{seasonRef:Types.ObjectId;matchNumber:number;roundNumber:number;stage:SeasonMatchStage;groupRef:Types.ObjectId|null;kickoffAt:Date;venueRef:Types.ObjectId;homeSeasonTeamRef:Types.ObjectId;awaySeasonTeamRef:Types.ObjectId;status:SeasonMatchStatus;matchDurationMinutes:number;decidingRules:MatchDecidingRules;actualStartedAt:Date|null;phase:MatchPhase;clock:MatchClock;goals:SeasonGoalFields[];cards?:SeasonMatchCardFields[];penaltyShootout:SeasonPenaltyShootout|null;winnerSeasonTeamRef:Types.ObjectId|null;notes:string|null;resolutionHistory:SeasonMatchResolutionEntry[];statusHistory?:SeasonMatchStatusHistoryEntry[];correctionHistory?:SeasonMatchCorrectionHistoryEntry[];auditHistory?:MatchAuditHistoryEntry[];}
 export interface SeasonMatchEntity extends SeasonMatchFields{_id:Types.ObjectId;createdAt:Date;updatedAt:Date;}
 export interface SeasonMatchListFilter{seasonRef:Types.ObjectId;stage?:SeasonMatchStage;groupRef?:Types.ObjectId|null;status?:SeasonMatchStatus;matchNumber?:number;homeSeasonTeamRef?:Types.ObjectId|{$in:Types.ObjectId[]};awaySeasonTeamRef?:Types.ObjectId|{$in:Types.ObjectId[]};kickoffAt?:{$gte?:Date;$lte?:Date};$or?:Array<Partial<SeasonMatchListFilter>>;$and?:Array<{ $or:Array<Partial<SeasonMatchListFilter>> }>; }
 export interface MatchTeamSnapshot{_id:Types.ObjectId;displayName:string;logoSnapshot:Asset|null;teamRef:{_id:Types.ObjectId;name:string;shortName:string|null;logo:Asset|null}|Types.ObjectId;}

@@ -9,6 +9,7 @@ const FIXTURE_DETAIL_FIELDS = [
   "venueRef",
   "homeSeasonTeamRef",
   "awaySeasonTeamRef",
+  "matchDurationMinutes",
   "notes",
 ] as const;
 

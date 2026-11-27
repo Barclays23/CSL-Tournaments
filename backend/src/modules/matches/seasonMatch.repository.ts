@@ -1,6 +1,6 @@
 import mongoose, { Types } from "mongoose";
 import type { ClientSession } from "mongoose";
-import type { SeasonMatchFields, SeasonMatchEntity, SeasonMatchListFilter, PopulatedSeasonMatch } from "./seasonMatch.types.js";
+import type { SeasonMatchFields, SeasonMatchEntity, SeasonMatchListFilter, PopulatedSeasonMatch, MatchAuditHistoryEntry, SeasonMatchStatusHistoryEntry } from "./seasonMatch.types.js";
 import { SeasonMatchModel } from "./seasonMatch.model.js";
 import { SeasonModel } from "../seasons/season.model.js";
 import { SeasonTeamModel } from "../seasonTeams/seasonTeam.model.js";
@@ -273,6 +273,10 @@ export class SeasonMatchRepository {
         }
       }
 
+      const fixtureCoreFields = ["kickoffAt", "homeSeasonTeamRef", "awaySeasonTeamRef", "stage", "groupRef", "roundNumber", "matchNumber", "venueRef", "matchDurationMinutes"] as const;
+      if (current.actualStartedAt && fixtureCoreFields.some(field => data[field] !== undefined)) {
+        throw new AppError("Core fixture fields are immutable after actual kickoff, including after postponement.", 409, "FIXTURE_LOCKED_AFTER_KICKOFF");
+      }
       const next = { ...current, ...data };
       if (next.status === "live") await this.assertNoOtherLiveMatch(next, id, session);
       const pairChanged = String(next.homeSeasonTeamRef) !== String(current.homeSeasonTeamRef)
@@ -313,7 +317,75 @@ export class SeasonMatchRepository {
     }, false, options?.requireAuctionCompleted ?? true);
   }
 
-  async correctCompletedMatch(id: string, expectedUpdatedAt: Date, goals: SeasonMatchFields["goals"], penaltyShootout: SeasonMatchFields["penaltyShootout"], winnerSeasonTeamRef: Types.ObjectId | null, historyEntry: import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry): Promise<SeasonMatchEntity | null> {
+  /**
+   * Applies one operational transition with compare-and-set semantics. The session
+   * and updatedAt predicate prevent two admins from overwriting clock/phase changes.
+   * The optional season write lock serializes simultaneous kickoff attempts.
+   */
+  async applyOperationalUpdate(
+    id: string,
+    expectedUpdatedAt: Date,
+    set: Partial<SeasonMatchFields>,
+    auditEntry: MatchAuditHistoryEntry,
+    options: { serializeSeasonStart?: boolean; requireAuctionCompleted?: boolean } = {},
+  ): Promise<SeasonMatchEntity | null> {
+    const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
+    if (!existing) return null;
+
+    return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
+      if (options.serializeSeasonStart) {
+        const seasonLock = await SeasonModel.updateOne(
+          { _id: existing.seasonRef, status: { $in: ["upcoming", "active"] } },
+          { $inc: { matchOperationRevision: 1 } },
+          { session },
+        ).exec();
+        if (seasonLock.matchedCount !== 1) {
+          const season = await SeasonModel.findById(existing.seasonRef).select("status").session(session)
+            .lean<{ status: SeasonStatus } | null>().exec();
+          if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          throw new AppError("Completed or archived seasons are read-only", 409, "SEASON_WRITE_LOCKED");
+        }
+      }
+
+      const current = await SeasonMatchModel.findOne({
+        _id: new Types.ObjectId(id),
+        seasonRef: existing.seasonRef,
+        updatedAt: expectedUpdatedAt,
+      }).session(session).lean<SeasonMatchEntity>().exec();
+      if (!current) {
+        const latest = await SeasonMatchModel.findById(id).session(session).select("_id").lean().exec();
+        if (!latest) return null;
+        throw new AppError("This Match changed during the operation. Refresh and try again.", 409, "MATCH_OPERATION_CONFLICT");
+      }
+
+      if (set.status === "live") {
+        const next = { ...current, ...set };
+        await this.assertNoOtherLiveMatch(next, id, session);
+      }
+
+      const push: { auditHistory: MatchAuditHistoryEntry; statusHistory?: SeasonMatchStatusHistoryEntry } = { auditHistory: auditEntry };
+      if (set.status !== undefined && set.status !== current.status) {
+        push.statusHistory = {
+          fromStatus: current.status,
+          toStatus: set.status,
+          reason: auditEntry.reason,
+          changedBy: auditEntry.actor,
+          changedAt: auditEntry.timestamp,
+          fromKickoffAt: current.kickoffAt,
+          toKickoffAt: set.kickoffAt ?? current.kickoffAt,
+        };
+      }
+      const saved = await SeasonMatchModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, updatedAt: expectedUpdatedAt },
+        { $set: set, $push: push },
+        { session, returnDocument: "after", runValidators: true },
+      ).lean<SeasonMatchEntity>().exec();
+      if (!saved) throw new AppError("This Match changed during the operation. Refresh and try again.", 409, "MATCH_OPERATION_CONFLICT");
+      return saved;
+    }, false, options.requireAuctionCompleted ?? false);
+  }
+
+  async correctCompletedMatch(id: string, expectedUpdatedAt: Date, goals: SeasonMatchFields["goals"], penaltyShootout: SeasonMatchFields["penaltyShootout"], winnerSeasonTeamRef: Types.ObjectId | null, historyEntry: import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry, auditEntry?: MatchAuditHistoryEntry): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
@@ -324,7 +396,7 @@ export class SeasonMatchRepository {
         if (!latest) return null;
         throw new AppError("This completed match changed while the correction was being prepared. Refresh and try again.", 409, "MATCH_CORRECTION_CONFLICT");
       }
-      return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: { correctionHistory: historyEntry } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
+      return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: { correctionHistory: historyEntry, ...(auditEntry ? { auditHistory: auditEntry } : {}) } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
     }, true, false);
   }
 
@@ -362,36 +434,36 @@ export class SeasonMatchRepository {
   }
 
 
-  async appendGoalWithWinner(id: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
+  async appendGoalWithWinner(id: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null, expectedUpdatedAt?: Date): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}) },
         { $push: { goals: goal }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
       false, false);
   }
 
-  async updateGoalWithWinner(id: string, goalId: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
+  async updateGoalWithWinner(id: string, goalId: string, goal: SeasonMatchFields["goals"][number], winnerSeasonTeamRef: Types.ObjectId | null, expectedUpdatedAt?: Date): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", "goals._id": new Types.ObjectId(goalId) },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}), "goals._id": new Types.ObjectId(goalId) },
         { $set: { "goals.$": goal, winnerSeasonTeamRef } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(),
       false, false);
   }
 
-  async removeGoalWithWinner(id: string, goalId: string, winnerSeasonTeamRef: Types.ObjectId | null): Promise<SeasonMatchEntity | null> {
+  async removeGoalWithWinner(id: string, goalId: string, winnerSeasonTeamRef: Types.ObjectId | null, expectedUpdatedAt?: Date): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}) },
         { $pull: { goals: { _id: new Types.ObjectId(goalId) } }, $set: { winnerSeasonTeamRef } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(),
@@ -432,34 +504,34 @@ export class SeasonMatchRepository {
       ).lean<SeasonMatchEntity>().exec(),
       false, false);
   }
-  async appendCard(id: string, card: import("./seasonMatch.types.js").SeasonMatchCardFields): Promise<SeasonMatchEntity | null> {
+  async appendCard(id: string, card: import("./seasonMatch.types.js").SeasonMatchCardFields, expectedUpdatedAt?: Date): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}) },
         { $push: { cards: card } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(), false, false);
   }
 
-  async updateCard(id: string, cardId: string, card: import("./seasonMatch.types.js").SeasonMatchCardFields): Promise<SeasonMatchEntity | null> {
+  async updateCard(id: string, cardId: string, card: import("./seasonMatch.types.js").SeasonMatchCardFields, expectedUpdatedAt?: Date): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", "cards._id": new Types.ObjectId(cardId) },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}), "cards._id": new Types.ObjectId(cardId) },
         { $set: { "cards.$": card } },
         { session, returnDocument: "after", runValidators: true },
       ).lean<SeasonMatchEntity>().exec(), false, false);
   }
 
-  async removeCard(id: string, cardId: string): Promise<SeasonMatchEntity | null> {
+  async removeCard(id: string, cardId: string, expectedUpdatedAt?: Date): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), (session) =>
       SeasonMatchModel.findOneAndUpdate(
-        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live" },
+        { _id: new Types.ObjectId(id), seasonRef: existing.seasonRef, status: "live", ...(expectedUpdatedAt ? { updatedAt: expectedUpdatedAt } : {}) },
         { $pull: { cards: { _id: new Types.ObjectId(cardId) } } },
         { session, returnDocument: "after" },
       ).lean<SeasonMatchEntity>().exec(), false, false);

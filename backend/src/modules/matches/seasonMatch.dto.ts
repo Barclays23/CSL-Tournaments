@@ -1,5 +1,5 @@
 import type { Asset } from "../../shared/types/common.types.js";
-import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult, MatchPhase, MatchTimedPeriod, MatchDecidingRules, MatchClock } from "./seasonMatch.types.js";
+import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult, MatchPhase, MatchTimedPeriod, MatchDecidingRules, MatchClock, MatchAuditHistoryEntry } from "./seasonMatch.types.js";
 
 export interface SeasonMatchResolutionDto {
   status: "cancelled" | "abandoned";
@@ -16,10 +16,16 @@ export interface SeasonMatchStatusHistoryDto {
   toKickoffAt: string | null;
 }
 export interface RescheduleSeasonMatchDto { kickoffAt: Date; reason?: string; }
+export interface SeasonMatchShootoutInput {
+  status: ShootoutStatus;
+  homeTeamScore: number;
+  awayTeamScore: number;
+  kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }>;
+}
 export interface CorrectCompletedMatchDto {
   reason: string;
   goals: SeasonGoalDto[];
-  penaltyShootout: CreateSeasonMatchDto["penaltyShootout"];
+  penaltyShootout: SeasonMatchShootoutInput | null;
 }
 export interface SeasonMatchCorrectionGoalDto {
   _id: string;
@@ -58,18 +64,11 @@ export interface CreateSeasonMatchDto {
   venueRef: string;
   homeSeasonTeamRef: string;
   awaySeasonTeamRef: string;
-  status?: SeasonMatchStatus;
   notes?: string | null;
   matchDurationMinutes?:number;
   decidingRules?:MatchDecidingRules;
-  penaltyShootout?: {
-    status: ShootoutStatus;
-    homeTeamScore: number;
-    awayTeamScore: number;
-    kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }>;
-  } | null;
 }
-export type UpdateSeasonMatchDto = Omit<Partial<CreateSeasonMatchDto>,"decidingRules"> & { resolutionReason?: string; statusReason?: string };
+export type UpdateSeasonMatchDto = Partial<Omit<CreateSeasonMatchDto, "decidingRules">>;
 export interface SeasonMatchQueryDto {
   page: number;
   limit: number;
@@ -82,6 +81,40 @@ export interface SeasonMatchQueryDto {
   search?: string;
 }
 export interface MatchEventTimingDto {period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number;}
+export interface UpdateMatchDecidingRulesDto { decidingRules: MatchDecidingRules; reason?: string; }
+export type MatchStatusActionDto =
+  | { action: "postpone" | "cancel" | "abandon"; reason: string }
+  | { action: "resume" };
+export interface CorrectActualKickoffDto { actualStartedAt: Date; reason: string; }
+export interface CorrectMatchPhaseDto { phase: Exclude<MatchPhase, null | "full_time">; reason: string; }
+export interface CorrectMatchClockDto {
+  periodElapsedSecondsByPeriod: Partial<MatchClock["periodElapsedSecondsByPeriod"]>;
+  reason: string;
+}
+export interface UpdateMatchShootoutDto {
+  homeTeamScore: number;
+  awayTeamScore: number;
+  kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }>;
+}
+export interface MatchAuditSnapshotDto {
+  status?: SeasonMatchStatus;
+  phase?: MatchPhase;
+  actualStartedAt?: string | null;
+  clock?: Omit<MatchClock, "clockStartedAt"> & { clockStartedAt: string | null };
+  decidingRules?: MatchDecidingRules;
+  kickoffAt?: string;
+  winnerSeasonTeamRef?: string | null;
+  penaltyShootout?: SeasonMatchCorrectionShootoutDto | null;
+  score?: { homeScore: number; awayScore: number };
+}
+export interface MatchAuditHistoryDto {
+  action: MatchAuditHistoryEntry["action"];
+  actor: string;
+  timestamp: string;
+  previousValue: MatchAuditSnapshotDto;
+  newValue: MatchAuditSnapshotDto;
+  reason: string | null;
+}
 export interface SeasonGoalDto extends MatchEventTimingDto {scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:SeasonGoalType;}
 export interface SeasonMatchCardDto extends MatchEventTimingDto {seasonTeamRef:string;playerRef:string;cardType:SeasonCardType;}
 export interface SeasonMatchCardResponseDto { _id:string;seasonTeamRef:SeasonMatchTeamDto|string;playerRef:SeasonMatchPlayerDto|string;cardType:SeasonCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string;}
@@ -130,6 +163,7 @@ export interface SeasonMatchResponseDto {
   resolutionHistory: SeasonMatchResolutionDto[];
   statusHistory: SeasonMatchStatusHistoryDto[];
   correctionHistory: SeasonMatchCorrectionHistoryDto[];
+  auditHistory: MatchAuditHistoryDto[];
   createdAt: string;
   updatedAt: string;
 }

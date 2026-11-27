@@ -51,6 +51,7 @@ const seasonSchema = new Schema<SeasonFields>({
   standingsTieBreakers: { type: [{ type: String, enum: ["points", "goalDifference", "goalsScored", "teamNameAsc"] }], default: null },
   matchRules: { type: matchRulesSchema, default: null },
   auctionRevision: { type: Number, default: 0, select: false },
+  matchOperationRevision: { type: Number, default: 0, select: false },
 }, { timestamps: true, versionKey: false });
 
 seasonSchema.index({ seasonNumber: 1 }, { unique: true });
