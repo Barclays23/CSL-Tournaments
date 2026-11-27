@@ -596,7 +596,7 @@ export const seasonPreviewRepository = {
     match.status = "live";
     match.actualStartedAt = changedAt;
     match.phase = "first_half";
-    match.clock = startMockMatchClock(match, "first_half", new Date(changedAt));
+    match.clock = startMockMatchClock(match, "first_half", fail, new Date(changedAt));
     match.winnerSeasonTeamRef = null;
     appendMockStatusHistory(match, beforeStatus, "live", null, changedAt);
     appendMockMatchAudit(match, "start_match", previous, null, changedAt);
@@ -616,7 +616,7 @@ export const seasonPreviewRepository = {
     if (!match.clock.isRunning) fail(409, "The Match clock is already paused.", "MATCH_CLOCK_NOT_RUNNING");
     const previous = mockMatchAuditSnapshot(match);
     const timestamp = now();
-    match.clock = stopMockMatchClock(match, new Date(timestamp));
+    match.clock = stopMockMatchClock(match, fail, new Date(timestamp));
     appendMockMatchAudit(match, "pause_clock", previous, null, timestamp);
     match.updatedAt = timestamp;
     commitSeasonDb(db);
@@ -634,7 +634,7 @@ export const seasonPreviewRepository = {
     if (match.clock.isRunning) fail(409, "The Match clock is already running.", "MATCH_CLOCK_ALREADY_RUNNING");
     const previous = mockMatchAuditSnapshot(match);
     const timestamp = now();
-    match.clock = startMockMatchClock(match, match.phase, new Date(timestamp));
+    match.clock = startMockMatchClock(match, match.phase, fail, new Date(timestamp));
     appendMockMatchAudit(match, "resume_clock", previous, null, timestamp);
     match.updatedAt = timestamp;
     commitSeasonDb(db);
@@ -654,31 +654,31 @@ export const seasonPreviewRepository = {
     const timestamp = now();
     switch (action) {
       case "half_time":
-        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.clock = stopMockMatchClock(match, fail, new Date(timestamp));
         match.phase = "half_time";
         break;
       case "start_second_half":
         match.phase = "second_half";
-        match.clock = startMockMatchClock(match, "second_half", new Date(timestamp));
+        match.clock = startMockMatchClock(match, "second_half", fail, new Date(timestamp));
         break;
       case "regular_full_time":
-        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.clock = stopMockMatchClock(match, fail, new Date(timestamp));
         match.phase = "regular_full_time";
         break;
       case "start_extra_time":
         match.phase = "extra_time_first_half";
-        match.clock = startMockMatchClock(match, "extra_time_first_half", new Date(timestamp));
+        match.clock = startMockMatchClock(match, "extra_time_first_half", fail, new Date(timestamp));
         break;
       case "extra_time_half_time":
-        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.clock = stopMockMatchClock(match, fail, new Date(timestamp));
         match.phase = "extra_time_half_time";
         break;
       case "start_extra_time_second_half":
         match.phase = "extra_time_second_half";
-        match.clock = startMockMatchClock(match, "extra_time_second_half", new Date(timestamp));
+        match.clock = startMockMatchClock(match, "extra_time_second_half", fail, new Date(timestamp));
         break;
       case "end_extra_time":
-        match.clock = stopMockMatchClock(match, new Date(timestamp));
+        match.clock = stopMockMatchClock(match, fail, new Date(timestamp));
         match.phase = "extra_time_completed";
         break;
       case "start_penalty_shootout":
@@ -761,7 +761,7 @@ export const seasonPreviewRepository = {
     if (action.action === "resume") {
       if (match.status !== "postponed" || !match.actualStartedAt) fail(409, "Only a Postponed Match that has already kicked off can resume as the same fixture.", "MATCH_RESUME_NOT_ALLOWED");
       assertNoOtherLiveMatch(db, seasonId, match.homeSeasonTeamRef, match.awaySeasonTeamRef, matchId);
-      if (mockTimedPeriodForPhase(match.phase)) match.clock = startMockMatchClock(match, match.phase, new Date(timestamp));
+      if (mockTimedPeriodForPhase(match.phase)) match.clock = startMockMatchClock(match, match.phase, fail, new Date(timestamp));
       match.status = "live";
     } else if (action.action === "postpone") {
       if (match.status !== "scheduled" && match.status !== "live") fail(409, "Only Scheduled or Live matches can be postponed.", "MATCH_POSTPONE_NOT_ALLOWED");
@@ -774,7 +774,7 @@ export const seasonPreviewRepository = {
       match.resolutionHistory.push({ status: "cancelled", reason: reason!, decidedAt: timestamp });
     } else {
       if ((match.status !== "live" && match.status !== "postponed") || !match.actualStartedAt) fail(409, "A started Match may be abandoned only while Live or Postponed.", "MATCH_ABANDON_NOT_ALLOWED");
-      if (match.clock.isRunning) match.clock = stopMockMatchClock(match, new Date(timestamp));
+      if (match.clock.isRunning) match.clock = stopMockMatchClock(match, fail, new Date(timestamp));
       else match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
       match.status = "abandoned";
       match.resolutionHistory ??= [];
@@ -1006,7 +1006,7 @@ export const seasonPreviewRepository = {
   async updateSeasonMatchResolution(seasonId: string, matchId: string, input: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
     const reason = input.resolutionReason.trim();
     if (reason.length < 3 || reason.length > 500) fail(422, "Enter a status-change reason between 3 and 500 characters", "INVALID_MATCH_STATUS_REASON", { statusReason: "Reason must contain 3 to 500 characters" });
-    return this.changeSeasonMatchStatus(seasonId, matchId, { action: input.status, reason });
+    return this.changeSeasonMatchStatus(seasonId, matchId, { action: input.status === "cancelled" ? "cancel" : "abandon", reason });
   },
   async createSeasonMatch(seasonId: string, input: SeasonMatchCreateWrite) {
     requireAdmin();

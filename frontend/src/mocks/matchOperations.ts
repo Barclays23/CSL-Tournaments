@@ -123,7 +123,7 @@ export function resolveMockEventTiming(
   return { period, minute, addedMinutes };
 }
 
-export function stopMockMatchClock(match: MockSeasonMatch, nowDate = new Date()): MockSeasonMatch["clock"] {
+export function stopMockMatchClock(match: MockSeasonMatch, fail: MockFail, nowDate = new Date()): MockSeasonMatch["clock"] {
   const period = mockTimedPeriodForPhase(match.phase);
   if (!period) fail(409, "The current Match phase does not run a clock.", "MATCH_CLOCK_PHASE_INVALID");
   if (!match.clock.isRunning) {
@@ -142,7 +142,7 @@ export function stopMockMatchClock(match: MockSeasonMatch, nowDate = new Date())
   };
 }
 
-export function startMockMatchClock(match: MockSeasonMatch, phase: MockSeasonMatch["phase"], nowDate = new Date()): MockSeasonMatch["clock"] {
+export function startMockMatchClock(match: MockSeasonMatch, phase: MockSeasonMatch["phase"], fail: MockFail, nowDate = new Date()): MockSeasonMatch["clock"] {
   const period = mockTimedPeriodForPhase(phase);
   if (!period) fail(409, "The current Match phase does not run a clock.", "MATCH_CLOCK_PHASE_INVALID");
   if (match.clock.isRunning || match.clock.clockStartedAt) fail(409, "The Match clock is already running or has an active segment.", "MATCH_CLOCK_ALREADY_RUNNING");

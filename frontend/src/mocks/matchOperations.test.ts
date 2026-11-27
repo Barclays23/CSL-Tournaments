@@ -75,14 +75,14 @@ test("mock pause and resume preserve elapsed seconds and exclude paused time", (
   const elapsedBeforePause = mockPeriodElapsedSeconds(original, "first_half", pauseAt.getTime());
   assert.equal(elapsedBeforePause, 23 * 60);
 
-  const stoppedClock = stopMockMatchClock(original, pauseAt);
+  const stoppedClock = stopMockMatchClock(original, fail, pauseAt);
   assert.equal(stoppedClock.isRunning, false);
   assert.equal(stoppedClock.clockStartedAt, null);
   assert.equal(stoppedClock.periodElapsedSecondsByPeriod.firstHalf, 23 * 60);
 
   const pausedMatch = { ...original, clock: stoppedClock };
   const resumeAt = new Date(pauseAt.getTime() + 7 * 60_000);
-  const resumedClock = startMockMatchClock(pausedMatch, "first_half", resumeAt);
+  const resumedClock = startMockMatchClock(pausedMatch, "first_half", fail, resumeAt);
   const resumedMatch = { ...pausedMatch, clock: resumedClock };
   const sevenMinutesAfterResume = new Date(resumeAt.getTime() + 7 * 60_000);
   assert.equal(
