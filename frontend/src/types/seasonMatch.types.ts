@@ -118,6 +118,14 @@ export interface SeasonMatch {
   }>;
   goals: SeasonMatchGoal[];
   cards?: SeasonMatchCard[];
+  auditHistory?: Array<{
+    action: string;
+    actor: string;
+    timestamp: string;
+    previousValue: Record<string, unknown>;
+    newValue: Record<string, unknown>;
+    reason: string | null;
+  }>;
   penaltyShootout: {
     status: "pending" | "completed";
     homeTeamScore: number;
@@ -155,12 +163,36 @@ export interface SeasonMatchWrite {
   venueRef: string;
   homeSeasonTeamRef: string;
   awaySeasonTeamRef: string;
-  status?: SeasonMatchStatus;
   notes?: string | null;
-  matchDurationMinutes?:number;
-  decidingRules?:MatchDecidingRules;
-  penaltyShootout?: SeasonMatch["penaltyShootout"];
+  matchDurationMinutes?: number;
+  /** Initial values copied from Season defaults and reviewed only during fixture creation. */
+  decidingRules?: MatchDecidingRules;
 }
 
-
-export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt" | "penaltyShootout"> & { kickoffAt: string };
+export type SeasonMatchCreateWrite = Omit<SeasonMatchWrite, "kickoffAt"> & { kickoffAt: string };
+export type SeasonMatchFixtureUpdate = Partial<Omit<SeasonMatchWrite, "decidingRules">>;
+export type MatchPhaseAction =
+  | "half_time"
+  | "start_second_half"
+  | "regular_full_time"
+  | "start_extra_time"
+  | "extra_time_half_time"
+  | "start_extra_time_second_half"
+  | "end_extra_time"
+  | "start_penalty_shootout"
+  | "complete_penalty_shootout";
+export type MatchStatusAction =
+  | { action: "postpone"; reason: string }
+  | { action: "cancel"; reason: string }
+  | { action: "abandon"; reason: string }
+  | { action: "resume" };
+export interface MatchEventTimingWrite {
+  period?: MatchTimedPeriod | null;
+  minute?: number | null;
+  addedMinutes?: number | null;
+}
+export interface MatchShootoutWrite {
+  homeTeamScore: number;
+  awayTeamScore: number;
+  kicks: NonNullable<SeasonMatch["penaltyShootout"]>["kicks"];
+}

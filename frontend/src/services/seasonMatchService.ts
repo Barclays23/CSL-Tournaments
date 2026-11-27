@@ -188,3 +188,57 @@ export function rescheduleSeasonMatch(
         ).then((response) => response.data),
   );
 }
+
+
+export function startSeasonMatch(seasonId: string, matchId: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.startSeasonMatch(seasonId, matchId)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/start`).then((response) => response.data));
+}
+
+export function pauseSeasonMatchClock(seasonId: string, matchId: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.pauseSeasonMatchClock(seasonId, matchId)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/clock/pause`).then((response) => response.data));
+}
+
+export function resumeSeasonMatchClock(seasonId: string, matchId: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.resumeSeasonMatchClock(seasonId, matchId)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/clock/resume`).then((response) => response.data));
+}
+
+export function transitionSeasonMatchPhase(seasonId: string, matchId: string, action: import("@/types/seasonMatch.types").MatchPhaseAction) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.transitionSeasonMatchPhase(seasonId, matchId, action)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/phase-transition`, { action }).then((response) => response.data));
+}
+
+export function completeSeasonMatch(seasonId: string, matchId: string) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.completeSeasonMatch(seasonId, matchId)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/complete`).then((response) => response.data));
+}
+
+export function changeSeasonMatchStatus(seasonId: string, matchId: string, action: import("@/types/seasonMatch.types").MatchStatusAction) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.changeSeasonMatchStatus(seasonId, matchId, action)
+    : api.post<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/status`, action).then((response) => response.data));
+}
+
+export function updateSeasonMatchDecidingRules(
+  seasonId: string,
+  matchId: string,
+  decidingRules: import("@/types/seasonMatch.types").MatchDecidingRules,
+  reason?: string,
+) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.updateSeasonMatchDecidingRules(seasonId, matchId, { decidingRules, reason })
+    : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/deciding-rules`, { decidingRules, ...(reason ? { reason } : {}) }).then((response) => response.data));
+}
+
+export function updateSeasonMatchShootout(seasonId: string, matchId: string, value: import("@/types/seasonMatch.types").MatchShootoutWrite) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.updateSeasonMatchShootout(seasonId, matchId, value)
+    : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/shootout`, value).then((response) => response.data));
+}
