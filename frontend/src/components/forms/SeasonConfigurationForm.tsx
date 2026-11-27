@@ -36,6 +36,7 @@ type Props = {
   identityLocked?: boolean;
   auctionLocked?: boolean;
   matchRulesLocked?: boolean;
+  matchRulesLockReason?: string;
 };
 
 const tieBreakers = [
@@ -74,13 +75,16 @@ function NumberField({ label, value, min = 0, max, disabled, required, onChange 
   max?: number;
   disabled?: boolean;
   required?: boolean;
+  step?: number;
+  error?: string;
   onChange: (value: number) => void;
 }) {
   return (
     <label className="block min-w-0 text-sm text-fg">
       {label}
-      <Input className="mt-1.5" type="number" min={min} max={max} required={required} disabled={disabled}
+      <Input className="mt-1.5" type="number" min={min} max={max} step={step} required={required} disabled={disabled}
         value={value} onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(Number(event.target.value))} />
+      {error ? <span className="mt-1 block text-xs text-danger" role="alert">{error}</span> : null}
     </label>
   );
 }
@@ -112,10 +116,17 @@ export function SeasonConfigurationFields({
   identityLocked = false,
   auctionLocked = false,
   matchRulesLocked = false,
+  matchRulesLockReason,
 }: Props) {
   const editionDisabled = disabled || (mode === "edit" && identityLocked);
   const auctionDisabled = disabled || (mode === "edit" && auctionLocked);
   const matchDisabled = disabled || (mode === "edit" && matchRulesLocked);
+  const regularDurationError = Number.isSafeInteger(value.defaultMatchDurationMinutes)
+    && value.defaultMatchDurationMinutes >= 10 && value.defaultMatchDurationMinutes <= 120 && value.defaultMatchDurationMinutes % 2 === 0
+    ? undefined : "Regular Match duration must be an even whole number from 10 to 120 minutes.";
+  const extraTimeDurationError = Number.isSafeInteger(value.extraTimeDurationMinutes)
+    && value.extraTimeDurationMinutes > 0 && value.extraTimeDurationMinutes % 2 === 0
+    ? undefined : "Extra Time duration must be a positive even whole number of minutes.";
 
   return (
     <div className="grid gap-4">
@@ -182,11 +193,11 @@ export function SeasonConfigurationFields({
           <div className="grid gap-3 sm:grid-cols-2">
             <ToggleField label="Allow draws in group-stage matches" description="When enabled, group-stage matches may finish level." checked={value.groupStageDrawAllowed} disabled={matchDisabled}
               onChange={(next) => onChange("groupStageDrawAllowed", next)} />
-            <NumberField label="Default regular match duration (minutes)" value={value.defaultMatchDurationMinutes} min={10} max={120} required disabled={matchDisabled}
+            <NumberField label="Default regular match duration (minutes)" value={value.defaultMatchDurationMinutes} min={10} max={120} step={2} required disabled={matchDisabled} error={regularDurationError}
               onChange={(next) => onChange("defaultMatchDurationMinutes", next)} />
             <ToggleField label="Allow Extra Time by default" description="New knockout fixtures inherit this setting. Group-stage fixtures always disable Extra Time." checked={value.extraTimeAllowedByDefault} disabled={matchDisabled}
               onChange={(next) => onChange("extraTimeAllowedByDefault", next)} />
-            <NumberField label="Default Extra Time duration (minutes)" value={value.extraTimeDurationMinutes} min={2} required disabled={matchDisabled}
+            <NumberField label="Default Extra Time duration (minutes)" value={value.extraTimeDurationMinutes} min={2} step={2} required disabled={matchDisabled} error={extraTimeDurationError}
               onChange={(next) => onChange("extraTimeDurationMinutes", next)} />
             <ToggleField label="Allow Penalty Shootout by default" description="This is independent of Extra Time. New knockout fixtures inherit this setting." checked={value.penaltyShootoutAllowedByDefault} disabled={matchDisabled}
               onChange={(next) => onChange("penaltyShootoutAllowedByDefault", next)} />
@@ -252,7 +263,7 @@ export function SeasonConfigurationFields({
           </div>
           {!value.standingsTieBreakers.length ? <p className="mt-2 text-xs text-danger">Select at least one tiebreaker.</p> : null}
         </div>
-        {mode === "edit" && matchRulesLocked ? <p className="mt-3 text-xs text-muted">Match and standings rules are locked because fixtures already exist.</p> : null}
+        {mode === "edit" && matchRulesLocked ? <p className="mt-3 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs leading-relaxed text-muted" role="status">{matchRulesLockReason ?? "Match and standings rules are locked because this season can no longer change its competition rules."} Existing fixtures and historical results are not recalculated.</p> : null}
       </Section>
     </div>
   );

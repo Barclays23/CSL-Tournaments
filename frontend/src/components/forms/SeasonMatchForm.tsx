@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import type { SeasonTeam } from "@/types/season.types";
+import type { Season, SeasonTeam } from "@/types/season.types";
 import type { SeasonGroup, SeasonMatch, SeasonMatchStage, SeasonMatchWrite } from "@/types/seasonMatch.types";
 import { fromDateTimeInput, toDateTimeInput } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
@@ -36,7 +36,8 @@ type SeasonMatchFormField =
   | "venueRef"
   | "homeSeasonTeamRef"
   | "awaySeasonTeamRef"
-  | "notes";
+  | "notes"
+  | "matchDurationMinutes";
 
 const FORM_FIELD_NAMES: readonly SeasonMatchFormField[] = [
   "matchNumber",
@@ -48,13 +49,14 @@ const FORM_FIELD_NAMES: readonly SeasonMatchFormField[] = [
   "homeSeasonTeamRef",
   "awaySeasonTeamRef",
   "notes",
+  "matchDurationMinutes",
 ];
 
 function isSeasonMatchFormField(field: string): field is SeasonMatchFormField {
   return (FORM_FIELD_NAMES as readonly string[]).includes(field);
 }
 
-function getDefaultValues(match?: SeasonMatch | null): SeasonMatchFormInput {
+function getDefaultValues(match?: SeasonMatch | null, season?: Season | null): SeasonMatchFormInput {
   const existingVenueRef = match?.venueRef;
   return {
     matchNumber: match?.matchNumber ?? "",
@@ -66,12 +68,17 @@ function getDefaultValues(match?: SeasonMatch | null): SeasonMatchFormInput {
     homeSeasonTeamRef: refId(match?.homeSeasonTeamRef) ?? "",
     awaySeasonTeamRef: refId(match?.awaySeasonTeamRef) ?? "",
     notes: match?.notes ?? "",
+    matchDurationMinutes: match?.matchDurationMinutes ?? season?.matchRules?.defaultMatchDurationMinutes ?? 30,
+    extraTimeIsAllowed: match?.decidingRules.extraTime.isAllowed ?? season?.matchRules?.extraTime.isAllowedByDefault ?? false,
+    extraTimeDurationMinutes: match?.decidingRules.extraTime.durationMinutes ?? season?.matchRules?.extraTime.defaultDurationMinutes ?? 10,
+    penaltyShootoutIsAllowed: match?.decidingRules.penaltyShootout.isAllowed ?? season?.matchRules?.penaltyShootout.isAllowedByDefault ?? false,
   };
 }
 
 const EMPTY_FORM_VALUES = getDefaultValues(null);
 
 export function SeasonMatchForm({
+  season,
   seasonTeams,
   groups,
   venues,
@@ -79,6 +86,7 @@ export function SeasonMatchForm({
   submitting,
   onSubmit,
 }: {
+  season: Season | null | undefined;
   seasonTeams: SeasonTeam[];
   groups: SeasonGroup[];
   venues: Venue[];
@@ -86,7 +94,7 @@ export function SeasonMatchForm({
   submitting: boolean;
   onSubmit: (values: SeasonMatchWrite) => Promise<void>;
 }) {
-  const defaultValues = useMemo(() => getDefaultValues(match), [match]);
+  const defaultValues = useMemo(() => getDefaultValues(match, season), [match, season]);
   const {
     control,
     register,
@@ -110,8 +118,16 @@ export function SeasonMatchForm({
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  useEffect(() => {
+    if (stage === "group") {
+      setValue("extraTimeIsAllowed", false, { shouldValidate: true });
+      setValue("penaltyShootoutIsAllowed", false, { shouldValidate: true });
+    }
+  }, [stage, setValue]);
+
   const stage = watch("stage");
   const groupRef = watch("groupRef") ?? "";
+  const homeTeamRef = watch("homeSeasonTeamRef") ?? "";
   const homeTeamRef = watch("homeSeasonTeamRef") ?? "";
 
   const eligibleTeams = useMemo(
@@ -153,6 +169,13 @@ export function SeasonMatchForm({
         awaySeasonTeamRef: values.awaySeasonTeamRef,
         ...(match ? {} : { status: "scheduled" as const }),
         notes: values.notes,
+        matchDurationMinutes: values.matchDurationMinutes,
+        ...(!match ? {
+          decidingRules: {
+            extraTime: { isAllowed: values.stage === "group" ? false : values.extraTimeIsAllowed, durationMinutes: values.extraTimeDurationMinutes },
+            penaltyShootout: { isAllowed: values.stage === "group" ? false : values.penaltyShootoutIsAllowed },
+          },
+        } : {}),
       });
 
       if (!match) reset(EMPTY_FORM_VALUES);
@@ -316,15 +339,24 @@ export function SeasonMatchForm({
               render={({ field }) => (
                 <Select {...field} className={TONES.gold.input} required aria-invalid={Boolean(errors.venueRef)}>
                   <option value="">Choose a venue</option>
-                  {venues.filter((venue) => venue.status === "active" || venue._id === field.value).map((venue) => (
+                  {venues.filter((venue) => venue.status === "active").map((venue) => (
                     <option key={venue._id} value={venue._id}>
                       {venue.name}{venue.location ? " · " + venue.location : ""}
                     </option>
                   ))}
+                  {field.value && !venues.some((venue) => venue._id === field.value && venue.status === "active")
+                    ? <option value={field.value} disabled>{typeof match?.venueRef === "object" ? match.venueRef.name : "Inactive venue"} · Inactive</option>
+                    : null}
                 </Select>
               )}
             />
             <FieldError message={errors.venueRef?.message} />
+          </FormField>
+          <FormField label="Regular Match duration (minutes)" required>
+            <Input {...register("matchDurationMinutes")} className={TONES.gold.input} type="number" min={10} max={120} step={2}
+              readOnly={Boolean(match?.actualStartedAt)} aria-invalid={Boolean(errors.matchDurationMinutes)} />
+            <FieldError message={errors.matchDurationMinutes?.message} />
+            <p className="mt-1 text-xs text-muted">Even whole number from 10 to 120 minutes. Season default: {season?.matchRules?.defaultMatchDurationMinutes ?? "Not configured"} minutes.</p>
           </FormField>
         </div>
 
@@ -335,6 +367,37 @@ export function SeasonMatchForm({
           </p>
         ) : null}
       </ToneSection>
+
+      {!match ? (
+        <ToneSection tone="accent" icon={<Info className="h-4 w-4" />} title="Initial Match Deciding Rules"
+          description="Review the Season defaults copied into this fixture. Later changes are made from Match Details.">
+          {stage === "group" ? (
+            <p className={"rounded-xl border p-3 text-xs leading-relaxed " + TONES.accent.note}>
+              Group Stage fixtures always have Extra Time and Penalty Shootout disabled. Both settings are saved as false.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Controller name="extraTimeIsAllowed" control={control} render={({ field }) => (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3">
+                  <input type="checkbox" className="mt-1 accent-accent" checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                  <span><span className="block text-sm font-semibold text-fg">Allow Extra Time</span><span className="block text-xs text-muted">Season default: {season?.matchRules?.extraTime.isAllowedByDefault ? "Enabled" : "Disabled"}</span></span>
+                </label>
+              )} />
+              <Controller name="penaltyShootoutIsAllowed" control={control} render={({ field }) => (
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-line p-3">
+                  <input type="checkbox" className="mt-1 accent-accent" checked={field.value} onChange={(event) => field.onChange(event.target.checked)} />
+                  <span><span className="block text-sm font-semibold text-fg">Allow Penalty Shootout</span><span className="block text-xs text-muted">Season default: {season?.matchRules?.penaltyShootout.isAllowedByDefault ? "Enabled" : "Disabled"}</span></span>
+                </label>
+              )} />
+              <FormField label="Extra Time duration (minutes)" required>
+                <Input {...register("extraTimeDurationMinutes")} type="number" min={2} step={2} className={TONES.accent.input} aria-invalid={Boolean(errors.extraTimeDurationMinutes)} />
+                <FieldError message={errors.extraTimeDurationMinutes?.message} />
+                <p className="mt-1 text-xs text-muted">Season default: {season?.matchRules?.extraTime.defaultDurationMinutes ?? "Not configured"} minutes. Positive even whole number; no upper limit is imposed.</p>
+              </FormField>
+            </div>
+          )}
+        </ToneSection>
+      ) : null}
 
       {/* Teams */}
       <ToneSection

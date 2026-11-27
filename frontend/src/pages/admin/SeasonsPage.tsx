@@ -89,6 +89,14 @@ export function SeasonsPage() {
       toast.error("Player limits cannot exceed the team squad size");
       return;
     }
+    if (!Number.isSafeInteger(createForm.defaultMatchDurationMinutes) || createForm.defaultMatchDurationMinutes < 10 || createForm.defaultMatchDurationMinutes > 120 || createForm.defaultMatchDurationMinutes % 2 !== 0) {
+      toast.error("Regular Match duration must be an even whole number from 10 to 120 minutes.");
+      return;
+    }
+    if (!Number.isSafeInteger(createForm.extraTimeDurationMinutes) || createForm.extraTimeDurationMinutes <= 0 || createForm.extraTimeDurationMinutes % 2 !== 0) {
+      toast.error("Default Extra Time duration must be a positive even whole number of minutes.");
+      return;
+    }
     setSaving(true);
     try {
       const result = await createSeason(toPayload(createForm));
@@ -189,7 +197,7 @@ export function SeasonsPage() {
           onChange={(key, value) => setCreateForm((current) => ({ ...current, [key]: value }))}
           onSubmit={handleCreate}
           submitLabel="Create Draft season"
-          submitDisabled={!createForm.name.trim() || !createForm.standingsTieBreakers.length || createForm.iconPlayerLimit > createForm.teamSquadSize || createForm.goalkeeperLimit > createForm.teamSquadSize}
+          submitDisabled={!createForm.name.trim() || !createForm.standingsTieBreakers.length || createForm.iconPlayerLimit > createForm.teamSquadSize || createForm.goalkeeperLimit > createForm.teamSquadSize || !Number.isSafeInteger(createForm.defaultMatchDurationMinutes) || createForm.defaultMatchDurationMinutes < 10 || createForm.defaultMatchDurationMinutes > 120 || createForm.defaultMatchDurationMinutes % 2 !== 0 || !Number.isSafeInteger(createForm.extraTimeDurationMinutes) || createForm.extraTimeDurationMinutes <= 0 || createForm.extraTimeDurationMinutes % 2 !== 0}
         />
       </Modal>
     </PageContainer>
