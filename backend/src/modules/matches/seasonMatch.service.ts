@@ -1016,9 +1016,14 @@ export class SeasonMatchService implements ISeasonMatchService {
     const match = await this.getExisting(id);
     this.assertGoalManagementAllowed(match);
     this.id(goalId, "goal");
-    if (!match.goals.some((g) => String(g._id) === goalId))
+    const existingGoal = match.goals.find((g) => String(g._id) === goalId);
+    if (!existingGoal)
       throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
     const goal = await this.buildGoal(match, input);
+    // Editing an incident must not change when it originally happened.
+    // Match-level createdAt is the established fallback for legacy goals.
+    goal._id = existingGoal._id;
+    goal.createdAt = existingGoal.createdAt ?? match.createdAt;
     const goals = match.goals.map((g) => (String(g._id) === goalId ? goal : g));
     const season = await this.repo.findSeason(String(match.seasonRef));
     if (!season)
