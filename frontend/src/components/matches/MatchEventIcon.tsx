@@ -1,5 +1,3 @@
-import { Goal } from "lucide-react";
-import { IoFootball } from "react-icons/io5";
 import { MdSportsSoccer } from "react-icons/md";
 import { TbRectangleVerticalFilled } from "react-icons/tb";
 
