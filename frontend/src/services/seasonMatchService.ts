@@ -55,11 +55,8 @@ export function getSeasonMatchById(seasonId: string, matchId: string) {
 }
 
 export function updateSeasonMatchResolution(seasonId: string, matchId: string, data: { status: "cancelled" | "abandoned"; resolutionReason: string }) {
-  return run(() =>
-    USE_MOCK_API
-      ? seasonPreviewRepository.updateSeasonMatchResolution(seasonId, matchId, data)
-      : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}`, data).then((response) => response.data),
-  );
+  const action = data.status === "cancelled" ? "cancel" : "abandon";
+  return changeSeasonMatchStatus(seasonId, matchId, { action, reason: data.resolutionReason });
 }
 
 export function updateSeasonMatch(seasonId: string, matchId: string, data: SeasonMatchFixtureUpdate) {
@@ -164,14 +161,24 @@ export function updateSeasonMatchStatus(
   matchId: string,
   data: SeasonMatchStatusWrite,
 ) {
-  return run(() =>
-    USE_MOCK_API
-      ? seasonPreviewRepository.updateSeasonMatchStatus(seasonId, matchId, data)
-      : api.patch<ApiResponse<SeasonMatch>>(
-          `/seasons/${seasonId}/matches/${matchId}`,
-          data,
-        ).then((response) => response.data),
-  );
+  const reason = data.statusReason?.trim() || data.resolutionReason?.trim() || "";
+  switch (data.status) {
+    case "postponed":
+      if (reason.length < 3) return Promise.reject(new Error("A postponement reason is required."));
+      return changeSeasonMatchStatus(seasonId, matchId, { action: "postpone", reason });
+    case "cancelled":
+      if (reason.length < 3) return Promise.reject(new Error("A cancellation reason is required."));
+      return changeSeasonMatchStatus(seasonId, matchId, { action: "cancel", reason });
+    case "abandoned":
+      if (reason.length < 3) return Promise.reject(new Error("An abandonment reason is required."));
+      return changeSeasonMatchStatus(seasonId, matchId, { action: "abandon", reason });
+    case "live":
+      return changeSeasonMatchStatus(seasonId, matchId, { action: "resume" });
+    case "completed":
+      return completeSeasonMatch(seasonId, matchId);
+    default:
+      return Promise.reject(new Error("Use the dedicated reschedule operation to return a postponed fixture to Scheduled."));
+  }
 }
 
 export function rescheduleSeasonMatch(
