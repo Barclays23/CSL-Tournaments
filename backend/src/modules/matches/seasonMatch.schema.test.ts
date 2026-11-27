@@ -40,7 +40,7 @@ test("match card schema rejects invalid references and unsupported card types", 
 });
 
 test("season match create schema accepts a valid group fixture", () => {
-  assert.equal(seasonMatchCreateSchema.safeParse(validFixture).success, true);
+  assert.equal(seasonMatchCreateSchema.safeParse(validFixture).success,true);
 });
 
 test("season match create schema rejects missing group and duplicate teams", () => {

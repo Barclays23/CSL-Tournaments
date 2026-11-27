@@ -219,6 +219,7 @@ export function calculateCompletedMatchWinner(
     if (!shootoutAllowed) return null;
 
     const shootout = match.penaltyShootout;
+    if(match.decidingRules?.penaltyShootout.isAllowed===false)return null;
     if (!shootout || shootout.status !== "completed") {
       throw new AppError(
         "This knockout match is tied. Record and complete a penalty shootout before completing the match.",

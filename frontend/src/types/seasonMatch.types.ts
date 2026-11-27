@@ -57,8 +57,8 @@ export interface SeasonMatchCard {
   _id: string;
   seasonTeamRef: SeasonMatchTeamRef;
   playerRef: SeasonMatchPlayerRef;
-  cardType: SeasonMatchCardType;
-  createdAt: string;
+  cardType:SeasonMatchCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;
+  createdAt:string;
 }
 
 export interface SeasonMatchGoal {
@@ -74,7 +74,7 @@ export interface SeasonMatchGoal {
 export interface SeasonMatchCorrectionResult {
   homeScore: number;
   awayScore: number;
-  goals: Array<{ _id: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: "normal" | "own_goal"; createdAt: string }>;
+  goals:Array<{_id:string;scoringSeasonTeamRef:string;scorerPlayerRef:string|null;playerSeasonTeamRef:string|null;goalType:"normal"|"own_goal";period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string}>;
   penaltyShootout: SeasonMatch["penaltyShootout"] | null;
   winnerSeasonTeamRef: string | null;
 }
@@ -87,7 +87,7 @@ export interface SeasonMatchCorrectionHistory {
 }
 export interface SeasonMatchCorrectionWrite {
   reason: string;
-  goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+  goals:Array<{scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:"normal"|"own_goal";period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number}>;
   penaltyShootout: SeasonMatch["penaltyShootout"];
 }
 

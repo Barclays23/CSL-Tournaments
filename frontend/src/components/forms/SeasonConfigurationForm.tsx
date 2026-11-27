@@ -20,8 +20,11 @@ export type SeasonFormState = {
   win: number;
   draw: number;
   loss: number;
-  groupStageDrawAllowed: boolean;
-  knockoutDrawRequiresShootout: boolean;
+  groupStageDrawAllowed:boolean;
+  defaultMatchDurationMinutes:number;
+  extraTimeAllowedByDefault:boolean;
+  extraTimeDurationMinutes:number;
+  penaltyShootoutAllowedByDefault:boolean;
   standingsTieBreakers: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;
 };
 
@@ -179,9 +182,16 @@ export function SeasonConfigurationFields({
           <div className="grid gap-3 sm:grid-cols-2">
             <ToggleField label="Allow draws in group-stage matches" description="When enabled, group-stage matches may finish level." checked={value.groupStageDrawAllowed} disabled={matchDisabled}
               onChange={(next) => onChange("groupStageDrawAllowed", next)} />
-            <ToggleField label="Require a shootout for tied knockout matches" description="A tied knockout match must be decided by a penalty shootout." checked={value.knockoutDrawRequiresShootout} disabled={matchDisabled}
-              onChange={(next) => onChange("knockoutDrawRequiresShootout", next)} />
+            <NumberField label="Default regular match duration (minutes)" value={value.defaultMatchDurationMinutes} min={10} max={120} required disabled={matchDisabled}
+              onChange={(next) => onChange("defaultMatchDurationMinutes", next)} />
+            <ToggleField label="Allow Extra Time by default" description="New knockout fixtures inherit this setting. Group-stage fixtures always disable Extra Time." checked={value.extraTimeAllowedByDefault} disabled={matchDisabled}
+              onChange={(next) => onChange("extraTimeAllowedByDefault", next)} />
+            <NumberField label="Default Extra Time duration (minutes)" value={value.extraTimeDurationMinutes} min={2} required disabled={matchDisabled}
+              onChange={(next) => onChange("extraTimeDurationMinutes", next)} />
+            <ToggleField label="Allow Penalty Shootout by default" description="This is independent of Extra Time. New knockout fixtures inherit this setting." checked={value.penaltyShootoutAllowedByDefault} disabled={matchDisabled}
+              onChange={(next) => onChange("penaltyShootoutAllowedByDefault", next)} />
           </div>
+          <p className="mt-3 text-xs leading-relaxed text-muted">Regular duration must be an even whole number from 10 to 120. Extra Time duration must be a positive even whole number; no additional minimum or maximum is enforced yet.</p>
         </div>
 
         <div className="mt-4 border-t border-line pt-4">

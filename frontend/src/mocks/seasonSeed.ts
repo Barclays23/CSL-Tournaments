@@ -12,7 +12,7 @@ export interface MockSeason {
   auctionSettings: { currency: "INR"; budgetPerTeam: number; playersCount: number; seasonTeamCount: number; teamSquadSize: number; iconPlayerLimit: number; goalkeeperLimit: number };
   pointsRules: { win: number; draw: number; loss: number };
   standingsTieBreakers: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc">;
-  matchRules: { groupStageDrawAllowed: boolean; knockoutDrawRequiresShootout: boolean; shootoutCountsForMatchScore: false; shootoutCountsForPlayerGoals: false };
+  matchRules:{groupStageDrawAllowed:boolean;defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean};shootoutCountsForMatchScore:false;shootoutCountsForPlayerGoals:false};
   auctionRevision: number; createdAt: string; updatedAt: string;
 }
 export interface MockTeam {

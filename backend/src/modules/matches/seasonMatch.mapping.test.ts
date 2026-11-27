@@ -54,5 +54,7 @@ test("list maps legacy goals and cards without embedded timestamps", async () =>
   });
 
   assert.equal(result.items[0]?.goals[0]?.createdAt, matchCreatedAt.toISOString());
-  assert.equal(result.items[0]?.cards[0]?.createdAt, matchCreatedAt.toISOString());
+  assert.equal(result.items[0]?.cards[0]?.createdAt,matchCreatedAt.toISOString());
+  assert.equal(result.items[0]?.actualStartedAt,null);
+  assert.deepEqual(result.items[0]?.clock.periodElapsedSecondsByPeriod,{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0});
 });

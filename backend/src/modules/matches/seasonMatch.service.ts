@@ -1537,8 +1537,7 @@ export class SeasonMatchService implements ISeasonMatchService {
   private calculateWinner(
     match: SeasonMatchFields,
     rules: {
-      groupStageDrawAllowed: boolean;
-      knockoutDrawRequiresShootout: boolean;
+      groupStageDrawAllowed:boolean;
     },
     pointsRules: import("../seasons/season.types.js").SeasonPointsRules | null,
   ): Types.ObjectId | null {

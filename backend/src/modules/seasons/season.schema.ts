@@ -68,8 +68,8 @@ export const seasonCreateSchema = z.object({
   pointsRules: pointsRules.default({ win: 3, draw: 1, loss: 0 }),
   standingsTieBreakers: tieBreakers.default(["points", "goalDifference", "goalsScored", "teamNameAsc"]),
   matchRules: matchRules.default({
-    groupStageDrawAllowed: true,
-    defaultMatchDurationMinutes: 30,
+    groupStageDrawAllowed:true,
+    defaultMatchDurationMinutes:30,
     extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
     penaltyShootout: { isAllowedByDefault: true },
     shootoutCountsForMatchScore: false,

@@ -26,8 +26,8 @@ export interface SeasonMatchCorrectionGoalDto {
   scoringSeasonTeamRef: string;
   scorerPlayerRef: string | null;
   playerSeasonTeamRef: string | null;
-  goalType: SeasonGoalType;
-  createdAt: string;
+  goalType:SeasonGoalType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;
+  createdAt:string;
 }
 export interface SeasonMatchCorrectionShootoutDto {
   status: ShootoutStatus;
@@ -81,12 +81,9 @@ export interface SeasonMatchQueryDto {
   seasonTeamRef?: string;
   search?: string;
 }
-export interface SeasonGoalDto {
-  scoringSeasonTeamRef: string;
-  scorerPlayerRef?: string | null;
-  goalType: SeasonGoalType;
-}
-export interface SeasonMatchCardDto { seasonTeamRef: string; playerRef: string; cardType: SeasonCardType; }
+export interface MatchEventTimingDto {period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number;}
+export interface SeasonGoalDto extends MatchEventTimingDto {scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:SeasonGoalType;}
+export interface SeasonMatchCardDto extends MatchEventTimingDto {seasonTeamRef:string;playerRef:string;cardType:SeasonCardType;}
 export interface SeasonMatchCardResponseDto { _id:string;seasonTeamRef:SeasonMatchTeamDto|string;playerRef:SeasonMatchPlayerDto|string;cardType:SeasonCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string;}
 export interface SeasonMatchTeamDto {
   _id: string;

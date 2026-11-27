@@ -868,7 +868,9 @@ export const seasonPreviewRepository = {
 
     match.homeSeasonTeamRef = homeId;
     match.awaySeasonTeamRef = awayId;
+    if(input.matchDurationMinutes!==undefined){if(match.actualStartedAt)fail(409,"Regular match duration cannot change after kickoff","MATCH_DURATION_LOCKED");if(!Number.isInteger(input.matchDurationMinutes)||input.matchDurationMinutes<10||input.matchDurationMinutes>120||input.matchDurationMinutes%2!==0)fail(422,"Regular match duration must be an even whole number from 10 to 120","INVALID_MATCH_DURATION");match.matchDurationMinutes=input.matchDurationMinutes;}
     match.notes = input.notes === undefined ? match.notes : input.notes ?? null;
+    if(input.decidingRules!==undefined){if(stage==="group"&&(input.decidingRules.extraTime.isAllowed||input.decidingRules.penaltyShootout.isAllowed))fail(422,"Group-stage matches cannot use Extra Time or Penalty Shootout","GROUP_DECIDING_RULES");if(input.decidingRules.extraTime.durationMinutes<=0||input.decidingRules.extraTime.durationMinutes%2!==0)fail(422,"Extra Time duration must be a positive even number","INVALID_EXTRA_TIME_DURATION");match.decidingRules=input.decidingRules;}
     if (input.penaltyShootout !== undefined) {
       if (input.penaltyShootout) {
         if (match.stage === "group") fail(422, "Group-stage matches cannot have penalty shootouts.", "GROUP_SHOOTOUT");

@@ -139,6 +139,7 @@ export function calculateMockCompletedWinner(match: CompletionMatch, season: Com
     return score.homeScore > score.awayScore ? homeId : awayId;
   }
   if (score.homeScore === score.awayScore) {
+    if(match.decidingRules?.penaltyShootout.isAllowed===false)return null;
     if (!(match.decidingRules?.penaltyShootout.isAllowed ?? rules.penaltyShootout.isAllowedByDefault)) return null;
     const shootout = match.penaltyShootout;
     if (!shootout || shootout.status !== "completed") {
