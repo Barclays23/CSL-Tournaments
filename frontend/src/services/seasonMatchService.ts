@@ -2,7 +2,7 @@ import { USE_MOCK_API } from "@/config/env";
 import { seasonPreviewRepository } from "@/mocks/seasonRepository";
 import { api, run } from "@/services/api";
 import type { ApiResponse, Pagination } from "@/types/api.types";
-import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchWrite, SeasonMatchFixtureUpdate, SeasonMatchCreateWrite, SeasonMatchCorrectionWrite, SeasonMatchCardType, MatchEventTimingWrite } from "@/types/seasonMatch.types";
+import type { SeasonGroup, SeasonMatch, SeasonMatchQuery, SeasonMatchStatus, SeasonMatchFixtureUpdate, SeasonMatchCreateWrite, SeasonMatchCorrectionWrite, SeasonMatchCardType, MatchEventTimingWrite } from "@/types/seasonMatch.types";
 
 export function getSeasonGroups(seasonId: string) {
   return run(() =>

@@ -853,9 +853,14 @@ export const seasonPreviewRepository = {
   async updateSeasonMatchStatus(
     seasonId: string,
     matchId: string,
-    _input: { status: MockSeasonMatch["status"]; statusReason?: string; resolutionReason?: string },
+    input: { status: MockSeasonMatch["status"]; statusReason?: string; resolutionReason?: string },
   ) {
-    fail(422, "Use the dedicated Match start, phase, completion or status action instead of a generic status update.", "MATCH_OPERATION_REQUIRES_DEDICATED_ENDPOINT");
+    requireAdmin();
+    fail(
+      422,
+      `Use the dedicated Match start, phase, completion or status action for Match ${matchId} in Season ${seasonId}. Generic status update to ${input.status} is not permitted.`,
+      "MATCH_OPERATION_REQUIRES_DEDICATED_ENDPOINT",
+    );
   },
   async rescheduleSeasonMatch(
     seasonId: string,
