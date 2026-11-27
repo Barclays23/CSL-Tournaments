@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { PlayerModel } from "../modules/players/player.model.js";
 import { SeasonModel } from "../modules/seasons/season.model.js";
 import { AuctionLotModel } from "../modules/auctionLots/auctionLot.model.js";
+import type { SeasonMatchFields } from "../modules/matches/seasonMatch.types.js";
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set("strictQuery", true);
