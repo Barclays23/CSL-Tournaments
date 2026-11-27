@@ -152,11 +152,8 @@ test("a tied knockout match requires a completed shootout when configured", () =
 test("a knockout draw can remain unresolved only when the season does not require a shootout", () => {
   assert.equal(
     calculateCompletedMatchWinner(
-      completedMatch({ stage: "semi_final", goals: [normalGoal(home), normalGoal(away)] }),
-      matchRules,
-      pointsRules,
-    ),
-    null,
+      completedMatch({stage:"semi_final",goals:[normalGoal(home),normalGoal(away)],decidingRules:{extraTime:{isAllowed:false,durationMinutes:10},penaltyShootout:{isAllowed:false}}}),
+      matchRules,pointsRules),null,
   );
 });
 
