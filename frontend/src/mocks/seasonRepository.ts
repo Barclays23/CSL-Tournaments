@@ -1195,7 +1195,7 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Season fixture deleted", null);
   },
-  async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }) {
+  async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
@@ -1203,24 +1203,26 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
+    const timing = resolveMockEventTiming(match, input, fail);
     const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
     if (scoring !== home && scoring !== away) fail(422, "Credited team must be one of the match participants");
     const scorerId = input.scorerPlayerRef ?? null;
     if (input.goalType === "normal" && !scorerId) fail(422, "Select the goal scorer");
     let playerSeasonTeamRef: string | null = null;
     if (scorerId) {
+      const player = db.players.find((item) => item._id === scorerId && item.status === "active");
       const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
       const expectedTeam = input.goalType === "normal" ? scoring : (scoring === home ? away : home);
-      if (!lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
+      if (!player || !lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must be an active player belonging to the credited team" : "Own-goal player must belong to the opposing team");
       playerSeasonTeamRef = lot.seasonTeamRef;
     }
-    match.goals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, createdAt: now() });
+    match.goals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, ...timing, createdAt: now() });
     this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Goal added", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }) {
+  async updateSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
@@ -1230,18 +1232,21 @@ export const seasonPreviewRepository = {
     assertLiveMatch(match);
     const index = match.goals.findIndex((goal) => goal._id === goalId);
     if (index < 0) return fail(404, "Goal not found");
+    const existing = match.goals[index];
+    const timing = resolveMockEventTiming(match, input, fail, Date.now(), existing);
     const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
     if (scoring !== home && scoring !== away) fail(422, "Credited team must be one of the match participants");
     const scorerId = input.scorerPlayerRef ?? null;
     if (input.goalType === "normal" && !scorerId) fail(422, "Select the goal scorer");
     let playerSeasonTeamRef: string | null = null;
     if (scorerId) {
+      const player = db.players.find((item) => item._id === scorerId && item.status === "active");
       const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === scorerId && item.auctionStatus === "sold");
       const expectedTeam = input.goalType === "normal" ? scoring : (scoring === home ? away : home);
-      if (!lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must belong to the credited team" : "Own-goal player must belong to the opposing team");
+      if (!player || !lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must be an active player belonging to the credited team" : "Own-goal player must belong to the opposing team");
       playerSeasonTeamRef = lot.seasonTeamRef;
     }
-    match.goals[index] = { ...match.goals[index], scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType };
+    match.goals[index] = { ...existing, scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, ...timing };
     this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
@@ -1263,7 +1268,7 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Goal deleted", populatedSeasonMatch(db, match));
   },
-  async addSeasonMatchCard(seasonId: string, matchId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow" }) {
+  async addSeasonMatchCard(seasonId: string, matchId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
@@ -1271,17 +1276,18 @@ export const seasonPreviewRepository = {
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
+    const timing = resolveMockEventTiming(match, input, fail);
     if (input.seasonTeamRef !== match.homeSeasonTeamRef && input.seasonTeamRef !== match.awaySeasonTeamRef) fail(422, "Card recipient team must be one of the match participants", "INVALID_CARD_TEAM");
     const player = db.players.find((item) => item._id === input.playerRef && item.status === "active");
     const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === input.playerRef && item.auctionStatus === "sold");
     if (!player || !lot || lot.seasonTeamRef !== input.seasonTeamRef) fail(422, "Card recipient must be an active player registered to the selected match team", "INVALID_CARD_PLAYER");
     match.cards ??= [];
-    match.cards.push({ _id: newId(), ...input, createdAt: now() });
+    match.cards.push({ _id: newId(), seasonTeamRef: input.seasonTeamRef, playerRef: input.playerRef, cardType: input.cardType, ...timing, createdAt: now() });
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Card recorded", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatchCard(seasonId: string, matchId: string, cardId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow" }) {
+  async updateSeasonMatchCard(seasonId: string, matchId: string, cardId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
     requireAdmin();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
@@ -1292,11 +1298,13 @@ export const seasonPreviewRepository = {
     const cards = match.cards ?? [];
     const index = cards.findIndex((card) => card._id === cardId);
     if (index < 0) return fail(404, "Card not found");
+    const existing = cards[index];
+    const timing = resolveMockEventTiming(match, input, fail, Date.now(), existing);
     if (input.seasonTeamRef !== match.homeSeasonTeamRef && input.seasonTeamRef !== match.awaySeasonTeamRef) fail(422, "Card recipient team must be one of the match participants", "INVALID_CARD_TEAM");
     const player = db.players.find((item) => item._id === input.playerRef && item.status === "active");
     const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === input.playerRef && item.auctionStatus === "sold");
     if (!player || !lot || lot.seasonTeamRef !== input.seasonTeamRef) fail(422, "Card recipient must be an active player registered to the selected match team", "INVALID_CARD_PLAYER");
-    cards[index] = { ...cards[index], ...input };
+    cards[index] = { ...existing, seasonTeamRef: input.seasonTeamRef, playerRef: input.playerRef, cardType: input.cardType, ...timing };
     match.cards = cards;
     match.updatedAt = now();
     commitSeasonDb(db);
