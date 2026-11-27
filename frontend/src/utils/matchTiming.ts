@@ -177,3 +177,26 @@ export function getMatchPhaseLabel(phase: SeasonMatch["phase"]): string {
     case "full_time": return "Full Time";
   }
 }
+
+
+export function getPeriodBoundaryMinute(match: SeasonMatch, period: MatchTimedPeriod): number {
+  return getPeriodBaseMinutes(match, period) + getPeriodLengthMinutes(match, period);
+}
+
+export function isEventTimeAheadOfClock(
+  match: SeasonMatch,
+  period: MatchTimedPeriod | null,
+  minute: number,
+  addedMinutes: number,
+  now = Date.now(),
+): boolean {
+  if (!period || !getAvailableEventPeriods(match).includes(period)) return true;
+  if (!Number.isSafeInteger(minute) || !Number.isSafeInteger(addedMinutes) || addedMinutes < 0) return true;
+  const base = getPeriodBaseMinutes(match, period);
+  const boundary = getPeriodBoundaryMinute(match, period);
+  if (minute <= base || minute > boundary || (addedMinutes > 0 && minute !== boundary)) return true;
+  const eventElapsed = addedMinutes > 0
+    ? getPeriodLengthMinutes(match, period) * 60 + addedMinutes * 60
+    : minute === base + 1 ? 0 : (minute - base) * 60;
+  return eventElapsed > getPeriodElapsedSeconds(match, period, now);
+}
