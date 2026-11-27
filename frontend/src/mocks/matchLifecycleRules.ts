@@ -53,8 +53,8 @@ type Shootout = {
 };
 type CompletionMatch = {
   decidingRules?:{extraTime:{isAllowed:boolean;durationMinutes:number};penaltyShootout:{isAllowed:boolean}};
-  status: MatchLifecycleStatus;
-  stage: string;
+  status:MatchLifecycleStatus;phase?:string|null;
+  stage:string;
   homeSeasonTeamRef: string;
   awaySeasonTeamRef: string;
   goals: Goal[];
