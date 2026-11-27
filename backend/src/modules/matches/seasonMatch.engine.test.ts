@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { AppError } from "../../shared/errors/appError.js";
 import {
+  eventElapsedSeconds,
   getPeriodElapsedSeconds,
   resolveMatchEventTiming,
   startTimedPeriodClock,
@@ -74,20 +75,42 @@ test("pause does not include time spent stopped", () => {
   assert.equal(getPeriodElapsedSeconds(stored, "second_half", new Date("2026-11-27T12:00:00.000Z")), 420);
 });
 
-test("the clock continues beyond nominal duration and derives stoppage minutes", () => {
+test("stoppage-time events cannot be recorded ahead of the elapsed server clock", () => {
   const start = new Date("2026-11-27T10:00:00.000Z");
   const running = match({
     matchDurationMinutes: 30,
     clock: { isRunning: true, clockStartedAt: start, periodElapsedSecondsByPeriod: { ...zeroElapsed } },
   });
-  const now = new Date("2026-11-27T10:16:20.000Z");
-  const timing = resolveMatchEventTiming(running, {}, now);
-  assert.deepEqual(timing, { period: "first_half", minute: 15, addedMinutes: 2 });
+
+  // 15+01:20: the first added minute has elapsed, but the second has not.
+  const atOneMinuteTwenty = new Date("2026-11-27T10:16:20.000Z");
   assert.deepEqual(
-    resolveMatchEventTiming(running, { period: "first_half", minute: 15, addedMinutes: 2 }, now),
+    resolveMatchEventTiming(running, {}, atOneMinuteTwenty),
+    { period: "first_half", minute: 15, addedMinutes: 1 },
+  );
+  assert.deepEqual(
+    resolveMatchEventTiming(running, { period: "first_half", minute: 15, addedMinutes: 1 }, atOneMinuteTwenty),
+    { period: "first_half", minute: 15, addedMinutes: 1 },
+  );
+  errorCode(
+    () => resolveMatchEventTiming(running, { period: "first_half", minute: 15, addedMinutes: 2 }, atOneMinuteTwenty),
+    "MATCH_EVENT_IN_FUTURE",
+  );
+
+  // At 15+02:00, the second added minute is now a valid event time.
+  const atTwoMinutes = new Date("2026-11-27T10:17:00.000Z");
+  assert.deepEqual(
+    resolveMatchEventTiming(running, { period: "first_half", minute: 15, addedMinutes: 2 }, atTwoMinutes),
     { period: "first_half", minute: 15, addedMinutes: 2 },
   );
-  errorCode(() => resolveMatchEventTiming(running, { period: "first_half", minute: 15, addedMinutes: 3 }, now), "MATCH_EVENT_IN_FUTURE");
+  assert.equal(
+    eventElapsedSeconds(running, { period: "first_half", minute: 15, addedMinutes: 1 }),
+    16 * 60,
+  );
+  assert.equal(
+    eventElapsedSeconds(running, { period: "first_half", minute: 15, addedMinutes: 2 }),
+    17 * 60,
+  );
 });
 
 test("second-half event minutes are cumulative match minutes", () => {

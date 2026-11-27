@@ -161,9 +161,10 @@ function defaultMinuteAndAdded(
   if (elapsedSeconds <= nominalSeconds) {
     return { minute: Math.max(base + 1, base + Math.floor(elapsedSeconds / 60)), addedMinutes: 0 };
   }
-  // Stoppage event labels use the ordinal minute in progress. At 15+01:20,
-  // an incident may therefore be recorded as 15+2'.
-  return { minute: boundary, addedMinutes: Math.ceil((elapsedSeconds - nominalSeconds) / 60) };
+  // Added-time event minutes represent completed elapsed minutes, not the
+  // minute currently in progress. At 15+01:20, 15+1' is valid but 15+2'
+  // would be ahead of the server clock.
+  return { minute: boundary, addedMinutes: Math.floor((elapsedSeconds - nominalSeconds) / 60) };
 }
 
 /**
@@ -241,11 +242,9 @@ export function resolveMatchEventTiming(
   }
   const isStoppageEvent = minute === boundary && addedMinutes > 0;
   const eventElapsed = isStoppageEvent
-    ? periodLengthMinutes(match, period) * 60 + (addedMinutes - 1) * 60
+    ? periodLengthMinutes(match, period) * 60 + addedMinutes * 60
     : minute === base + 1 ? 0 : (minute - base) * 60;
-  const laterThanClock = isStoppageEvent
-    ? addedMinutes > Math.ceil(Math.max(0, elapsedSeconds - periodLengthMinutes(match, period) * 60) / 60)
-    : eventElapsed > elapsedSeconds;
+  const laterThanClock = eventElapsed > elapsedSeconds;
   if (laterThanClock) {
     throw new AppError("The event time is later than the stored/current Match clock position.", 422, "MATCH_EVENT_IN_FUTURE", {
       minute: "An event cannot be recorded ahead of the match clock",
@@ -261,7 +260,7 @@ export function eventElapsedSeconds(
   if (!timing.period || timing.minute === undefined || timing.minute === null) return null;
   const base = periodBaseMinutes(match, timing.period);
   if (timing.addedMinutes && timing.addedMinutes > 0) {
-    return periodLengthMinutes(match, timing.period) * 60 + (timing.addedMinutes - 1) * 60;
+    return periodLengthMinutes(match, timing.period) * 60 + timing.addedMinutes * 60;
   }
   return timing.minute === base + 1 ? 0 : (timing.minute - base) * 60;
 }
