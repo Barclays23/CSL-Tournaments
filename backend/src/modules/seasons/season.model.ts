@@ -17,9 +17,18 @@ const pointsRulesSchema = new Schema({
   loss: { type: Number, required: true, min: 0 },
 }, { _id: false });
 
+const extraTimeDefaultsSchema = new Schema({
+  isAllowedByDefault: { type: Boolean, required: true },
+  defaultDurationMinutes: { type: Number, required: true, validate: { validator: (value: number) => Number.isInteger(value) && value > 0 && value % 2 === 0, message: "Extra Time duration must be a positive even number of minutes" } },
+}, { _id: false });
+const penaltyShootoutDefaultsSchema = new Schema({
+  isAllowedByDefault: { type: Boolean, required: true },
+}, { _id: false });
 const matchRulesSchema = new Schema({
   groupStageDrawAllowed: { type: Boolean, default: true, required: true },
-  knockoutDrawRequiresShootout: { type: Boolean, default: true, required: true },
+  defaultMatchDurationMinutes: { type: Number, required: true, min: 10, max: 120, validate: { validator: (value: number) => Number.isInteger(value) && value % 2 === 0, message: "Regular match duration must be an even integer from 10 to 120 minutes" } },
+  extraTime: { type: extraTimeDefaultsSchema, required: true },
+  penaltyShootout: { type: penaltyShootoutDefaultsSchema, required: true },
   shootoutCountsForMatchScore: { type: Boolean, default: false, immutable: true },
   shootoutCountsForPlayerGoals: { type: Boolean, default: false, immutable: true },
 }, { _id: false });

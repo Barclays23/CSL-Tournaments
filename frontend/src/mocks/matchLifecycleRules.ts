@@ -52,6 +52,7 @@ type Shootout = {
   kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: "scored" | "missed" | "saved" }>;
 };
 type CompletionMatch = {
+  decidingRules?:{extraTime:{isAllowed:boolean;durationMinutes:number};penaltyShootout:{isAllowed:boolean}};
   status: MatchLifecycleStatus;
   stage: string;
   homeSeasonTeamRef: string;
@@ -60,7 +61,7 @@ type CompletionMatch = {
   penaltyShootout: Shootout | null;
 };
 type CompletionSeason = {
-  matchRules?: { groupStageDrawAllowed: boolean; knockoutDrawRequiresShootout: boolean } | null;
+  matchRules?: {groupStageDrawAllowed:boolean;defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean}} | null;
   pointsRules?: { win: number; draw: number; loss: number } | null;
 };
 
@@ -128,7 +129,7 @@ export function calculateMockCompletedWinner(match: CompletionMatch, season: Com
     if (!points || ![points.win, points.draw, points.loss].every((value) => Number.isFinite(value) && value >= 0)) {
       fail(409, "Group-stage matches cannot be completed until valid win, draw and loss points are configured for the season.", "SEASON_POINTS_RULES_UNAVAILABLE");
     }
-    if (match.penaltyShootout) fail(422, "Group-stage matches cannot have penalty shootouts.", "GROUP_SHOOTOUT");
+    if (match.penaltyShootout || match.decidingRules?.extraTime.isAllowed || match.decidingRules?.penaltyShootout.isAllowed) fail(422,"Group-stage matches cannot use Extra Time or Penalty Shootout.","GROUP_DECIDING_RULES");
     if (score.homeScore === score.awayScore) {
       if (!rules.groupStageDrawAllowed) {
         fail(422, "This season does not allow group-stage draws. Record a valid winning score before completing the match.", "GROUP_DRAW_NOT_ALLOWED", { status: "A group-stage match must have a winner under this season's rules." });
@@ -138,7 +139,7 @@ export function calculateMockCompletedWinner(match: CompletionMatch, season: Com
     return score.homeScore > score.awayScore ? homeId : awayId;
   }
   if (score.homeScore === score.awayScore) {
-    if (!rules.knockoutDrawRequiresShootout) return null;
+    if (!(match.decidingRules?.penaltyShootout.isAllowed ?? rules.penaltyShootout.isAllowedByDefault)) return null;
     const shootout = match.penaltyShootout;
     if (!shootout || shootout.status !== "completed") {
       fail(422, "This knockout match is tied. Record and complete a penalty shootout before completing the match.", "SHOOTOUT_REQUIRED", { penaltyShootout: "A completed penalty shootout is required to determine the winner." });

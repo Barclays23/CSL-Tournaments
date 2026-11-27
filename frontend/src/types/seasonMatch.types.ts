@@ -9,6 +9,10 @@ export type SeasonMatchStage =
   | "third_place"
   | "final";
 
+export type MatchPhase=null|"first_half"|"half_time"|"second_half"|"regular_full_time"|"extra_time_first_half"|"extra_time_half_time"|"extra_time_second_half"|"extra_time_completed"|"penalty_shootout"|"penalty_shootout_completed"|"full_time";
+export type MatchTimedPeriod="first_half"|"second_half"|"extra_time_first_half"|"extra_time_second_half";
+export interface MatchDecidingRules {extraTime:{isAllowed:boolean;durationMinutes:number};penaltyShootout:{isAllowed:boolean};}
+export interface MatchClock {isRunning:boolean;clockStartedAt:string|null;periodElapsedSecondsByPeriod:{firstHalf:number;secondHalf:number;extraTimeFirstHalf:number;extraTimeSecondHalf:number};}
 export type SeasonMatchStatus =
   | "scheduled"
   | "live"
@@ -63,6 +67,7 @@ export interface SeasonMatchGoal {
   scorerPlayerRef: SeasonMatchPlayerRef | null;
   playerSeasonTeamRef: SeasonMatchTeamRef | null;
   goalType: "normal" | "own_goal";
+  period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;
   createdAt: string;
 }
 
@@ -99,6 +104,7 @@ export interface SeasonMatch {
   homeSeasonTeamRef: SeasonMatchTeamRef;
   awaySeasonTeamRef: SeasonMatchTeamRef;
   status: SeasonMatchStatus;
+  matchDurationMinutes:number;decidingRules:MatchDecidingRules;actualStartedAt:string|null;phase:MatchPhase;clock:MatchClock;
   resolutionHistory: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>;
   correctionHistory: SeasonMatchCorrectionHistory[];
   statusHistory: Array<{
@@ -151,6 +157,7 @@ export interface SeasonMatchWrite {
   awaySeasonTeamRef: string;
   status?: SeasonMatchStatus;
   notes?: string | null;
+  matchDurationMinutes?:number;
   penaltyShootout?: SeasonMatch["penaltyShootout"];
 }
 

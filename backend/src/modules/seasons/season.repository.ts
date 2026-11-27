@@ -53,7 +53,9 @@ export class SeasonRepository implements ISeasonRepository {
       standingsTieBreakers: data.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
       matchRules: data.matchRules ?? {
         groupStageDrawAllowed: true,
-        knockoutDrawRequiresShootout: true,
+        defaultMatchDurationMinutes: 30,
+        extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
+        penaltyShootout: { isAllowedByDefault: true },
         shootoutCountsForMatchScore: false,
         shootoutCountsForPlayerGoals: false,
       },

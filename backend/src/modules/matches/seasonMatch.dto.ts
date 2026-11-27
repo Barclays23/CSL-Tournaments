@@ -1,5 +1,5 @@
 import type { Asset } from "../../shared/types/common.types.js";
-import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult } from "./seasonMatch.types.js";
+import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult, MatchPhase, MatchTimedPeriod, MatchDecidingRules, MatchClock } from "./seasonMatch.types.js";
 
 export interface SeasonMatchResolutionDto {
   status: "cancelled" | "abandoned";
@@ -60,6 +60,8 @@ export interface CreateSeasonMatchDto {
   awaySeasonTeamRef: string;
   status?: SeasonMatchStatus;
   notes?: string | null;
+  matchDurationMinutes?:number;
+  decidingRules?:MatchDecidingRules;
   penaltyShootout?: {
     status: ShootoutStatus;
     homeTeamScore: number;
@@ -67,7 +69,7 @@ export interface CreateSeasonMatchDto {
     kicks: Array<{ seasonTeamRef: string; playerRef?: string | null; result: ShootoutKickResult }>;
   } | null;
 }
-export type UpdateSeasonMatchDto = Partial<CreateSeasonMatchDto> & { resolutionReason?: string; statusReason?: string };
+export type UpdateSeasonMatchDto = Omit<Partial<CreateSeasonMatchDto>,"decidingRules"> & { resolutionReason?: string; statusReason?: string };
 export interface SeasonMatchQueryDto {
   page: number;
   limit: number;
@@ -85,7 +87,7 @@ export interface SeasonGoalDto {
   goalType: SeasonGoalType;
 }
 export interface SeasonMatchCardDto { seasonTeamRef: string; playerRef: string; cardType: SeasonCardType; }
-export interface SeasonMatchCardResponseDto { _id: string; seasonTeamRef: SeasonMatchTeamDto | string; playerRef: SeasonMatchPlayerDto | string; cardType: SeasonCardType; createdAt: string; }
+export interface SeasonMatchCardResponseDto { _id:string;seasonTeamRef:SeasonMatchTeamDto|string;playerRef:SeasonMatchPlayerDto|string;cardType:SeasonCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string;}
 export interface SeasonMatchTeamDto {
   _id: string;
   displayName: string;
@@ -100,6 +102,7 @@ export interface SeasonGoalResponseDto {
   scorerPlayerRef: SeasonMatchPlayerDto | string | null;
   playerSeasonTeamRef: SeasonMatchTeamDto | string | null;
   goalType: SeasonGoalType;
+  period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;
   createdAt: string;
 }
 export interface SeasonMatchResponseDto {
@@ -115,6 +118,8 @@ export interface SeasonMatchResponseDto {
   homeSeasonTeamRef: SeasonMatchTeamDto | string;
   awaySeasonTeamRef: SeasonMatchTeamDto | string;
   status: SeasonMatchStatus;
+  matchDurationMinutes:number;decidingRules:MatchDecidingRules;actualStartedAt:string|null;phase:MatchPhase;
+  clock:Omit<MatchClock,"clockStartedAt">&{clockStartedAt:string|null};
   goals: SeasonGoalResponseDto[];
   cards: SeasonMatchCardResponseDto[];
   penaltyShootout: {

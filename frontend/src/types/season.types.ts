@@ -31,8 +31,7 @@ export interface Season {
   pointsRules?: { win: number; draw: number; loss: number } | null;
   standingsTieBreakers?: Array<"points" | "goalDifference" | "goalsScored" | "teamNameAsc"> | null;
   matchRules?: {
-    groupStageDrawAllowed: boolean;
-    knockoutDrawRequiresShootout: boolean;
+    groupStageDrawAllowed:boolean;defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean};
     shootoutCountsForMatchScore: false;
     shootoutCountsForPlayerGoals: false;
   } | null;

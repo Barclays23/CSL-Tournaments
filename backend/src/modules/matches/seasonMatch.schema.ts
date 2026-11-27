@@ -9,14 +9,10 @@ const stage = z.enum([
   "third_place",
   "final",
 ]);
-const status = z.enum([
-  "scheduled",
-  "live",
-  "completed",
-  "postponed",
-  "cancelled",
-  "abandoned",
-]);
+const status = z.enum(["scheduled","live","completed","postponed","cancelled","abandoned"]);
+const regularDuration=z.coerce.number().int().min(10).max(120).refine(v=>v%2===0);
+const extraDuration=z.coerce.number().int().positive().refine(v=>v%2===0);
+const decidingRules=z.object({extraTime:z.object({isAllowed:z.boolean(),durationMinutes:extraDuration}).strict(),penaltyShootout:z.object({isAllowed:z.boolean()}).strict()}).strict();
 const kick = z
   .object({
     seasonTeamRef: objectId,
@@ -43,6 +39,8 @@ const fields = {
   awaySeasonTeamRef: objectId,
   status: status.optional(),
   notes: z.string().trim().max(1000).nullable().optional(),
+  matchDurationMinutes:regularDuration.optional(),
+  decidingRules:decidingRules.optional(),
   penaltyShootout: shootout.nullable().optional(),
 };
 export const seasonMatchCreateSchema = z
@@ -80,6 +78,7 @@ export const seasonMatchUpdateSchema = z
     awaySeasonTeamRef: fields.awaySeasonTeamRef.optional(),
     status: fields.status.optional(),
     notes: fields.notes.optional(),
+    matchDurationMinutes:fields.matchDurationMinutes.optional(),
     penaltyShootout: fields.penaltyShootout.optional(),
     resolutionReason: z.string().trim().min(3).max(500).optional(),
     statusReason: z.string().trim().min(3).max(500).optional(),

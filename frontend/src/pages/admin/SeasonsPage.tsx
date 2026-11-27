@@ -23,7 +23,7 @@ import { getDefaultSeason } from "@/utils/defaultSeason";
 const defaultForm = (seasonNumber = 1): SeasonFormState => ({
   seasonNumber, name: "", year: new Date().getFullYear(), startDate: "", endDate: "", groupStageEnabled: true, homeAndAwayFixtures: false,
   budgetPerTeam: 10000, playersCount: 54, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1,
-  win: 3, draw: 1, loss: 0, groupStageDrawAllowed: true, knockoutDrawRequiresShootout: true,
+  win: 3, draw: 1, loss: 0, groupStageDrawAllowed:true,defaultMatchDurationMinutes:30,extraTimeAllowedByDefault:false,extraTimeDurationMinutes:10,penaltyShootoutAllowedByDefault:true,
   standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"],
 });
 
@@ -40,7 +40,9 @@ const toPayload = (form: SeasonFormState): SeasonWrite => ({
   standingsTieBreakers: form.standingsTieBreakers,
   matchRules: {
     groupStageDrawAllowed: form.groupStageDrawAllowed,
-    knockoutDrawRequiresShootout: form.knockoutDrawRequiresShootout,
+    defaultMatchDurationMinutes:form.defaultMatchDurationMinutes,
+    extraTime:{isAllowedByDefault:form.extraTimeAllowedByDefault,defaultDurationMinutes:form.extraTimeDurationMinutes},
+    penaltyShootout:{isAllowedByDefault:form.penaltyShootoutAllowedByDefault},
     shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false,
   },
 });
