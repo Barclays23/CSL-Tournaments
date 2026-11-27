@@ -82,7 +82,7 @@ export type SeasonGoalWrite = {
   scoringSeasonTeamRef: string;
   scorerPlayerRef?: string | null;
   goalType: "normal" | "own_goal";
-};
+} & MatchEventTimingWrite;
 
 export function deleteSeasonMatch(seasonId: string, matchId: string) {
   return run(() =>
@@ -116,7 +116,7 @@ export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId:
   );
 }
 
-export interface SeasonMatchCardWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; }
+export interface SeasonMatchCardWrite extends MatchEventTimingWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; }
 
 export function addSeasonMatchCard(seasonId: string, matchId: string, data: SeasonMatchCardWrite) {
   return run(() => USE_MOCK_API

@@ -130,12 +130,9 @@ export function calculateMockCompletedWinner(match: CompletionMatch, season: Com
       fail(409, "Group-stage matches cannot be completed until valid win, draw and loss points are configured for the season.", "SEASON_POINTS_RULES_UNAVAILABLE");
     }
     if (match.penaltyShootout || match.decidingRules?.extraTime.isAllowed || match.decidingRules?.penaltyShootout.isAllowed) fail(422,"Group-stage matches cannot use Extra Time or Penalty Shootout.","GROUP_DECIDING_RULES");
-    if (score.homeScore === score.awayScore) {
-      if (!rules.groupStageDrawAllowed) {
-        fail(422, "This season does not allow group-stage draws. Record a valid winning score before completing the match.", "GROUP_DRAW_NOT_ALLOWED", { status: "A group-stage match must have a winner under this season's rules." });
-      }
-      return null;
-    }
+    // Section 17 requires Group Stage fixtures to complete as a draw when tied.
+    // Legacy season points toggles cannot introduce deciding stages or force a winner.
+    if (score.homeScore === score.awayScore) return null;
     return score.homeScore > score.awayScore ? homeId : awayId;
   }
   if (score.homeScore === score.awayScore) {
