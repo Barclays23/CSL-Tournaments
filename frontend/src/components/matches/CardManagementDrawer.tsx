@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/Button";
 import { Drawer } from "@/components/ui/Drawer";
-import type { MatchTimedPeriod, SeasonMatchCardType } from "@/types/seasonMatch.types";
+import type { MatchTimedPeriod, SeasonMatch, SeasonMatchCardType } from "@/types/seasonMatch.types";
+import { MatchClockTicker } from "@/components/matches/MatchClockTicker";
 import { formatMatchEventTime, getPeriodLabel } from "@/utils/matchTiming";
 
 type Team = { id: string; name: string };
@@ -13,14 +14,14 @@ const options: Array<{ value: SeasonMatchCardType; label: string }> = [
 
 export function CardManagementDrawer({
   open, onClose, editing, home, away, teamId, onTeamChange, cardType, onCardTypeChange, playerId, onPlayerChange, players,
-  period, periodOptions, onPeriodChange, minute, onMinuteChange, addedMinutes, onAddedMinutesChange, clockPosition,
+  period, periodOptions, onPeriodChange, minute, onMinuteChange, addedMinutes, onAddedMinutesChange, match,
   stoppageTimeAllowed, timeIsAhead, saving, error, onSubmit,
 }: {
   open: boolean; onClose: () => void; editing: boolean; home: Team; away: Team; teamId: string; onTeamChange: (id: string) => void;
   cardType: SeasonMatchCardType; onCardTypeChange: (type: SeasonMatchCardType) => void; playerId: string; onPlayerChange: (id: string) => void;
   players: Player[]; period: MatchTimedPeriod | null; periodOptions: MatchTimedPeriod[]; onPeriodChange: (period: MatchTimedPeriod) => void;
   minute: number; onMinuteChange: (minute: number) => void; addedMinutes: number; onAddedMinutesChange: (minutes: number) => void;
-  clockPosition: string; stoppageTimeAllowed: boolean; timeIsAhead: boolean; saving: boolean; error?: string | null; onSubmit: () => void;
+  match: SeasonMatch; stoppageTimeAllowed: boolean; timeIsAhead: boolean; saving: boolean; error?: string | null; onSubmit: () => void;
 }) {
   return <Drawer open={open} title={editing ? "Edit card" : "Record a card"} description="Choose the team, player and card time. Event time changes do not change the Match clock." onClose={onClose}>
     <form className="grid gap-5" onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
@@ -29,7 +30,7 @@ export function CardManagementDrawer({
       <label className="grid gap-1.5 text-sm font-semibold text-fg">Player<select required className="rounded-lg border border-line bg-surface px-3 py-2 text-sm" value={playerId} onChange={(event) => onPlayerChange(event.target.value)}><option value="">Select a player</option>{players.map((player) => <option key={player.id} value={player.id}>{player.name}{player.jerseyNo ? ` · #${player.jerseyNo}` : ""}</option>)}</select></label>
 
       <section className="rounded-xl border border-line bg-surface/40 p-3">
-        <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-fg">Event time</h3><span className="text-xs text-muted">Clock position · {clockPosition}</span></div>
+        <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold text-fg">Event time</h3><span className="text-xs text-muted">Clock position · <MatchClockTicker match={match} /></span></div>
         <label className="mt-3 block text-sm text-fg">Match period
           <select className="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm" required value={period ?? ""} onChange={(event) => onPeriodChange(event.target.value as MatchTimedPeriod)}>
             <option value="" disabled>Select a completed period</option>{periodOptions.map((value) => <option key={value} value={value}>{getPeriodLabel(value)}</option>)}

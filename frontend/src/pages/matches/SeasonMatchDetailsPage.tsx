@@ -53,7 +53,7 @@ import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
 import { refId } from "@/utils/refs";
 import { canEditSeasonMatch } from "@/utils/seasonMatchPermissions";
-import { formatMatchClock, formatMatchEventTime, getAvailableEventPeriods, getDefaultEventTiming, getPeriodBoundaryMinute, isEventTimeAheadOfClock, MATCH_TIMED_PERIODS } from "@/utils/matchTiming";
+import { formatMatchEventTime, getAvailableEventPeriods, getDefaultEventTiming, getPeriodBoundaryMinute, isEventTimeAheadOfClock, MATCH_TIMED_PERIODS } from "@/utils/matchTiming";
 
 const STAGE_LABEL: Record<SeasonMatch["stage"], string> = {
   group: "Group stage",
@@ -480,7 +480,6 @@ export function SeasonMatchDetailsPage(props: {
   const events = buildEvents(match.goals, match.cards ?? []);
   const availableEventPeriods = getAvailableEventPeriods(match);
   const defaultEventTiming = getDefaultEventTiming(match);
-  const eventClockPosition = formatMatchClock(match);
   const goalTimeIsAhead = isEventTimeAheadOfClock(match, goalPeriod, goalMinute, goalAddedMinutes);
   const cardTimeIsAhead = isEventTimeAheadOfClock(match, cardPeriod, cardMinute, cardAddedMinutes);
   const goalStoppageTimeAllowed = Boolean(goalPeriod && goalMinute === getPeriodBoundaryMinute(match, goalPeriod));
@@ -1131,7 +1130,7 @@ export function SeasonMatchDetailsPage(props: {
         onMinuteChange={(value) => { setGoalMinute(value); setGoalAddedMinutes(0); }}
         addedMinutes={goalAddedMinutes}
         onAddedMinutesChange={setGoalAddedMinutes}
-        clockPosition={eventClockPosition}
+        match={match}
         stoppageTimeAllowed={goalStoppageTimeAllowed}
         timeIsAhead={goalTimeIsAhead}
         players={eligibleGoalPlayers
@@ -1181,7 +1180,7 @@ export function SeasonMatchDetailsPage(props: {
         onMinuteChange={(value) => { setCardMinute(value); setCardAddedMinutes(0); }}
         addedMinutes={cardAddedMinutes}
         onAddedMinutesChange={setCardAddedMinutes}
-        clockPosition={eventClockPosition}
+        match={match}
         stoppageTimeAllowed={cardStoppageTimeAllowed}
         timeIsAhead={cardTimeIsAhead}
         players={eligibleCardPlayers
