@@ -19,7 +19,7 @@ test("fixture creation, schedule, identity and participant changes require compl
 });
 
 test("match status and penalty-shootout operations do not require completed auction", () => {
-  assert.equal(requiresAuctionForFixtureMutation({ status: "live" }), false);
-  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: null }), false);
-  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: { homeScore: 4, awayScore: 3, kicks: [] } as never }), false);
+  assert.equal(requiresAuctionForFixtureMutation({ status: "live" } as never), false);
+  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: null } as never), false);
+  assert.equal(requiresAuctionForFixtureMutation({ penaltyShootout: { homeScore: 4, awayScore: 3, kicks: [] } as never } as never), false);
 });

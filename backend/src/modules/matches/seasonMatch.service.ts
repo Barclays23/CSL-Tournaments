@@ -688,6 +688,9 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (["completed", "cancelled", "abandoned"].includes(existing.status)) {
       throw new AppError("Completed, Cancelled and Abandoned matches are terminal. Use the audited correction workflow where permitted.", 409, "MATCH_TERMINAL");
     }
+    if (existing.status === "postponed" && Object.keys(input).length > 0) {
+      throw new AppError("Postponed fixtures can only be rescheduled or cancelled before kickoff, or resumed/abandoned after kickoff.", 409, "MATCH_DETAILS_EDIT_NOT_ALLOWED");
+    }
     const season = await this._seasonMatchRepo.findSeason(String(existing.seasonRef));
     if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.status !== "active") throw new AppError("Match management is available only while the season is Active.", 409, "SEASON_NOT_ACTIVE");
@@ -907,7 +910,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         existing,
         shootout,
       );
-    const correctedMatch: SeasonMatchFields = {
+    const correctedMatch: SeasonMatchEntity = {
       ...existing,
       status: "completed",
       goals: correctedGoals,
@@ -927,7 +930,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     const originalScore = rules.deriveMatchScore(existing),
       correctedScore = rules.deriveMatchScore(correctedMatch);
     const snapshot = (
-      match: SeasonMatchFields,
+      match: SeasonMatchEntity,
       score: { homeScore: number; awayScore: number },
     ) => ({
       homeScore: score.homeScore,
@@ -1550,7 +1553,17 @@ export class SeasonMatchService implements ISeasonMatchService {
     allowCompletedCorrection = false,
     existingTiming?: MatchEventTimingInput,
   ): Promise<SeasonMatchFields["goals"][number]> {
-    const timing = resolveMatchEventTiming(match, input, new Date(), existingTiming, allowCompletedCorrection);
+    // Preserve legacy completed-match goals that predate explicit period/minute
+    // fields. Do not infer a historical event minute from createdAt.
+    const preserveLegacyUntimedGoal = allowCompletedCorrection
+      && existingTiming !== undefined
+      && existingTiming.period == null
+      && existingTiming.minute == null
+      && input.period == null
+      && input.minute == null;
+    const timing = preserveLegacyUntimedGoal
+      ? {}
+      : resolveMatchEventTiming(match, input, new Date(), existingTiming, allowCompletedCorrection);
     const home = String(match.homeSeasonTeamRef),
       away = String(match.awaySeasonTeamRef),
       scoring = input.scoringSeasonTeamRef;
@@ -1898,12 +1911,6 @@ export class SeasonMatchService implements ISeasonMatchService {
     const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
     if (!season)
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-    if (season.status !== "active")
-      throw new AppError(
-        "Match incidents can only be managed while the season is Active.",
-        409,
-        "SEASON_NOT_ACTIVE",
-      );
     return match;
   }
   private id(value: string, label: string) {

@@ -14,7 +14,7 @@ export const MATCH_PHASE_ACTIONS = [
 ] as const;
 
 export type MatchPhaseAction = typeof MATCH_PHASE_ACTIONS[number];
-export interface MatchEventTimingInput { period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number; }
+export interface MatchEventTimingInput { period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null; }
 export interface ResolvedMatchEventTiming { period: MatchTimedPeriod; minute: number; addedMinutes: number; }
 
 export const MATCH_TIMED_PERIODS: readonly MatchTimedPeriod[] = [
