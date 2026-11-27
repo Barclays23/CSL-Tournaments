@@ -68,7 +68,7 @@ function Section({ icon: Icon, title, description, children }: {
   );
 }
 
-function NumberField({ label, value, min = 0, max, disabled, required, onChange }: {
+function NumberField({ label, value, min = 0, max, disabled, required, step, error, onChange }: {
   label: string;
   value: number;
   min?: number;

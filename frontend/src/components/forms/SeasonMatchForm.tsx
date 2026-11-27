@@ -118,17 +118,16 @@ export function SeasonMatchForm({
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  const stage = watch("stage");
+  const groupRef = watch("groupRef") ?? "";
+  const homeTeamRef = watch("homeSeasonTeamRef") ?? "";
+
   useEffect(() => {
     if (stage === "group") {
       setValue("extraTimeIsAllowed", false, { shouldValidate: true });
       setValue("penaltyShootoutIsAllowed", false, { shouldValidate: true });
     }
   }, [stage, setValue]);
-
-  const stage = watch("stage");
-  const groupRef = watch("groupRef") ?? "";
-  const homeTeamRef = watch("homeSeasonTeamRef") ?? "";
-  const homeTeamRef = watch("homeSeasonTeamRef") ?? "";
 
   const eligibleTeams = useMemo(
     () => seasonTeams.filter((team) => ["registered", "active"].includes(team.status)),
@@ -167,7 +166,6 @@ export function SeasonMatchForm({
         venueRef: values.venueRef,
         homeSeasonTeamRef: values.homeSeasonTeamRef,
         awaySeasonTeamRef: values.awaySeasonTeamRef,
-        ...(match ? {} : { status: "scheduled" as const }),
         notes: values.notes,
         matchDurationMinutes: values.matchDurationMinutes,
         ...(!match ? {
