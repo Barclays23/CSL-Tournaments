@@ -182,8 +182,8 @@ test("ordinary goal CRUD and generic updates remain unavailable for completed ma
   const { service } = serviceFor();
   const goalId = "507f1f77bcf86cd799439019";
   const goal = { scoringSeasonTeamRef: ids.home, scorerPlayerRef: ids.player, goalType: "normal" as const };
-  await assert.rejects(() => service.addGoal(ids.match, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
-  await assert.rejects(() => service.updateGoal(ids.match, goalId, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
-  await assert.rejects(() => service.deleteGoal(ids.match, goalId), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_GOAL_MANAGEMENT_NOT_ALLOWED");
+  await assert.rejects(() => service.addGoal(ids.match, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
+  await assert.rejects(() => service.updateGoal(ids.match, goalId, goal), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
+  await assert.rejects(() => service.deleteGoal(ids.match, goalId), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_TERMINAL");
   await assert.rejects(() => service.update(ids.match, { notes: "Bypass attempt" }), (e: unknown) => e instanceof AppError && e.errorCode === "MATCH_DETAILS_EDIT_NOT_ALLOWED");
 });

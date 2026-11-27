@@ -228,8 +228,7 @@ export function resolveMatchEventTiming(
   ));
   const addedMinutes = input.addedMinutes
     ?? (eventTimeChanged ? 0
-      : existing?.addedMinutes !== undefined ? existing.addedMinutes
-      : input.minute === undefined && !isCompletedCorrection ? defaults.addedMinutes : 0);
+      : existing?.addedMinutes ?? (input.minute === undefined && !isCompletedCorrection ? defaults.addedMinutes : 0));
 
   if (minute === null || !Number.isSafeInteger(minute)) {
     throw new AppError("Enter an event minute when correcting a completed match.", 422, "MATCH_EVENT_MINUTE_REQUIRED");

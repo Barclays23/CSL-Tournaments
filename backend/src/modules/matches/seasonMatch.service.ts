@@ -688,18 +688,17 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (["completed", "cancelled", "abandoned"].includes(existing.status)) {
       throw new AppError("Completed, Cancelled and Abandoned matches are terminal. Use the audited correction workflow where permitted.", 409, "MATCH_TERMINAL");
     }
+    const coreFields = ["kickoffAt", "homeSeasonTeamRef", "awaySeasonTeamRef", "stage", "groupRef", "roundNumber", "matchNumber", "venueRef", "matchDurationMinutes"] as const;
+    const coreMutation = coreFields.some(field => input[field] !== undefined);
+    if (existing.actualStartedAt && coreMutation) {
+      throw new AppError("Fixture identity, schedule, participants, venue and regular duration are immutable after the first actual kickoff, including after postponement.", 409, "FIXTURE_LOCKED_AFTER_KICKOFF");
+    }
     if (existing.status === "postponed" && Object.keys(input).length > 0) {
       throw new AppError("Postponed fixtures can only be rescheduled or cancelled before kickoff, or resumed/abandoned after kickoff.", 409, "MATCH_DETAILS_EDIT_NOT_ALLOWED");
     }
     const season = await this._seasonMatchRepo.findSeason(String(existing.seasonRef));
     if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (season.status !== "active") throw new AppError("Match management is available only while the season is Active.", 409, "SEASON_NOT_ACTIVE");
-
-    const coreFields = ["kickoffAt", "homeSeasonTeamRef", "awaySeasonTeamRef", "stage", "groupRef", "roundNumber", "matchNumber", "venueRef", "matchDurationMinutes"] as const;
-    const coreMutation = coreFields.some(field => input[field] !== undefined);
-    if (existing.actualStartedAt && coreMutation) {
-      throw new AppError("Fixture identity, schedule, participants, venue and regular duration are immutable after the first actual kickoff, including after postponement.", 409, "FIXTURE_LOCKED_AFTER_KICKOFF");
-    }
     if (existing.status !== "scheduled" && coreMutation) {
       throw new AppError("Only not-yet-started Scheduled fixtures can be edited. Use the dedicated reschedule or Match operations for other states.", 409, "MATCH_DETAILS_EDIT_NOT_ALLOWED");
     }
@@ -889,10 +888,15 @@ export class SeasonMatchService implements ISeasonMatchService {
         });
         if (existingGoal) {
           reusedGoalIds.add(String(existingGoal._id));
-          const rebuilt = await this.buildGoal(existing, goal, true, existingGoal);
-          rebuilt._id = existingGoal._id;
-          rebuilt.createdAt = existingGoal.createdAt;
-          return rebuilt;
+          const timingWasSupplied = goal.period != null || goal.minute != null || goal.addedMinutes != null;
+          const existingHasTiming = existingGoal.period != null || existingGoal.minute != null;
+          const timing = timingWasSupplied || existingHasTiming
+            ? resolveMatchEventTiming(existing, goal, new Date(), existingGoal, true)
+            : {};
+          // Preserve unchanged historical player/team identities even when the
+          // player was later inactivated or the sold-lot record is no longer live.
+          // Any explicit timing correction still goes through clock validation.
+          return { ...existingGoal, ...timing };
         }
         return {
           ...(await this.buildGoal(existing, goal, true)),
