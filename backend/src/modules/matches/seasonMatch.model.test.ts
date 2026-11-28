@@ -37,3 +37,18 @@ test("SeasonMatch cards default to an empty array", () => {
 
   assert.deepEqual(match.cards, []);
 });
+
+
+test("Goal and Card event audit history persists typed operations and before/after values", () => {
+  const auditPath = SeasonMatchModel.schema.path("eventAuditHistory") as unknown as {
+    schema: Schema;
+  } | undefined;
+  assert.ok(auditPath, "eventAuditHistory must be a declared Match schema path");
+  assert.equal(auditPath.schema.path("eventId").instance, "ObjectId");
+  assert.deepEqual(auditPath.schema.path("eventType").options.enum, ["goal", "card"]);
+  assert.deepEqual(auditPath.schema.path("operation").options.enum, ["created", "updated", "deleted"]);
+  assert.equal(auditPath.schema.path("actor").options.ref, "User");
+  assert.ok(auditPath.schema.path("previousValue"));
+  assert.ok(auditPath.schema.path("newValue"));
+  assert.ok(auditPath.schema.path("reason"));
+});
