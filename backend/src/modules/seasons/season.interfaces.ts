@@ -18,7 +18,11 @@ export interface ISeasonRepository {
   findByNormalizedName(name: string, excludeId?: string): Promise<SeasonEntity | null>;
   findActive(excludeId?: string): Promise<SeasonEntity | null>;
   createSeason(data: CreateSeasonDto, normalizedName: string): Promise<SeasonEntity>;
-  update(id: string, data: Partial<SeasonEntity>): Promise<SeasonEntity | null>;
+  update(
+    id: string,
+    data: Partial<SeasonEntity>,
+    options?: { requireNoFixturesForMatchRules?: boolean },
+  ): Promise<SeasonEntity | null>;
   updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null>;
   completeIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;
   startAuctionIfReady(id: string): Promise<{ season: SeasonEntity | null; blockers: string[] }>;

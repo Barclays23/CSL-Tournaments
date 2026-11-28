@@ -255,6 +255,27 @@ test("clock corrections cannot move existing goals or cards after the corrected 
   assert.equal(corrected.auditHistory[0].reason, "Referee confirmed clock delay");
 });
 
+test("clock corrections cannot add elapsed time to a future period", async () => {
+  const harness = makeHarness(createMatch({
+    phase: "first_half",
+    clock: {
+      isRunning: false,
+      clockStartedAt: null,
+      periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 0, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 },
+    },
+  }));
+
+  await assert.rejects(
+    () => harness.service.correctClock(matchId, {
+      periodElapsedSecondsByPeriod: { secondHalf: 1 },
+      reason: "Corrected clock period",
+    }, actorId),
+    (error: unknown) => error instanceof AppError && error.errorCode === "MATCH_CLOCK_FUTURE_PERIOD",
+  );
+  assert.equal(harness.writes.length, 0);
+  assert.equal(harness.document().clock.periodElapsedSecondsByPeriod.secondHalf, 0);
+});
+
 test("actual kickoff correction is separate from and does not change the match clock", async () => {
   const harness = makeHarness(createMatch({
     clock: {
