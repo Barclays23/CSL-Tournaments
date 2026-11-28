@@ -758,6 +758,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (input.awaySeasonTeamRef !== undefined) data.awaySeasonTeamRef = new Types.ObjectId(input.awaySeasonTeamRef);
     if (input.matchDurationMinutes !== undefined) data.matchDurationMinutes = input.matchDurationMinutes;
     if (stage !== existing.stage) {
+      if (!season.matchRules) throw new AppError("Season match defaults are unavailable for fixture stage conversion.", 409, "SEASON_RULES_UNAVAILABLE");
       data.decidingRules = resolveFixtureDecidingRulesForStage(
         existing.stage,
         stage,

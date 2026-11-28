@@ -141,7 +141,7 @@ export class SeasonMatchController {
     } catch (error) { next(error); }
   };
   deleteCard = async (req: Request, res: Response, next: NextFunction) => {
-    try { res.status(200).json(ApiResponse.success("Card deleted", await this.service.deleteCard(this.matchId(req), getRequiredRouteParam(req.params.cardId, "cardId"), this.actor(req), matchEventDeleteSchema.parse(req.body).reason))); }
+    try { res.status(200).json(ApiResponse.success("Card deleted", await this.service.deleteCard(this.matchId(req), getRequiredRouteParam(req.params.cardId, "cardId"), this.actor(req), matchEventDeleteSchema.parse(req.body ?? {}).reason))); }
     catch (error) { next(error); }
   };
 }

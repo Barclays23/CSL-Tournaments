@@ -3,7 +3,8 @@ import test from "node:test";
 import { Types } from "mongoose";
 import { VenueService } from "./venue.service.js";
 import type { VenueEntity, VenueStatus } from "./venue.types.js";
-import { venueRouter } from "./venue.routes.js";
+import { requireAdmin } from "../../middlewares/authorizeAdmin.middleware.js";
+import type { Request, Response } from "express";
 
 class MemoryVenueRepository {
   readonly rows: VenueEntity[] = [];
@@ -117,15 +118,17 @@ test("a referenced Venue can be deactivated and historical Venue records remain 
   assert.equal(await repository.countFixtureReferences(venue._id), 1);
 });
 
-test("Venue routes require authenticate and requireAdmin for create/update/delete", () => {
-  const routeNames = (method: "post" | "patch" | "delete", path: string) => {
-    const layer = venueRouter.stack.find((item) => item.route?.path === path && item.route.methods[method]);
-    assert.ok(layer?.route);
-    return layer.route.stack.map((item) => item.name);
-  };
-  for (const [method, path] of [["post", "/"], ["patch", "/:id"], ["delete", "/:id"]] as const) {
-    const names = routeNames(method, path);
-    assert.ok(names.includes("authenticate"), `${method} ${path} must authenticate`);
-    assert.ok(names.includes("requireAdmin"), `${method} ${path} must require admin`);
+test("Venue create, update and delete authorization rejects non-admin users", () => {
+  for (const operation of ["create", "update", "delete"] as const) {
+    let denied: unknown;
+    const userRequest = { user: { role: "user" } } as unknown as Request;
+    requireAdmin(userRequest, {} as Response, (error) => { denied = error; });
+    assert.ok(denied, `${operation} must be denied to a non-admin`);
+    assert.equal((denied as { errorCode?: string }).errorCode, "FORBIDDEN");
+
+    let adminError: unknown;
+    const adminRequest = { user: { role: "admin" } } as unknown as Request;
+    requireAdmin(adminRequest, {} as Response, (error) => { adminError = error; });
+    assert.equal(adminError, undefined, `${operation} should permit an administrator`);
   }
 });

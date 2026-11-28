@@ -87,7 +87,7 @@ async function persistUpdatedGoal(match: SeasonMatchEntity) {
     repository as unknown as SeasonMatchRepository,
   );
 
-  await service.updateGoal(matchId, goalId, goalInput);
+  await service.updateGoal(matchId, goalId, { ...goalInput, reason: "Corrected referee record" }, "507f1f77bcf86cd799439020");
   assert.ok(persistedGoal, "the updated goal should be sent to persistence");
   return persistedGoal;
 }
