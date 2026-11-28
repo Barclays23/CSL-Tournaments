@@ -15,13 +15,13 @@ const options: Array<{ value: SeasonMatchCardType; label: string }> = [
 
 export function CardManagementDrawer({
   open, onClose, editing, home, away, teamId, onTeamChange, cardType, onCardTypeChange, playerId, onPlayerChange, players,
-  period, periodOptions, onPeriodChange, minute, onMinuteChange, addedMinutes, onAddedMinutesChange, match,
+  period, periodOptions, onPeriodChange, minute, onMinuteChange, addedMinutes, onAddedMinutesChange, reason, onReasonChange, match,
   stoppageTimeAllowed, saving, error, onSubmit,
 }: {
   open: boolean; onClose: () => void; editing: boolean; home: Team; away: Team; teamId: string; onTeamChange: (id: string) => void;
   cardType: SeasonMatchCardType; onCardTypeChange: (type: SeasonMatchCardType) => void; playerId: string; onPlayerChange: (id: string) => void;
   players: Player[]; period: MatchTimedPeriod | null; periodOptions: MatchTimedPeriod[]; onPeriodChange: (period: MatchTimedPeriod) => void;
-  minute: number; onMinuteChange: (minute: number) => void; addedMinutes: number; onAddedMinutesChange: (minutes: number) => void;
+  minute: number; onMinuteChange: (minute: number) => void; addedMinutes: number; onAddedMinutesChange: (minutes: number) => void; reason: string; onReasonChange: (reason: string) => void;
   match: SeasonMatch; stoppageTimeAllowed: boolean; saving: boolean; error?: string | null; onSubmit: () => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
@@ -54,7 +54,8 @@ export function CardManagementDrawer({
         {timeIsAhead ? <p className="mt-2 text-xs text-danger" role="alert">This event time is later than the current or stored Match clock position, or belongs to an unavailable period.</p> : null}
         {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
       </section>
-      <div className="flex gap-2 border-t border-line pt-4"><Button type="button" variant="surface" className="flex-1" onClick={onClose}>Cancel</Button><Button type="submit" className="flex-1" disabled={saving || !playerId || !period || timeIsAhead}>{saving ? "Saving…" : editing ? "Save changes" : "Record card"}</Button></div>
+      {editing ? <label className="grid gap-1 text-sm text-fg">Correction reason<input className="rounded-lg border border-line bg-surface px-3 py-2 text-sm" maxLength={1000} value={reason} onChange={(event) => onReasonChange(event.target.value)} placeholder="Why is this card being corrected?" /></label> : null}
+      <div className="flex gap-2 border-t border-line pt-4"><Button type="button" variant="surface" className="flex-1" onClick={onClose}>Cancel</Button><Button type="submit" className="flex-1" disabled={saving || !playerId || !period || timeIsAhead || (editing && reason.trim().length < 3)}>{saving ? "Saving…" : editing ? "Save changes" : "Record card"}</Button></div>
     </form>
   </Drawer>;
 }

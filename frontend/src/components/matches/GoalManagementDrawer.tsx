@@ -40,6 +40,8 @@ export function GoalManagementDrawer({
   onMinuteChange,
   addedMinutes,
   onAddedMinutesChange,
+  reason,
+  onReasonChange,
   match,
   stoppageTimeAllowed,
   saving,
@@ -65,6 +67,8 @@ export function GoalManagementDrawer({
   onMinuteChange: (minute: number) => void;
   addedMinutes: number;
   onAddedMinutesChange: (minutes: number) => void;
+  reason: string;
+  onReasonChange: (reason: string) => void;
   match: SeasonMatch;
   stoppageTimeAllowed: boolean;
   saving: boolean;
@@ -170,7 +174,10 @@ export function GoalManagementDrawer({
           {error ? <p className="mt-2 text-xs text-danger">{error}</p> : null}
         </section>
 
-        <div className="flex gap-2 border-t border-line pt-4"><Button type="button" variant="surface" className="flex-1" onClick={onClose}>Cancel</Button><Button type="submit" className="flex-1" disabled={!canSave}>{saving ? "Saving…" : editing ? "Save changes" : "Save goal"}</Button></div>
+        {editing ? <label className="grid gap-1 text-sm text-fg">Correction reason
+          <input className="rounded-lg border border-line bg-surface px-3 py-2 text-sm" maxLength={1000} value={reason} onChange={(event) => onReasonChange(event.target.value)} placeholder="Why is this Goal being corrected?" />
+        </label> : null}
+        <div className="flex gap-2 border-t border-line pt-4"><Button type="button" variant="surface" className="flex-1" onClick={onClose}>Cancel</Button><Button type="submit" className="flex-1" disabled={!canSave || (editing && reason.trim().length < 3)}>{saving ? "Saving…" : editing ? "Save changes" : "Save goal"}</Button></div>
       </form>
     </Drawer>
   );

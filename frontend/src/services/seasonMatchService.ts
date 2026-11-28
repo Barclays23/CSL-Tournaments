@@ -106,11 +106,11 @@ export function updateSeasonMatchGoal(seasonId: string, matchId: string, goalId:
   );
 }
 
-export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string) {
+export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, reason?: string) {
   return run(() =>
     USE_MOCK_API
-      ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId)
-      : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`).then((response) => response.data),
+      ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId, reason)
+      : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`, { data: reason ? { reason } : {} }).then((response) => response.data),
   );
 }
 

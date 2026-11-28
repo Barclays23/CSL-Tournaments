@@ -356,6 +356,7 @@ export function SeasonMatchDetailsPage(props: {
   const [goalTeamId, setGoalTeamId] = useState("");
   const [goalOpen, setGoalOpen] = useState(false);
   const [goalType, setGoalType] = useState<"normal" | "own_goal">("normal");
+  const [goalReason, setGoalReason] = useState("");
   const [goalPlayerId, setGoalPlayerId] = useState("");
   const [goalPeriod, setGoalPeriod] = useState<MatchTimedPeriod | null>(null);
   const [goalMinute, setGoalMinute] = useState(1);
@@ -364,6 +365,7 @@ export function SeasonMatchDetailsPage(props: {
   const [savingGoal, setSavingGoal] = useState(false);
   const [cardTeamId, setCardTeamId] = useState("");
   const [cardType, setCardType] = useState<SeasonMatchCardType>("yellow_card");
+  const [cardReason, setCardReason] = useState("");
   const [cardPlayerId, setCardPlayerId] = useState("");
   const [cardPeriod, setCardPeriod] = useState<MatchTimedPeriod | null>(null);
   const [cardMinute, setCardMinute] = useState(1);
@@ -540,6 +542,7 @@ export function SeasonMatchDetailsPage(props: {
         period: goalPeriod,
         minute: goalMinute,
         addedMinutes: goalAddedMinutes,
+        ...(goalReason.trim() ? { reason: goalReason.trim() } : {}),
       };
       if (editingGoalId)
         await updateSeasonMatchGoal(seasonId, matchId, editingGoalId, payload);
@@ -549,6 +552,7 @@ export function SeasonMatchDetailsPage(props: {
       setGoalTeamId("");
       setGoalType("normal");
       setGoalPlayerId("");
+      setGoalReason("");
       setGoalOpen(false);
       matchQuery.reload();
     } catch (error) {
@@ -569,6 +573,7 @@ export function SeasonMatchDetailsPage(props: {
     setGoalTeamId(refId(goal.scoringSeasonTeamRef) ?? home.id);
     setGoalType(goal.goalType);
     setGoalPlayerId(refId(goal.scorerPlayerRef) ?? "");
+    setGoalReason("");
     setGoalPeriod(goal.period ?? timing.period);
     setGoalMinute(goal.minute ?? timing.minute);
     setGoalAddedMinutes(goal.addedMinutes ?? timing.addedMinutes);
@@ -591,7 +596,7 @@ export function SeasonMatchDetailsPage(props: {
     });
     if (!yes) return;
     try {
-      await deleteSeasonMatchGoal(seasonId, matchId, goalId);
+      await deleteSeasonMatchGoal(seasonId, matchId, goalId, reason.trim());
       toast.success("Goal removed");
       if (editingGoalId === goalId) setEditingGoalId(null);
       matchQuery.reload();
@@ -626,6 +631,7 @@ export function SeasonMatchDetailsPage(props: {
         period: cardPeriod,
         minute: cardMinute,
         addedMinutes: cardAddedMinutes,
+        ...(cardReason.trim() ? { reason: cardReason.trim() } : {}),
       };
       if (editingCardId)
         await updateSeasonMatchCard(seasonId, matchId, editingCardId, payload);
@@ -635,6 +641,7 @@ export function SeasonMatchDetailsPage(props: {
       setCardTeamId("");
       setCardPlayerId("");
       setCardType("yellow_card");
+      setCardReason("");
       setCardOpen(false);
       matchQuery.reload();
     } catch (error) {
@@ -654,6 +661,7 @@ export function SeasonMatchDetailsPage(props: {
     setCardTeamId(refId(card.seasonTeamRef) ?? home.id);
     setCardType(card.cardType);
     setCardPlayerId(refId(card.playerRef) ?? "");
+    setCardReason("");
     setCardPeriod(card.period ?? timing.period);
     setCardMinute(card.minute ?? timing.minute);
     setCardAddedMinutes(card.addedMinutes ?? timing.addedMinutes);
@@ -661,6 +669,9 @@ export function SeasonMatchDetailsPage(props: {
   };
   const removeCard = async (cardId: string) => {
     if (!canManageCards) return;
+    const reason = window.prompt("Reason for deleting this card (minimum 3 characters):");
+    if (reason === null) return;
+    if (reason.trim().length < 3) { toast.error("A deletion reason with at least 3 characters is required."); return; }
     const yes = await confirm({
       title: "Remove this card?",
       description:
@@ -670,7 +681,7 @@ export function SeasonMatchDetailsPage(props: {
     });
     if (!yes) return;
     try {
-      await deleteSeasonMatchCard(seasonId, matchId, cardId);
+      await deleteSeasonMatchCard(seasonId, matchId, cardId, reason.trim());
       toast.success("Card removed");
       matchQuery.reload();
     } catch (error) {
@@ -1109,6 +1120,7 @@ export function SeasonMatchDetailsPage(props: {
       <GoalManagementDrawer
         open={goalOpen}
         onClose={() => {
+          setGoalReason("");
           setGoalOpen(false);
           setEditingGoalId(null);
           setGoalTeamId("");
@@ -1139,6 +1151,8 @@ export function SeasonMatchDetailsPage(props: {
         onMinuteChange={(value) => { setGoalMinute(value); setGoalAddedMinutes(0); }}
         addedMinutes={goalAddedMinutes}
         onAddedMinutesChange={setGoalAddedMinutes}
+        reason={goalReason}
+        onReasonChange={setGoalReason}
         match={match}
         stoppageTimeAllowed={goalStoppageTimeAllowed}
         players={eligibleGoalPlayers
@@ -1164,6 +1178,7 @@ export function SeasonMatchDetailsPage(props: {
       <CardManagementDrawer
         open={cardOpen}
         onClose={() => {
+          setCardReason("");
           setCardOpen(false);
           setEditingCardId(null);
           setCardTeamId("");
@@ -1188,6 +1203,8 @@ export function SeasonMatchDetailsPage(props: {
         onMinuteChange={(value) => { setCardMinute(value); setCardAddedMinutes(0); }}
         addedMinutes={cardAddedMinutes}
         onAddedMinutesChange={setCardAddedMinutes}
+        reason={cardReason}
+        onReasonChange={setCardReason}
         match={match}
         stoppageTimeAllowed={cardStoppageTimeAllowed}
         players={eligibleCardPlayers
