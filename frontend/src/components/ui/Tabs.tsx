@@ -33,7 +33,7 @@ export function Tabs({
             onClick={() => onChange(tab.value)}
             className={cn(
               "h-11 shrink-0 rounded-full px-4 text-sm font-semibold transition",
-              variant === "switcher" ? "flex-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent" : "",
+              variant === "switcher" ? "flex-1 focus-visible:outline-2 focus-visible:outline-accent" : "",
               selected
                 ? "bg-accent text-accent-fg shadow-sm"
                 : "border border-line bg-glass text-fg hover:border-accent/40 hover:bg-surface",
