@@ -10,7 +10,7 @@ import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
-import { assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
+import { assertMockPhaseCorrectionAllowed, assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, resolveMockClockCorrection, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
 import type { MatchDecidingRules, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
 import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
 import {
@@ -702,6 +702,82 @@ export const seasonPreviewRepository = {
     match.updatedAt = timestamp;
     commitSeasonDb(db);
     return ok("Match phase updated", populatedSeasonMatch(db, match));
+  },
+
+  async correctSeasonMatchActualKickoff(
+    seasonId: string,
+    matchId: string,
+    input: { actualStartedAt: string; reason: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Actual kickoff correction");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const parsed = new Date(input.actualStartedAt);
+    const reason = input.reason.trim();
+    if (!match.actualStartedAt || !Number.isFinite(parsed.getTime())) {
+      fail(409, "Only an existing actual kickoff can be corrected to a valid timestamp.", "ACTUAL_KICKOFF_CORRECTION_NOT_ALLOWED");
+    }
+    if (reason.length < 3 || reason.length > 1000 || parsed.getTime() > Date.now()) {
+      fail(422, "Enter a valid past actual kickoff and a correction reason.", "MATCH_AUDIT_REASON_REQUIRED");
+    }
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.actualStartedAt = parsed.toISOString();
+    appendMockMatchAudit(match, "actual_kickoff_correction", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Actual kickoff corrected", populatedSeasonMatch(db, match));
+  },
+
+  async correctSeasonMatchClock(
+    seasonId: string,
+    matchId: string,
+    input: { periodElapsedSecondsByPeriod: Partial<MockSeasonMatch["clock"]["periodElapsedSecondsByPeriod"]>; reason: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match clock correction");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const nextElapsed = resolveMockClockCorrection(match, input.periodElapsedSecondsByPeriod, fail);
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 1000) fail(422, "A clock correction reason is required.", "MATCH_AUDIT_REASON_REQUIRED");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.clock = { ...match.clock, isRunning: false, clockStartedAt: null, periodElapsedSecondsByPeriod: nextElapsed };
+    appendMockMatchAudit(match, "clock_correction", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match clock corrected", populatedSeasonMatch(db, match));
+  },
+
+  async correctSeasonMatchPhase(
+    seasonId: string,
+    matchId: string,
+    input: { phase: Exclude<MockSeasonMatch["phase"], null | "full_time">; reason: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match phase correction");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const score = mockNormalScore(match);
+    assertMockPhaseCorrectionAllowed(match, input.phase, score.home, score.away, fail);
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 1000) fail(422, "A phase correction reason is required.", "MATCH_AUDIT_REASON_REQUIRED");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.phase = input.phase;
+    match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
+    appendMockMatchAudit(match, "phase_correction", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match phase corrected", populatedSeasonMatch(db, match));
   },
 
   async completeSeasonMatch(seasonId: string, matchId: string) {

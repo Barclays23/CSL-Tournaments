@@ -208,3 +208,98 @@ export function getMockExtraTimeOutcome(match: MockSeasonMatch, homeScore: numbe
   if (homeScore !== awayScore) return "complete";
   return match.decidingRules.penaltyShootout.isAllowed ? "penalty_shootout" : "complete";
 }
+
+
+export function getMockEventElapsedSeconds(
+  match: MockSeasonMatch,
+  event: MockEventTimingInput,
+): number | null {
+  if (!event.period || event.minute == null) return null;
+  if (event.addedMinutes && event.addedMinutes > 0) {
+    return mockPeriodLengthMinutes(match, event.period) * 60 + event.addedMinutes * 60;
+  }
+  const base = mockPeriodBaseMinutes(match, event.period);
+  return event.minute === base + 1 ? 0 : (event.minute - base) * 60;
+}
+
+export function resolveMockClockCorrection(
+  match: MockSeasonMatch,
+  updates: Partial<MockSeasonMatch["clock"]["periodElapsedSecondsByPeriod"]>,
+  fail: MockFail,
+): MockSeasonMatch["clock"]["periodElapsedSecondsByPeriod"] {
+  if (!match.actualStartedAt || match.clock.isRunning || match.clock.clockStartedAt) {
+    fail(409, "Pause the clock before correcting elapsed Match time.", "MATCH_CLOCK_MUST_BE_STOPPED");
+  }
+  for (const value of Object.values(updates)) {
+    if (!Number.isSafeInteger(value) || (value ?? -1) < 0) {
+      fail(422, "Corrected elapsed seconds must be non-negative whole numbers.", "INVALID_MATCH_CLOCK_CORRECTION");
+    }
+  }
+  const next = { ...match.clock.periodElapsedSecondsByPeriod, ...updates };
+  const periodKey: Record<MatchTimedPeriod, keyof typeof next> = {
+    first_half: "firstHalf",
+    second_half: "secondHalf",
+    extra_time_first_half: "extraTimeFirstHalf",
+    extra_time_second_half: "extraTimeSecondHalf",
+  };
+  for (const event of [...match.goals, ...(match.cards ?? [])]) {
+    const elapsed = getMockEventElapsedSeconds(match, event);
+    if (elapsed !== null && event.period && elapsed > next[periodKey[event.period]]) {
+      fail(409, "Clock correction would place an existing goal or card after the corrected clock. Correct that event explicitly first.", "MATCH_CLOCK_BEFORE_EXISTING_EVENT");
+    }
+  }
+  return next;
+}
+
+export function assertMockPhaseCorrectionAllowed(
+  match: MockSeasonMatch,
+  phase: Exclude<MockSeasonMatch["phase"], null | "full_time">,
+  homeScore: number,
+  awayScore: number,
+  fail: MockFail,
+): void {
+  if (match.status !== "live" || !match.actualStartedAt || match.clock.isRunning || match.clock.clockStartedAt) {
+    fail(409, "Phase corrections require a started Live Match with its clock stopped.", "MATCH_PHASE_CORRECTION_NOT_ALLOWED");
+  }
+  const indexByPhase: Record<Exclude<MockSeasonMatch["phase"], null | "full_time">, number> = {
+    first_half: 0,
+    half_time: 0,
+    second_half: 1,
+    regular_full_time: 1,
+    extra_time_first_half: 2,
+    extra_time_half_time: 2,
+    extra_time_second_half: 3,
+    extra_time_completed: 3,
+    penalty_shootout: match.clock.periodElapsedSecondsByPeriod.extraTimeFirstHalf > 0
+      || match.clock.periodElapsedSecondsByPeriod.extraTimeSecondHalf > 0 ? 3 : 1,
+    penalty_shootout_completed: match.clock.periodElapsedSecondsByPeriod.extraTimeFirstHalf > 0
+      || match.clock.periodElapsedSecondsByPeriod.extraTimeSecondHalf > 0 ? 3 : 1,
+  };
+  const targetIndex = indexByPhase[phase];
+  const elapsed = Object.values(match.clock.periodElapsedSecondsByPeriod);
+  if (elapsed.some((seconds, index) => index > targetIndex && seconds > 0)) {
+    fail(409, "The corrected phase cannot precede already recorded elapsed time in a later period.", "MATCH_PHASE_BEFORE_CLOCK");
+  }
+  for (const event of [...match.goals, ...(match.cards ?? [])]) {
+    if (event.period && PERIOD_INDEX[event.period] > targetIndex) {
+      fail(409, "The corrected phase cannot precede existing Match events. Correct those events first.", "MATCH_PHASE_BEFORE_EVENT");
+    }
+  }
+  if (phase.startsWith("extra_time_")) {
+    if (match.stage === "group" || !match.decidingRules.extraTime.isAllowed) {
+      fail(409, "Extra Time is not enabled for this fixture.", "EXTRA_TIME_DISABLED");
+    }
+  }
+  if (phase.startsWith("penalty_shootout")) {
+    if (match.stage === "group" || !match.decidingRules.penaltyShootout.isAllowed || homeScore !== awayScore) {
+      fail(409, "Penalty Shootout is not valid for this fixture state.", "SHOOTOUT_NOT_ALLOWED");
+    }
+    if (match.decidingRules.extraTime.isAllowed && phase === "penalty_shootout"
+      && match.phase !== "extra_time_completed" && match.phase !== "penalty_shootout" && match.phase !== "penalty_shootout_completed") {
+      fail(409, "Complete the configured Extra Time before correcting the phase to Penalty Shootout.", "EXTRA_TIME_REQUIRED");
+    }
+    if (phase === "penalty_shootout_completed" && match.penaltyShootout?.status !== "completed") {
+      fail(409, "A completed shootout record is required for this phase.", "SHOOTOUT_REQUIRED");
+    }
+  }
+}
