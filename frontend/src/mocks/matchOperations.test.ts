@@ -111,6 +111,25 @@ test("mock event timing rejects future stoppage minutes and accepts elapsed adde
   ), "MATCH_EVENT_IN_FUTURE");
 });
 
+test("completed-match mock timing correction requires explicit period/minute and preserves added time", () => {
+  const completed = match({
+    status: "completed",
+    phase: "full_time",
+    actualStartedAt: start.toISOString(),
+    clock: {
+      isRunning: false,
+      clockStartedAt: null,
+      periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 900, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 },
+    },
+  });
+  const corrected = resolveMockEventTiming(completed, { minute: 28, addedMinutes: 0 }, fail, Date.now(), {
+    period: "second_half", minute: 27, addedMinutes: 0,
+  }, true);
+  assert.deepEqual(corrected, { period: "second_half", minute: 28, addedMinutes: 0 });
+  expectCode(() => resolveMockEventTiming(completed, {}, fail, Date.now(), undefined, true), "MATCH_EVENT_PERIOD_REQUIRED");
+  expectCode(() => resolveMockEventTiming(completed, { period: "second_half" }, fail, Date.now(), undefined, true), "MATCH_EVENT_MINUTE_REQUIRED");
+});
+
 test("mock event timing rejects a future period even if the user supplies a valid minute", () => {
   expectCode(() => resolveMockEventTiming(
     match(),

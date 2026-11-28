@@ -1872,6 +1872,9 @@ export class SeasonMatchService implements ISeasonMatchService {
               ? String(g.playerSeasonTeamRef)
               : null,
             goalType: g.goalType,
+            period: g.period ?? null,
+            minute: g.minute ?? null,
+            addedMinutes: g.addedMinutes ?? 0,
             createdAt:
               g.createdAt?.toISOString() ?? entry.correctedAt.toISOString(),
           })),

@@ -43,6 +43,25 @@ test("list maps legacy goals and cards without embedded timestamps", async () =>
     updatedAt: matchCreatedAt,
   } as unknown as PopulatedSeasonMatch;
 
+  const timedGoal = {
+    _id: new Types.ObjectId(),
+    scoringSeasonTeamRef: new Types.ObjectId(),
+    scorerPlayerRef: new Types.ObjectId(),
+    playerSeasonTeamRef: new Types.ObjectId(),
+    goalType: "normal" as const,
+    period: "second_half" as const,
+    minute: 22,
+    addedMinutes: 2,
+    createdAt: matchCreatedAt,
+  };
+  (match as unknown as { correctionHistory: unknown[] }).correctionHistory = [{
+    reason: "Correct event time from referee record",
+    correctedBy: id(),
+    correctedAt: matchCreatedAt,
+    originalResult: { homeScore: 1, awayScore: 0, goals: [timedGoal], penaltyShootout: null, winnerSeasonTeamRef: id() },
+    correctedResult: { homeScore: 1, awayScore: 0, goals: [{ ...timedGoal, minute: 24, addedMinutes: 1 }], penaltyShootout: null, winnerSeasonTeamRef: id() },
+  }];
+
   const repo = {
     find: async () => ({ items: [match], total: 1 }),
   } as unknown as SeasonMatchRepository;
@@ -57,4 +76,11 @@ test("list maps legacy goals and cards without embedded timestamps", async () =>
   assert.equal(result.items[0]?.cards[0]?.createdAt,matchCreatedAt.toISOString());
   assert.equal(result.items[0]?.actualStartedAt,null);
   assert.deepEqual(result.items[0]?.clock.periodElapsedSecondsByPeriod,{firstHalf:0,secondHalf:0,extraTimeFirstHalf:0,extraTimeSecondHalf:0});
+  const history = result.items[0]?.correctionHistory[0];
+  assert.equal(history?.originalResult.goals[0]?.minute, 22);
+  assert.equal(history?.originalResult.goals[0]?.period, "second_half");
+  assert.equal(history?.originalResult.goals[0]?.addedMinutes, 2);
+  assert.equal(history?.correctedResult.goals[0]?.minute, 24);
+  assert.equal(history?.correctedResult.goals[0]?.period, "second_half");
+  assert.equal(history?.correctedResult.goals[0]?.addedMinutes, 1);
 });

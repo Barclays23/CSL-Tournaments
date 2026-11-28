@@ -918,7 +918,14 @@ export const seasonPreviewRepository = {
     matchId: string,
     input: {
       reason: string;
-      goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+      goals: Array<{
+        scoringSeasonTeamRef: string;
+        scorerPlayerRef?: string | null;
+        goalType: "normal" | "own_goal";
+        period?: MatchTimedPeriod | null;
+        minute?: number | null;
+        addedMinutes?: number | null;
+      }>;
       penaltyShootout: MockSeasonMatch["penaltyShootout"];
     },
   ) {
@@ -952,7 +959,14 @@ export const seasonPreviewRepository = {
         && item.scoringSeasonTeamRef === scoring && item.scorerPlayerRef === scorerId && item.goalType === goal.goalType);
       if (existingGoal) {
         usedIds.add(existingGoal._id);
-        correctedGoals.push({ ...existingGoal });
+        const legacyUntimed = existingGoal.period == null
+          && existingGoal.minute == null
+          && goal.period == null
+          && goal.minute == null;
+        const timing = legacyUntimed
+          ? {}
+          : resolveMockEventTiming(match, goal, fail, Date.now(), existingGoal, true);
+        correctedGoals.push({ ...existingGoal, ...timing });
         continue;
       }
       let playerSeasonTeamRef: string | null = null;
@@ -968,7 +982,8 @@ export const seasonPreviewRepository = {
         if (!lot || lot.seasonTeamRef !== responsibleTeam) fail(422, "Own-goal player must belong to the opposing season team", "INVALID_OWN_GOAL_PLAYER");
         playerSeasonTeamRef = responsibleTeam;
       } else if (goal.goalType !== "own_goal") fail(422, "Unsupported goal type", "INVALID_GOAL_TYPE");
-      correctedGoals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: goal.goalType, createdAt: now() });
+      const timing = resolveMockEventTiming(match, goal, fail, Date.now(), undefined, true);
+      correctedGoals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: goal.goalType, ...timing, createdAt: now() });
     }
 
     const shootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;

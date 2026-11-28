@@ -78,15 +78,25 @@ export function resolveMockEventTiming(
   fail: MockFail,
   nowMs = Date.now(),
   existing?: MockEventTimingInput,
+  allowCompletedCorrection = false,
 ): { period: MatchTimedPeriod; minute: number; addedMinutes: number } {
-  if (match.status !== "live" || !match.actualStartedAt || match.phase === "full_time") {
+  const isLive = match.status === "live" && Boolean(match.actualStartedAt);
+  const isCompletedCorrection = allowCompletedCorrection
+    && match.status === "completed"
+    && match.phase === "full_time"
+    && Boolean(match.actualStartedAt)
+    && !match.clock.isRunning
+    && !match.clock.clockStartedAt;
+  if (!isLive && !isCompletedCorrection) {
     fail(409, "Timed goals and cards can only be managed during a Live Match.", "MATCH_EVENT_MANAGEMENT_NOT_ALLOWED");
   }
   const lastIndex = mockLastPlayedPeriodIndex(match);
   const phasePeriod = mockTimedPeriodForPhase(match.phase);
   const inShootout = match.phase === "penalty_shootout" || match.phase === "penalty_shootout_completed";
   const requestedPeriod = input.period ?? existing?.period ?? undefined;
-  const defaultPeriod = inShootout ? undefined : phasePeriod ?? (lastIndex >= 0 ? MOCK_TIMED_PERIODS[lastIndex] : undefined);
+  const defaultPeriod = isCompletedCorrection || inShootout
+    ? undefined
+    : phasePeriod ?? (lastIndex >= 0 ? MOCK_TIMED_PERIODS[lastIndex] : undefined);
   const period = requestedPeriod ?? defaultPeriod;
   if (!period) fail(422, "Choose a completed Match period for this event.", "MATCH_EVENT_PERIOD_REQUIRED");
   const periodIndex = PERIOD_INDEX[period];
@@ -101,14 +111,15 @@ export function resolveMockEventTiming(
     ? Math.max(base + 1, base + Math.floor(elapsedSeconds / 60))
     : boundary;
   const defaultAdded = elapsedSeconds > nominalSeconds ? Math.floor((elapsedSeconds - nominalSeconds) / 60) : 0;
-  const minute = input.minute ?? existing?.minute ?? defaultMinute;
+  const minute = input.minute ?? existing?.minute ?? (isCompletedCorrection ? null : defaultMinute);
   const eventTimeChanged = Boolean(existing && (
     (input.period !== undefined && input.period !== existing.period)
     || (input.minute !== undefined && input.minute !== existing.minute)
   ));
   const addedMinutes = input.addedMinutes
-    ?? (eventTimeChanged ? 0 : existing?.addedMinutes ?? (input.minute === undefined ? defaultAdded : 0));
-  if (minute == null || !Number.isSafeInteger(minute) || minute <= base || minute > boundary) {
+    ?? (eventTimeChanged ? 0 : existing?.addedMinutes ?? (input.minute === undefined && !isCompletedCorrection ? defaultAdded : 0));
+  if (minute == null) fail(422, "Enter an event minute when correcting a completed match.", "MATCH_EVENT_MINUTE_REQUIRED");
+  if (!Number.isSafeInteger(minute) || minute <= base || minute > boundary) {
     fail(422, "Enter a valid cumulative match minute within the selected period.", "INVALID_MATCH_EVENT_TIME", { minute: "Minute is outside the selected period" });
   }
   if (addedMinutes == null || !Number.isSafeInteger(addedMinutes) || addedMinutes < 0 || (addedMinutes > 0 && minute !== boundary)) {
