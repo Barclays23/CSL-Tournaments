@@ -25,6 +25,7 @@ const penaltyShootoutDefaultsSchema = new Schema({
   isAllowedByDefault: { type: Boolean, required: true },
 }, { _id: false });
 const matchRulesSchema = new Schema({
+  groupStageDrawAllowed: { type: Boolean, default: true, required: true },
   defaultMatchDurationMinutes: { type: Number, required: true, min: 10, max: 120, validate: { validator: (value: number) => Number.isInteger(value) && value % 2 === 0, message: "Regular match duration must be an even integer from 10 to 120 minutes" } },
   extraTime: { type: extraTimeDefaultsSchema, required: true },
   penaltyShootout: { type: penaltyShootoutDefaultsSchema, required: true },

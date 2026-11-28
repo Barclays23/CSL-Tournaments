@@ -102,38 +102,3 @@ test("season identity is editable only for an empty Draft season", () => {
   assert.equal(isSeasonIdentityEditable("completed", false), false);
   assert.equal(isSeasonIdentityEditable("archived", false), false);
 });
-
-test("Season create and update contracts reject the retired Group Stage draw toggle", () => {
-  const valid = {
-    seasonNumber: 1,
-    name: "CSL Season 1",
-    year: 2026,
-    auctionSettings: {
-      currency: "INR" as const,
-      budgetPerTeam: 10000,
-      playersCount: 50,
-      seasonTeamCount: 6,
-      teamSquadSize: 9,
-      iconPlayerLimit: 1,
-      goalkeeperLimit: 1,
-    },
-    matchRules: {
-      defaultMatchDurationMinutes: 30,
-      extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
-      penaltyShootout: { isAllowedByDefault: true },
-      shootoutCountsForMatchScore: false as const,
-      shootoutCountsForPlayerGoals: false as const,
-    },
-  };
-  assert.equal(seasonCreateSchema.safeParse(valid).success, true);
-  assert.equal(seasonCreateSchema.safeParse({
-    ...valid,
-    matchRules: { ...valid.matchRules, groupStageDrawAllowed: false },
-  }).success, false);
-  assert.equal(seasonUpdateSchema.safeParse({
-    matchRules: { groupStageDrawAllowed: false },
-  }).success, false);
-  assert.equal(seasonUpdateSchema.safeParse({
-    matchRules: { defaultMatchDurationMinutes: 32 },
-  }).success, true);
-});

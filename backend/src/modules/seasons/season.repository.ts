@@ -52,6 +52,7 @@ export class SeasonRepository implements ISeasonRepository {
       pointsRules: data.pointsRules ?? { win: 3, draw: 1, loss: 0 },
       standingsTieBreakers: data.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
       matchRules: data.matchRules ?? {
+        groupStageDrawAllowed: true,
         defaultMatchDurationMinutes: 30,
         extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
         penaltyShootout: { isAllowedByDefault: true },
@@ -63,16 +64,7 @@ export class SeasonRepository implements ISeasonRepository {
   }
 
   async update(id: string, data: Partial<SeasonFields>): Promise<SeasonEntity | null> {
-    const { matchRules, ...fields } = data;
-    const set: Record<string, unknown> = { ...fields };
-    if (matchRules) {
-      set["matchRules.defaultMatchDurationMinutes"] = matchRules.defaultMatchDurationMinutes;
-      set["matchRules.extraTime"] = matchRules.extraTime;
-      set["matchRules.penaltyShootout"] = matchRules.penaltyShootout;
-      set["matchRules.shootoutCountsForMatchScore"] = matchRules.shootoutCountsForMatchScore;
-      set["matchRules.shootoutCountsForPlayerGoals"] = matchRules.shootoutCountsForPlayerGoals;
-    }
-    return SeasonModel.findByIdAndUpdate(id, { $set: set }, {
+    return SeasonModel.findByIdAndUpdate(id, { $set: data }, {
       returnDocument: "after",
       runValidators: true,
     }).lean<SeasonEntity>().exec();

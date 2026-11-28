@@ -388,13 +388,7 @@ export class SeasonService implements ISeasonService {
       auctionLifecycleStatus: season.auctionLifecycleStatus,
       pointsRules: season.pointsRules,
       standingsTieBreakers: season.standingsTieBreakers,
-      matchRules: season.matchRules ? {
-        defaultMatchDurationMinutes: season.matchRules.defaultMatchDurationMinutes ?? 30,
-        extraTime: season.matchRules.extraTime ?? { isAllowedByDefault: false, defaultDurationMinutes: 10 },
-        penaltyShootout: season.matchRules.penaltyShootout ?? { isAllowedByDefault: true },
-        shootoutCountsForMatchScore: false,
-        shootoutCountsForPlayerGoals: false,
-      } : null,
+      matchRules:season.matchRules?{groupStageDrawAllowed:season.matchRules.groupStageDrawAllowed??true,defaultMatchDurationMinutes:season.matchRules.defaultMatchDurationMinutes??30,extraTime:season.matchRules.extraTime??{isAllowedByDefault:false,defaultDurationMinutes:10},penaltyShootout:season.matchRules.penaltyShootout??{isAllowedByDefault:(season.matchRules as any).knockoutDrawRequiresShootout??true},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false}:null,
       createdAt: season.createdAt.toISOString(),
       updatedAt: season.updatedAt.toISOString(),
     };

@@ -90,7 +90,6 @@ export const seasonUpdateSchema = z.object({
   pointsRules: pointsRules.partial().optional(),
   standingsTieBreakers: tieBreakers.optional(),
   matchRules: z.object({
-    groupStageDrawAllowed: z.boolean().optional(),
     defaultMatchDurationMinutes: regularMatchDuration.optional(),
     extraTime: z.object({ isAllowedByDefault: z.boolean().optional(), defaultDurationMinutes: extraTimeDuration.optional() }).strict().optional(),
     penaltyShootout: z.object({ isAllowedByDefault: z.boolean().optional() }).strict().optional(),
