@@ -423,7 +423,7 @@ export function AuctionsPage() {
 
       {data ? (
         <GlassCard className="relative mb-5 overflow-hidden border-accent/20 p-5 sm:p-6">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-r from-primary/15 via-transparent to-accent/10" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-linear-to-r from-primary/15 via-transparent to-accent/10" />
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent">Selected season</p>
