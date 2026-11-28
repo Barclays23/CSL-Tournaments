@@ -1054,9 +1054,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
 
   async updateCard(id: string, cardId: string, input: SeasonMatchCardDto, actor?: string): Promise<SeasonMatchResponseDto> {
-    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertCardManagementAllowed(match);
+    const actorId = this.requireEventActor(actor);
     this.id(cardId, "card");
     const old = (match.cards ?? []).find((card) => String(card._id) === cardId);
     if (!old) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
@@ -1072,9 +1072,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
 
   async deleteCard(id: string, cardId: string, actor?: string, reason?: string): Promise<SeasonMatchResponseDto> {
-    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertCardManagementAllowed(match);
+    const actorId = this.requireEventActor(actor);
     this.id(cardId, "card");
     const old = (match.cards ?? []).find((card) => String(card._id) === cardId);
     if (!old) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
@@ -1113,9 +1113,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
 
   async updateGoal(id: string, goalId: string, input: SeasonGoalDto, actor?: string): Promise<SeasonMatchResponseDto> {
-    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertGoalManagementAllowed(match);
+    const actorId = this.requireEventActor(actor);
     this.id(goalId, "goal");
     const existingGoal = match.goals.find((goal) => String(goal._id) === goalId);
     if (!existingGoal) throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
@@ -1143,9 +1143,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
 
   async deleteGoal(id: string, goalId: string, actor?: string, reason?: string): Promise<SeasonMatchResponseDto> {
-    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertGoalManagementAllowed(match);
+    const actorId = this.requireEventActor(actor);
     this.id(goalId, "goal");
     const existingGoal = match.goals.find((goal) => String(goal._id) === goalId);
     if (!existingGoal) throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
