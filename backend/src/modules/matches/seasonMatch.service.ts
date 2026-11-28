@@ -44,6 +44,9 @@ import type {
   MatchAuditHistoryEntry,
   MatchAuditAction,
   MatchAuditSnapshot,
+  MatchEventAuditHistoryEntry,
+  MatchEventAuditValue,
+  SeasonGoalFields,
   MatchClock,
 } from "./seasonMatch.types.js";
 
@@ -1024,40 +1027,23 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (!deleted) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
   }
 
-  async addCard(
-    id: string,
-    input: SeasonMatchCardDto,
-  ): Promise<SeasonMatchResponseDto> {
+  async addCard(id: string, input: SeasonMatchCardDto, actor?: string): Promise<SeasonMatchResponseDto> {
+    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertCardManagementAllowed(match);
     const card = await this.buildCard(match, input);
     card._id = new Types.ObjectId();
     card.createdAt = new Date();
-    const saved = await this._seasonMatchRepo.appendCard(id, card, match.updatedAt);
-    if (!saved) {
-      const latest = await this._seasonMatchRepo.findById(id);
-      if (latest && latest.status !== "live")
-        throw new AppError(
-          "Cards can only be added, edited or removed while the match is Live.",
-          409,
-          "MATCH_CARD_MANAGEMENT_NOT_ALLOWED",
-        );
-      throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    }
+    const auditEntry = this.createCardAuditEntry(card, "created", actorId, null, this.auditReason(input.reason));
+    const saved = await this._seasonMatchRepo.appendCard(id, card, match.updatedAt, auditEntry);
+    if (!saved) throw new AppError("Match changed while the card was being recorded. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
-    if (!populated)
-      throw new AppError(
-        "Updated match could not be retrieved",
-        500,
-        "MATCH_UPDATE_FAILED",
-      );
+    if (!populated) throw new AppError("Updated match could not be retrieved", 500, "MATCH_UPDATE_FAILED");
     return this.map(populated);
   }
-  async updateCard(
-    id: string,
-    cardId: string,
-    input: SeasonMatchCardDto,
-  ): Promise<SeasonMatchResponseDto> {
+
+  async updateCard(id: string, cardId: string, input: SeasonMatchCardDto, actor?: string): Promise<SeasonMatchResponseDto> {
+    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertCardManagementAllowed(match);
     this.id(cardId, "card");
@@ -1066,181 +1052,111 @@ export class SeasonMatchService implements ISeasonMatchService {
     const card = await this.buildCard(match, input, old);
     card._id = new Types.ObjectId(cardId);
     card.createdAt = old.createdAt ?? new Date();
-    const saved = await this._seasonMatchRepo.updateCard(id, cardId, card, match.updatedAt);
-    if (!saved) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
+    const auditEntry = this.createCardAuditEntry(card, "updated", actorId, old, this.auditReason(input.reason));
+    const saved = await this._seasonMatchRepo.updateCard(id, cardId, card, match.updatedAt, auditEntry);
+    if (!saved) throw new AppError("Match or Card changed while the correction was being saved. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
-    if (!populated)
-      throw new AppError(
-        "Updated match could not be retrieved",
-        500,
-        "MATCH_UPDATE_FAILED",
-      );
+    if (!populated) throw new AppError("Updated match could not be retrieved", 500, "MATCH_UPDATE_FAILED");
     return this.map(populated);
   }
-  async deleteCard(
-    id: string,
-    cardId: string,
-  ): Promise<SeasonMatchResponseDto> {
+
+  async deleteCard(id: string, cardId: string, actor?: string, reason?: string): Promise<SeasonMatchResponseDto> {
+    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertCardManagementAllowed(match);
     this.id(cardId, "card");
-    if (!(match.cards ?? []).some((card) => String(card._id) === cardId))
-      throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
-    const saved = await this._seasonMatchRepo.removeCard(id, cardId, match.updatedAt);
-    if (!saved) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
+    const old = (match.cards ?? []).find((card) => String(card._id) === cardId);
+    if (!old) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
+    const auditEntry = this.createCardAuditEntry(old, "deleted", actorId, old, this.auditReason(reason));
+    const saved = await this._seasonMatchRepo.removeCard(id, cardId, match.updatedAt, auditEntry);
+    if (!saved) throw new AppError("Match or Card changed while the deletion was being saved. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
-    if (!populated)
-      throw new AppError(
-        "Updated match could not be retrieved",
-        500,
-        "MATCH_UPDATE_FAILED",
-      );
+    if (!populated) throw new AppError("Updated match could not be retrieved", 500, "MATCH_UPDATE_FAILED");
     return this.map(populated);
   }
-  async addGoal(
-    id: string,
-    input: SeasonGoalDto,
-  ): Promise<SeasonMatchResponseDto> {
+
+  async addGoal(id: string, input: SeasonGoalDto, actor?: string): Promise<SeasonMatchResponseDto> {
+    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertGoalManagementAllowed(match);
     const goal = await this.buildGoal(match, input);
-    const result = { ...match, goals: [...match.goals, goal] };
+    goal._id = new Types.ObjectId();
+    goal.createdAt = new Date();
+    const goals = [...match.goals, goal];
     const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
-    if (!season)
-      throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-    if (!season.matchRules)
-      throw new AppError(
-        "Match rules are unavailable for this season",
-        409,
-        "SEASON_RULES_UNAVAILABLE",
-      );
-    const winner = this.calculateWinner(
-      { ...match, goals: result.goals },
-      season.matchRules,
-      season.pointsRules,
-    );
+    if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+    if (!season.matchRules) throw new AppError("Match rules are unavailable for this season", 409, "SEASON_RULES_UNAVAILABLE");
+    const winner = this.calculateWinner({ ...match, goals }, season.matchRules, season.pointsRules);
+    const auditEntry = this.createGoalAuditEntry(goal, "created", actorId, null, this.auditReason(input.reason));
     const saved = await this._seasonMatchRepo.appendGoalWithWinner(
       id,
       goal,
       winner ? new Types.ObjectId(String(winner)) : null,
       match.updatedAt,
+      auditEntry,
     );
-    if (!saved) {
-      const latest = await this._seasonMatchRepo.findById(id);
-      if (latest && latest.status !== "live")
-        throw new AppError(
-          "Goals can only be added, edited or removed while the match is Live.",
-          409,
-          "MATCH_NOT_LIVE",
-        );
-      throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
-    }
+    if (!saved) throw new AppError("Match changed while the Goal was being recorded. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
-    if (!populated)
-      throw new AppError(
-        "Updated match could not be retrieved",
-        500,
-        "MATCH_UPDATE_FAILED",
-      );
+    if (!populated) throw new AppError("Updated match could not be retrieved", 500, "MATCH_UPDATE_FAILED");
     return this.map(populated);
   }
-  async updateGoal(
-    id: string,
-    goalId: string,
-    input: SeasonGoalDto,
-  ): Promise<SeasonMatchResponseDto> {
+
+  async updateGoal(id: string, goalId: string, input: SeasonGoalDto, actor?: string): Promise<SeasonMatchResponseDto> {
+    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertGoalManagementAllowed(match);
     this.id(goalId, "goal");
-    const existingGoal = match.goals.find((g) => String(g._id) === goalId);
-    if (!existingGoal)
-      throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
+    const existingGoal = match.goals.find((goal) => String(goal._id) === goalId);
+    if (!existingGoal) throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
     const goal = await this.buildGoal(match, input, false, existingGoal);
-    // Editing an incident must not change when it originally happened.
-    // Match-level createdAt is the established fallback for legacy goals.
     goal._id = existingGoal._id;
     goal.createdAt = existingGoal.createdAt ?? match.createdAt;
-    const goals = match.goals.map((g) => (String(g._id) === goalId ? goal : g));
+    const goals = match.goals.map((item) => String(item._id) === goalId ? goal : item);
     const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
-    if (!season)
-      throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-    if (!season.matchRules)
-      throw new AppError(
-        "Match rules are unavailable for this season",
-        409,
-        "SEASON_RULES_UNAVAILABLE",
-      );
-    const winner = this.calculateWinner(
-      { ...match, goals },
-      season.matchRules,
-      season.pointsRules,
-    );
+    if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+    if (!season.matchRules) throw new AppError("Match rules are unavailable for this season", 409, "SEASON_RULES_UNAVAILABLE");
+    const winner = this.calculateWinner({ ...match, goals }, season.matchRules, season.pointsRules);
+    const auditEntry = this.createGoalAuditEntry(goal, "updated", actorId, existingGoal, this.auditReason(input.reason));
     const saved = await this._seasonMatchRepo.updateGoalWithWinner(
       id,
       goalId,
       goal,
       winner ? new Types.ObjectId(String(winner)) : null,
       match.updatedAt,
+      auditEntry,
     );
-    if (!saved) {
-      const latest = await this._seasonMatchRepo.findById(id);
-      if (latest && latest.status !== "live")
-        throw new AppError(
-          "Goals can only be added, edited or removed while the match is Live.",
-          409,
-          "MATCH_NOT_LIVE",
-        );
-      throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
-    }
+    if (!saved) throw new AppError("Match or Goal changed while the correction was being saved. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
-    if (!populated)
-      throw new AppError(
-        "Updated match could not be retrieved",
-        500,
-        "MATCH_UPDATE_FAILED",
-      );
+    if (!populated) throw new AppError("Updated match could not be retrieved", 500, "MATCH_UPDATE_FAILED");
     return this.map(populated);
   }
-  async deleteGoal(
-    id: string,
-    goalId: string,
-  ): Promise<SeasonMatchResponseDto> {
+
+  async deleteGoal(id: string, goalId: string, actor?: string, reason?: string): Promise<SeasonMatchResponseDto> {
+    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertGoalManagementAllowed(match);
     this.id(goalId, "goal");
-    const goals = match.goals.filter((g) => String(g._id) !== goalId);
-    if (goals.length === match.goals.length)
-      throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
+    const existingGoal = match.goals.find((goal) => String(goal._id) === goalId);
+    if (!existingGoal) throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
+    const goals = match.goals.filter((goal) => String(goal._id) !== goalId);
     const season = await this._seasonMatchRepo.findSeason(String(match.seasonRef));
-    if (!season)
-      throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
-    if (!season.matchRules)
-      throw new AppError(
-        "Match rules are unavailable for this season",
-        409,
-        "SEASON_RULES_UNAVAILABLE",
-      );
-    const winner = this.calculateWinner(
-      { ...match, goals },
-      season.matchRules,
-      season.pointsRules,
-    );
+    if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+    if (!season.matchRules) throw new AppError("Match rules are unavailable for this season", 409, "SEASON_RULES_UNAVAILABLE");
+    const winner = this.calculateWinner({ ...match, goals }, season.matchRules, season.pointsRules);
+    const auditEntry = this.createGoalAuditEntry(existingGoal, "deleted", actorId, existingGoal, this.auditReason(reason));
     const saved = await this._seasonMatchRepo.removeGoalWithWinner(
       id,
       goalId,
       winner ? new Types.ObjectId(String(winner)) : null,
       match.updatedAt,
+      auditEntry,
     );
-    if (!saved) throw new AppError("Goal not found", 404, "GOAL_NOT_FOUND");
+    if (!saved) throw new AppError("Match or Goal changed while the deletion was being saved. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
-    if (!populated)
-      throw new AppError(
-        "Updated match could not be retrieved",
-        500,
-        "MATCH_UPDATE_FAILED",
-      );
+    if (!populated) throw new AppError("Updated match could not be retrieved", 500, "MATCH_UPDATE_FAILED");
     return this.map(populated);
   }
+
   private async validateKnockoutQualification(
     seasonId: string,
     stage: SeasonMatchFields["stage"],
@@ -1907,6 +1823,16 @@ export class SeasonMatchService implements ISeasonMatchService {
         : null,
       winnerSeasonTeamRef: this.mapTeam(m.winnerSeasonTeamRef),
       notes: m.notes,
+      eventAuditHistory: (m.eventAuditHistory ?? []).map((entry) => ({
+        eventId: String(entry.eventId),
+        eventType: entry.eventType,
+        operation: entry.operation,
+        actor: String(entry.actor),
+        timestamp: entry.timestamp.toISOString(),
+        previousValue: this.mapEventAuditValue(entry.previousValue),
+        newValue: this.mapEventAuditValue(entry.newValue),
+        reason: entry.reason ?? null,
+      })),
       auditHistory: (m.auditHistory ?? []).map((entry) => ({
         action: entry.action,
         actor: String(entry.actor),
@@ -1928,6 +1854,113 @@ export class SeasonMatchService implements ISeasonMatchService {
       throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     return match;
   }
+  private requireEventActor(actor?: string): Types.ObjectId {
+    if (!actor || !Types.ObjectId.isValid(actor)) {
+      throw new AppError("An authenticated administrator is required for Match event operations.", 401, "UNAUTHENTICATED");
+    }
+    return new Types.ObjectId(actor);
+  }
+
+  private auditReason(reason?: string): string | null {
+    const normalized = reason?.trim() ?? "";
+    if (normalized && (normalized.length < 3 || normalized.length > 1000)) {
+      throw new AppError("Event audit reason must be between 3 and 1000 characters.", 422, "MATCH_EVENT_AUDIT_REASON_INVALID");
+    }
+    return normalized || null;
+  }
+
+  private createGoalAuditEntry(
+    goal: SeasonGoalFields,
+    operation: "created" | "updated" | "deleted",
+    actor: Types.ObjectId,
+    previous: SeasonGoalFields | null,
+    reason: string | null,
+  ): MatchEventAuditHistoryEntry {
+    if (!goal._id) throw new AppError("Goal identity is required for event auditing.", 500, "MATCH_EVENT_AUDIT_INVALID");
+    const toValue = (value: SeasonGoalFields | null): MatchEventAuditValue | null => value ? ({
+      eventType: "goal",
+      eventId: value._id!,
+      scoringSeasonTeamRef: value.scoringSeasonTeamRef,
+      scorerPlayerRef: value.scorerPlayerRef,
+      playerSeasonTeamRef: value.playerSeasonTeamRef,
+      goalType: value.goalType,
+      period: value.period ?? null,
+      minute: value.minute ?? null,
+      addedMinutes: value.addedMinutes ?? 0,
+      createdAt: value.createdAt ?? null,
+    }) : null;
+    return {
+      eventId: goal._id,
+      eventType: "goal",
+      operation,
+      actor,
+      timestamp: new Date(),
+      previousValue: toValue(previous),
+      newValue: operation === "deleted" ? null : toValue(goal),
+      reason,
+    };
+  }
+
+  private createCardAuditEntry(
+    card: SeasonMatchCardFields,
+    operation: "created" | "updated" | "deleted",
+    actor: Types.ObjectId,
+    previous: SeasonMatchCardFields | null,
+    reason: string | null,
+  ): MatchEventAuditHistoryEntry {
+    if (!card._id) throw new AppError("Card identity is required for event auditing.", 500, "MATCH_EVENT_AUDIT_INVALID");
+    const toValue = (value: SeasonMatchCardFields | null): MatchEventAuditValue | null => value ? ({
+      eventType: "card",
+      eventId: value._id!,
+      seasonTeamRef: value.seasonTeamRef,
+      playerRef: value.playerRef,
+      cardType: value.cardType,
+      period: value.period ?? null,
+      minute: value.minute ?? null,
+      addedMinutes: value.addedMinutes ?? 0,
+      createdAt: value.createdAt ?? null,
+    }) : null;
+    return {
+      eventId: card._id,
+      eventType: "card",
+      operation,
+      actor,
+      timestamp: new Date(),
+      previousValue: toValue(previous),
+      newValue: operation === "deleted" ? null : toValue(card),
+      reason,
+    };
+  }
+
+  private mapEventAuditValue(value: MatchEventAuditValue | null): import("./seasonMatch.dto.js").MatchEventAuditValueDto | null {
+    if (!value) return null;
+    if (value.eventType === "goal") {
+      return {
+        eventType: "goal",
+        eventId: String(value.eventId),
+        scoringSeasonTeamRef: String(value.scoringSeasonTeamRef),
+        scorerPlayerRef: value.scorerPlayerRef ? String(value.scorerPlayerRef) : null,
+        playerSeasonTeamRef: value.playerSeasonTeamRef ? String(value.playerSeasonTeamRef) : null,
+        goalType: value.goalType,
+        period: value.period ?? null,
+        minute: value.minute ?? null,
+        addedMinutes: value.addedMinutes ?? 0,
+        createdAt: value.createdAt?.toISOString() ?? null,
+      };
+    }
+    return {
+      eventType: "card",
+      eventId: String(value.eventId),
+      seasonTeamRef: String(value.seasonTeamRef),
+      playerRef: String(value.playerRef),
+      cardType: value.cardType,
+      period: value.period ?? null,
+      minute: value.minute ?? null,
+      addedMinutes: value.addedMinutes ?? 0,
+      createdAt: value.createdAt?.toISOString() ?? null,
+    };
+  }
+
   private id(value: string, label: string) {
     if (!Types.ObjectId.isValid(value))
       throw new AppError("Invalid " + label + " ID", 400, "INVALID_ID");

@@ -19,10 +19,10 @@ export interface ISeasonMatchService {
   reschedule(id: string, input: RescheduleSeasonMatchDto, changedBy?: string): Promise<SeasonMatchResponseDto>;
   correctCompletedMatch(id: string, input: CorrectCompletedMatchDto, correctedBy?: string): Promise<SeasonMatchResponseDto>;
   delete(id: string): Promise<void>;
-  addGoal(id: string, input: SeasonGoalDto): Promise<SeasonMatchResponseDto>;
-  updateGoal(id: string, goalId: string, input: SeasonGoalDto): Promise<SeasonMatchResponseDto>;
-  deleteGoal(id: string, goalId: string): Promise<SeasonMatchResponseDto>;
-  addCard(id: string, input: SeasonMatchCardDto): Promise<SeasonMatchResponseDto>;
-  updateCard(id: string, cardId: string, input: SeasonMatchCardDto): Promise<SeasonMatchResponseDto>;
-  deleteCard(id: string, cardId: string): Promise<SeasonMatchResponseDto>;
+  addGoal(id: string, input: SeasonGoalDto, actor?: string): Promise<SeasonMatchResponseDto>;
+  updateGoal(id: string, goalId: string, input: SeasonGoalDto, actor?: string): Promise<SeasonMatchResponseDto>;
+  deleteGoal(id: string, goalId: string, actor?: string, reason?: string): Promise<SeasonMatchResponseDto>;
+  addCard(id: string, input: SeasonMatchCardDto, actor?: string): Promise<SeasonMatchResponseDto>;
+  updateCard(id: string, cardId: string, input: SeasonMatchCardDto, actor?: string): Promise<SeasonMatchResponseDto>;
+  deleteCard(id: string, cardId: string, actor?: string, reason?: string): Promise<SeasonMatchResponseDto>;
 }
