@@ -15,7 +15,9 @@
     "migrate:season-identities": "tsx src/scripts/migrateSeasonIdentityFields.ts",
     "migrate:player-auction-fields": "tsx src/scripts/migrateLegacyPlayerAuctionFields.ts",
     "migrate:player-auction-fields:apply": "tsx src/scripts/migrateLegacyPlayerAuctionFields.ts --apply",
-    "migrate:season-fixture-venues": "tsx src/scripts/migrateSeasonFixtureVenues.ts"
+    "migrate:season-fixture-venues": "tsx src/scripts/migrateSeasonFixtureVenues.ts",
+    "migrate:match-engine-fields": "tsx src/scripts/migrateMatchEngineFields.ts",
+    "migrate:match-engine-fields:apply": "tsx src/scripts/migrateMatchEngineFields.ts --apply"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
