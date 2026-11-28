@@ -91,6 +91,80 @@ export interface SeasonMatchCorrectionWrite {
   penaltyShootout: SeasonMatch["penaltyShootout"];
 }
 
+export type MatchAuditAction =
+  | "start_match" | "pause_clock" | "resume_clock" | "phase_transition" | "phase_correction"
+  | "status_change" | "deciding_rules_change" | "actual_kickoff_correction" | "clock_correction"
+  | "shootout_update" | "completed_match_correction";
+
+export interface MatchAuditSnapshot {
+  status?: SeasonMatchStatus;
+  phase?: MatchPhase;
+  actualStartedAt?: string | null;
+  clock?: MatchClock;
+  decidingRules?: MatchDecidingRules;
+  kickoffAt?: string;
+  winnerSeasonTeamRef?: string | null;
+  penaltyShootout?: SeasonMatch["penaltyShootout"] | null;
+  score?: { homeScore: number; awayScore: number };
+}
+
+export interface MatchAuditHistoryEntry {
+  action: MatchAuditAction;
+  actor: string;
+  timestamp: string;
+  previousValue: MatchAuditSnapshot;
+  newValue: MatchAuditSnapshot;
+  reason: string | null;
+}
+
+export interface GoalEventAuditValue {
+  eventId: string;
+  scoringSeasonTeamRef: string;
+  scorerPlayerRef: string | null;
+  playerSeasonTeamRef: string | null;
+  goalType: "normal" | "own_goal";
+  period: MatchTimedPeriod | null;
+  minute: number | null;
+  addedMinutes: number;
+  createdAt: string | null;
+}
+export interface CardEventAuditValue {
+  eventId: string;
+  seasonTeamRef: string;
+  playerRef: string;
+  cardType: SeasonMatchCardType;
+  period: MatchTimedPeriod | null;
+  minute: number | null;
+  addedMinutes: number;
+  createdAt: string | null;
+}
+export type MatchEventAuditValue =
+  | ({ eventType: "goal" } & GoalEventAuditValue)
+  | ({ eventType: "card" } & CardEventAuditValue);
+export interface MatchEventAuditHistoryEntry {
+  eventId: string;
+  eventType: "goal" | "card";
+  operation: "created" | "updated" | "deleted";
+  actor: string;
+  timestamp: string;
+  previousValue: MatchEventAuditValue | null;
+  newValue: MatchEventAuditValue | null;
+  reason: string | null;
+}
+
+export interface ActualKickoffCorrectionWrite {
+  actualStartedAt: string;
+  reason: string;
+}
+export interface MatchClockCorrectionWrite {
+  periodElapsedSecondsByPeriod: Partial<MatchClock["periodElapsedSecondsByPeriod"]>;
+  reason: string;
+}
+export interface MatchPhaseCorrectionWrite {
+  phase: Exclude<MatchPhase, null | "full_time">;
+  reason: string;
+}
+
 export interface SeasonMatch {
   _id: string;
   seasonRef: string;
@@ -118,14 +192,8 @@ export interface SeasonMatch {
   }>;
   goals: SeasonMatchGoal[];
   cards?: SeasonMatchCard[];
-  auditHistory?: Array<{
-    action: string;
-    actor: string;
-    timestamp: string;
-    previousValue: Record<string, unknown>;
-    newValue: Record<string, unknown>;
-    reason: string | null;
-  }>;
+  auditHistory?: MatchAuditHistoryEntry[];
+  eventAuditHistory?: MatchEventAuditHistoryEntry[];
   penaltyShootout: {
     status: "pending" | "completed";
     homeTeamScore: number;
