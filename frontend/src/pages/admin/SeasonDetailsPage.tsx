@@ -1175,7 +1175,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                     {/* Crest tile picker */}
                     {allCandidates.length ? (
                       candidateTeams.length ? (
-                        <div className="grid max-h-[26rem] grid-cols-2 gap-3 overflow-y-auto p-1 sm:grid-cols-3 lg:grid-cols-4">
+                        <div className="grid max-h-104 grid-cols-2 gap-3 overflow-y-auto p-1 sm:grid-cols-3 lg:grid-cols-4">
                           {candidateTeams.map((team) => {
                             const checked = registrationIds.includes(team._id);
                             const blocked = !checked && registrationIds.length >= slotsLeft;
