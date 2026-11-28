@@ -117,6 +117,7 @@ export function SeasonMatchForm({
     reset(defaultValues);
   }, [defaultValues, reset]);
 
+  const fixtureLocked = Boolean(match?.actualStartedAt);
   const stage = useWatch({ control, name: "stage" });
   const groupRef = useWatch({ control, name: "groupRef" }) ?? "";
   const homeTeamRef = useWatch({ control, name: "homeSeasonTeamRef" }) ?? "";
@@ -228,6 +229,7 @@ export function SeasonMatchForm({
               max={100}
               required
               placeholder="1"
+              disabled={fixtureLocked}
               aria-invalid={Boolean(errors.matchNumber)}
             />
             <FieldError message={errors.matchNumber?.message} />
@@ -240,6 +242,7 @@ export function SeasonMatchForm({
               min={1}
               max={50}
               required
+              disabled={fixtureLocked}
               aria-invalid={Boolean(errors.roundNumber)}
             />
             <FieldError message={errors.roundNumber?.message} />
@@ -252,6 +255,7 @@ export function SeasonMatchForm({
                 <Select
                   {...field}
                   className={TONES.info.input}
+                  disabled={fixtureLocked}
                   value={field.value || ""}
                   aria-invalid={Boolean(errors.stage)}
                   onChange={(event) => {
@@ -293,6 +297,7 @@ export function SeasonMatchForm({
                   className={TONES.accent.input}
                   value={field.value ?? ""}
                   required
+                  disabled={fixtureLocked}
                   aria-invalid={Boolean(errors.groupRef)}
                   onChange={(event) => {
                     const nextGroup = event.target.value;
@@ -324,7 +329,7 @@ export function SeasonMatchForm({
               className={TONES.gold.input}
               type="datetime-local"
               required
-              readOnly={match?.status === "postponed"}
+              readOnly={fixtureLocked || match?.status === "postponed"}
               aria-invalid={Boolean(errors.kickoffAt)}
             />
             <FieldError message={errors.kickoffAt?.message} />
@@ -334,7 +339,7 @@ export function SeasonMatchForm({
               name="venueRef"
               control={control}
               render={({ field }) => (
-                <Select {...field} className={TONES.gold.input} required aria-invalid={Boolean(errors.venueRef)}>
+                <Select {...field} className={TONES.gold.input} required disabled={fixtureLocked} aria-invalid={Boolean(errors.venueRef)}>
                   <option value="">Choose a venue</option>
                   {venues.filter((venue) => venue.status === "active").map((venue) => (
                     <option key={venue._id} value={venue._id}>
@@ -412,7 +417,7 @@ export function SeasonMatchForm({
                 <Select
                   {...field}
                   className={TONES.primary.input}
-                  disabled={!stage || (stage === "group" && !groupRef)}
+                  disabled={fixtureLocked || !stage || (stage === "group" && !groupRef)}
                   aria-invalid={Boolean(errors.homeSeasonTeamRef)}
                 >
                   <option value="">
@@ -434,7 +439,7 @@ export function SeasonMatchForm({
                 <Select
                   {...field}
                   className={TONES.primary.input}
-                  disabled={!stage || (stage === "group" && !groupRef)}
+                  disabled={fixtureLocked || !stage || (stage === "group" && !groupRef)}
                   aria-invalid={Boolean(errors.awaySeasonTeamRef)}
                 >
                   <option value="">
@@ -485,9 +490,11 @@ export function SeasonMatchForm({
         </span>
       </p>
 
-      <Button type="submit" disabled={submitting}>
+      <Button type="submit" disabled={submitting || fixtureLocked}>
         {submitting ? "Saving…" : match ? "Save changes" : "Save fixture"}
       </Button>
+
+      {fixtureLocked ? <p className="rounded-xl border border-warning/30 bg-warning/5 p-3 text-xs text-muted" role="status">Fixture details are locked because this Match has already started. Postponing it does not unlock its original fixture details.</p> : null}
 
       {submitting && (
         <LoadingSpinner
