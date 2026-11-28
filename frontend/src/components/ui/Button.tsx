@@ -5,8 +5,8 @@ const variants = {
   primary: "bg-primary text-primary-fg hover:brightness-110",
   accent: "bg-accent text-accent-fg hover:brightness-110",
   gold: "bg-gold text-gold-fg hover:brightness-110",
-  danger: "bg-danger text-danger-fg hover:brightness-110",
-  surface: "border border-line bg-glass-strong text-fg hover:border-accent",
+  danger: "bg-danger/80 text-fg/90 hover:text-fg hover:bg-danger",
+  surface: "border border-line bg-glass-strong text-fg hover:bg-accent-fg hover:border-accent",
   ghost: "bg-transparent text-fg hover:bg-surface",
 };
 
