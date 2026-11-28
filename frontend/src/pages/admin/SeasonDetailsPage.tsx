@@ -54,7 +54,6 @@ const fromSeason = (season: Season): SeasonFormState => ({
   iconPlayerLimit: season.auctionSettings?.iconPlayerLimit ?? 1,
   goalkeeperLimit: season.auctionSettings?.goalkeeperLimit ?? 1,
   win: season.pointsRules?.win ?? 3, draw: season.pointsRules?.draw ?? 1, loss: season.pointsRules?.loss ?? 0,
-  groupStageDrawAllowed:season.matchRules?.groupStageDrawAllowed??true,
   defaultMatchDurationMinutes:season.matchRules?.defaultMatchDurationMinutes??30,
   extraTimeAllowedByDefault:season.matchRules?.extraTime.isAllowedByDefault??false,
   extraTimeDurationMinutes:season.matchRules?.extraTime.defaultDurationMinutes??10,
@@ -837,7 +836,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
                   <ConfigCard icon={CalendarDays} title="Match and standings rules">
                     {selected.matchRules ? (
                       <>
-                        <ConfigurationRow label="Group-stage draws" value={selected.matchRules.groupStageDrawAllowed ? "Allowed" : "Not allowed"} />
+                        <ConfigurationRow label="Group-stage draws" value="Always allowed" />
                         <ConfigurationRow label="Default Extra Time" value={selected.matchRules.extraTime.isAllowedByDefault ? `Allowed · ${selected.matchRules.extraTime.defaultDurationMinutes} min` : "Disabled"} />
                         <ConfigurationRow label="Default Penalty Shootout" value={selected.matchRules.penaltyShootout.isAllowedByDefault ? "Allowed" : "Disabled"} />
                         <ConfigurationRow label="Regular match duration" value={`${selected.matchRules.defaultMatchDurationMinutes} min`} />

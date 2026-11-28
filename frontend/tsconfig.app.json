@@ -29,5 +29,5 @@
     "noFallthroughCasesInSwitch": true
   },
   "include": ["src"],
-  "exclude": ["src/lib/**", "src/components/preview-host-bridge.tsx", "src/mocks/matchLifecycleRules.test.ts", "src/mocks/seasonFixtureRules.test.ts"]
+  "exclude": ["src/lib/**", "src/components/preview-host-bridge.tsx", "src/mocks/matchLifecycleRules.test.ts", "src/mocks/seasonFixtureRules.test.ts", "src/mocks/seasonRepository.test.ts"]
 }

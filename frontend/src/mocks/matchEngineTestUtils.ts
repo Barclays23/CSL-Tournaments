@@ -68,6 +68,17 @@ export function seedMockSeasonMatch(
     ...overrides,
   };
 
+  // Test event factories leave team IDs blank; bind those fixtures to the
+  // actual template participants before the mock repository maps them.
+  match.goals = match.goals.map((event) => ({
+    ...event,
+    scoringSeasonTeamRef: event.scoringSeasonTeamRef || match.homeSeasonTeamRef,
+  }));
+  match.cards = (match.cards ?? []).map((event) => ({
+    ...event,
+    seasonTeamRef: event.seasonTeamRef || match.homeSeasonTeamRef,
+  }));
+
   database.matches.push(match);
   commitSeasonDb(database);
   return { seasonId: season._id, match };
