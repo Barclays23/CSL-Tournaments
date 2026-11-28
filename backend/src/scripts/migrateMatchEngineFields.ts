@@ -62,6 +62,26 @@ interface MatchRulesDefaults {
   shootoutCountsForMatchScore: boolean;
   shootoutCountsForPlayerGoals: boolean;
 }
+interface MatchEngineFieldPatch {
+  matchDurationMinutes?: number;
+  decidingRules?: {
+    extraTime: { isAllowed: boolean; durationMinutes: number };
+    penaltyShootout: { isAllowed: boolean };
+  };
+  actualStartedAt?: Date | null;
+  phase?: string | null;
+  clock?: {
+    isRunning: boolean;
+    clockStartedAt: Date | null;
+    periodElapsedSecondsByPeriod: { firstHalf: number; secondHalf: number; extraTimeFirstHalf: number; extraTimeSecondHalf: number };
+  };
+  "goals.$[].period"?: null;
+  "goals.$[].minute"?: null;
+  "goals.$[].addedMinutes"?: number;
+  "cards.$[].period"?: null;
+  "cards.$[].minute"?: null;
+  "cards.$[].addedMinutes"?: number;
+}
 interface MigrationReport {
   seasonsExamined: number;
   seasonsNeedingUpdate: number;
@@ -117,7 +137,14 @@ function seasonRulesNeedPatch(season: LegacySeasonDocument, resolved: MatchRules
     || resolved.defaultMatchDurationMinutes !== rules.defaultMatchDurationMinutes;
 }
 function isStarted(match: LegacyMatchDocument): boolean {
+  const clock = match.clock?.periodElapsedSecondsByPeriod;
+  const elapsedExists = [clock?.firstHalf, clock?.secondHalf, clock?.extraTimeFirstHalf, clock?.extraTimeSecondHalf]
+    .some((value) => isNonNegativeWhole(value) && value > 0);
   return Boolean(match.actualStartedAt)
+    || Boolean(match.phase)
+    || elapsedExists
+    || (match.goals?.length ?? 0) > 0
+    || (match.cards?.length ?? 0) > 0
     || match.status === "live" || match.status === "completed" || match.status === "abandoned"
     || (match.statusHistory ?? []).some((entry) => entry.fromStatus === "live" || entry.toStatus === "live")
     || (match.auditHistory ?? []).some((entry) => entry.action === "start_match");
@@ -161,8 +188,8 @@ function matchNeedsDecidingPatch(match: LegacyMatchDocument): boolean {
 function buildMatchPatch(
   match: LegacyMatchDocument,
   defaults: MatchRulesDefaults,
-): { patch: Record<string, unknown>; unresolved: string[] } {
-  const patch: Record<string, unknown> = {};
+): { patch: MatchEngineFieldPatch; unresolved: string[] } {
+  const patch: MatchEngineFieldPatch = {};
   const unresolved: string[] = [];
   const started = isStarted(match);
   if (match.matchDurationMinutes === undefined || match.matchDurationMinutes === null) {
@@ -172,13 +199,23 @@ function buildMatchPatch(
   }
   if (matchNeedsDecidingPatch(match)) patch.decidingRules = matchDecidingRules(match, defaults);
 
-  if (match.actualStartedAt === undefined) {
+  if (match.actualStartedAt == null) {
     if (started) unresolved.push("started Match has no actualStartedAt; historical kickoff cannot be inferred");
-    else patch.actualStartedAt = null;
+    else if (match.actualStartedAt === undefined) patch.actualStartedAt = null;
   }
-  if (match.phase === undefined) {
+  if (match.phase == null) {
     if (started) unresolved.push("started Match has no phase; phase cannot be inferred safely");
-    else patch.phase = null;
+    else if (match.phase === undefined) patch.phase = null;
+  }
+  if (match.goals?.length) {
+    if (match.goals.some((goal) => goal.period === undefined)) patch["goals.$[].period"] = null;
+    if (match.goals.some((goal) => goal.minute === undefined)) patch["goals.$[].minute"] = null;
+    if (match.goals.some((goal) => goal.addedMinutes === undefined)) patch["goals.$[].addedMinutes"] = 0;
+  }
+  if (match.cards?.length) {
+    if (match.cards.some((card) => card.period === undefined)) patch["cards.$[].period"] = null;
+    if (match.cards.some((card) => card.minute === undefined)) patch["cards.$[].minute"] = null;
+    if (match.cards.some((card) => card.addedMinutes === undefined)) patch["cards.$[].addedMinutes"] = 0;
   }
   if (!match.clock || !hasCompleteClock(match.clock)) {
     if (started) unresolved.push("started Match has incomplete clock data; elapsed seconds cannot be inferred safely");
@@ -201,9 +238,9 @@ async function migrate(): Promise<void> {
   };
   await mongoose.connect(appConfig.MONGODB_URI);
   try {
-    const seasons = mongoose.connection.collection<LegacySeasonDocument>("seasons");
-    const matches = mongoose.connection.collection<LegacyMatchDocument>("seasonmatches");
-    const seasonRows = await seasons.find({}).toArray();
+    const seasons = mongoose.connection.collection("seasons");
+    const matches = mongoose.connection.collection("seasonmatches");
+    const seasonRows = await seasons.find({}).toArray() as unknown as LegacySeasonDocument[];
     const seasonDefaults = new Map<string, MatchRulesDefaults>();
     for (const season of seasonRows) {
       report.seasonsExamined += 1;
@@ -217,7 +254,7 @@ async function migrate(): Promise<void> {
         if (result.modifiedCount !== 1) report.updateConflicts += 1;
       }
     }
-    const matchRows = await matches.find({}).toArray();
+    const matchRows = await matches.find({}).toArray() as unknown as LegacyMatchDocument[];
     for (const match of matchRows) {
       report.matchesExamined += 1;
       const defaults = seasonDefaults.get(String(match.seasonRef));
