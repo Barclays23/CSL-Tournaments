@@ -1,6 +1,6 @@
 import { AppError } from "../../shared/errors/appError.js";
 import type { SeasonMatchFields } from "./seasonMatch.types.js";
-import type { SeasonMatchRules, SeasonPointsRules } from "../seasons/season.types.js";
+import type { SeasonPointsRules } from "../seasons/season.types.js";
 
 export type MatchCompletionInput = Pick<
   SeasonMatchFields,
@@ -174,7 +174,7 @@ export function assertPenaltyShootoutScore(
  */
 export function calculateCompletedMatchWinner(
   match: MatchCompletionInput,
-  _matchRules: Pick<SeasonMatchRules,"groupStageDrawAllowed">,
+  _seasonMatchRules: object,
   pointsRules: SeasonPointsRules | null,
 ): string | null {
   if (match.status !== "completed") return null;

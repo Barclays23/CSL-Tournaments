@@ -28,7 +28,6 @@ const extraTimeDuration = z.coerce.number().int().positive().refine((value) => v
 const extraTimeDefaults = z.object({ isAllowedByDefault: z.boolean(), defaultDurationMinutes: extraTimeDuration }).strict();
 const penaltyShootoutDefaults = z.object({ isAllowedByDefault: z.boolean() }).strict();
 const matchRules = z.object({
-  groupStageDrawAllowed: z.boolean(),
   defaultMatchDurationMinutes: regularMatchDuration,
   extraTime: extraTimeDefaults,
   penaltyShootout: penaltyShootoutDefaults,
@@ -68,7 +67,6 @@ export const seasonCreateSchema = z.object({
   pointsRules: pointsRules.default({ win: 3, draw: 1, loss: 0 }),
   standingsTieBreakers: tieBreakers.default(["points", "goalDifference", "goalsScored", "teamNameAsc"]),
   matchRules: matchRules.default({
-    groupStageDrawAllowed:true,
     defaultMatchDurationMinutes:30,
     extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
     penaltyShootout: { isAllowedByDefault: true },
@@ -92,7 +90,6 @@ export const seasonUpdateSchema = z.object({
   pointsRules: pointsRules.partial().optional(),
   standingsTieBreakers: tieBreakers.optional(),
   matchRules: z.object({
-    groupStageDrawAllowed: z.boolean().optional(),
     defaultMatchDurationMinutes: regularMatchDuration.optional(),
     extraTime: z.object({ isAllowedByDefault: z.boolean().optional(), defaultDurationMinutes: extraTimeDuration.optional() }).strict().optional(),
     penaltyShootout: z.object({ isAllowedByDefault: z.boolean().optional() }).strict().optional(),

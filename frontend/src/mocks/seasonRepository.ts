@@ -1601,7 +1601,7 @@ export const seasonPreviewRepository = {
       groupStageEnabled: input.groupStageEnabled ?? true, homeAndAwayFixtures: input.homeAndAwayFixtures ?? false, status: "draft", auctionLifecycleStatus: "not_started", auctionSettings: input.auctionSettings,
       pointsRules: input.pointsRules ?? { win: 3, draw: 1, loss: 0 },
       standingsTieBreakers: input.standingsTieBreakers ?? ["points", "goalDifference", "goalsScored", "teamNameAsc"],
-      matchRules:input.matchRules??{groupStageDrawAllowed:true,defaultMatchDurationMinutes:30,extraTime:{isAllowedByDefault:false,defaultDurationMinutes:10},penaltyShootout:{isAllowedByDefault:true},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false},
+      matchRules: input.matchRules ?? { defaultMatchDurationMinutes: 30, extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 }, penaltyShootout: { isAllowedByDefault: true }, shootoutCountsForMatchScore: false, shootoutCountsForPlayerGoals: false },
       auctionRevision: 0, createdAt: date, updatedAt: date,
     };
     db.seasons.push(season);
@@ -1641,11 +1641,25 @@ export const seasonPreviewRepository = {
         fail(409, "Season dates cannot exclude existing fixtures");
       }
     }
-    const patch: SeasonPatch = { ...input };
+    const legacyMatchRules = input.matchRules as (typeof input.matchRules & { groupStageDrawAllowed?: unknown }) | undefined;
+    if (legacyMatchRules && Object.hasOwn(legacyMatchRules, "groupStageDrawAllowed")) {
+      fail(422, "Group Stage matches always allow draws; groupStageDrawAllowed is no longer a configurable Season rule", "LEGACY_MATCH_RULE_REMOVED");
+    }
+    const { matchRules, ...seasonPatch } = input;
+    const patch: SeasonPatch = { ...seasonPatch };
     if (input.name !== undefined) patch.name = input.name.trim();
     if (input.auctionSettings) patch.auctionSettings = { ...season.auctionSettings, ...input.auctionSettings };
     if (input.pointsRules) patch.pointsRules = { ...season.pointsRules, ...input.pointsRules };
-    Object.assign(season, patch, { updatedAt: now() });
+    Object.assign(season, patch);
+    if (matchRules) {
+      season.matchRules = {
+        ...season.matchRules,
+        ...matchRules,
+        extraTime: { ...season.matchRules.extraTime, ...matchRules.extraTime },
+        penaltyShootout: { ...season.matchRules.penaltyShootout, ...matchRules.penaltyShootout },
+      };
+    }
+    season.updatedAt = now();
     commitSeasonDb(db);
     return ok("Season updated", season as unknown as Season);
   },
