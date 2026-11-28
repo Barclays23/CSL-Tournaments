@@ -117,7 +117,7 @@ function GroupStandingsCard({
         <Badge>{group.rows.length} teams</Badge>
       </div>
       <div className="overflow-x-auto rounded-2xl border border-line bg-surface/40">
-        <table className="w-full min-w-[42rem] text-left text-sm">
+        <table className="w-full min-w-2xl text-left text-sm">
           <thead className="border-b border-line text-xs uppercase tracking-wide text-muted">
             <tr>
               {["#", "Team", "P", "W", "D", "L", "GF", "GA", "GD", "Pts"].map((column) => (
