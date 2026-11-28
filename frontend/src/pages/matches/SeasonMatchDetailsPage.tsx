@@ -49,6 +49,7 @@ import type {
   SeasonMatchCorrectionWrite,
   MatchTimedPeriod,
   MatchShootoutWrite,
+  MatchEventAuditValue,
 } from "@/types/seasonMatch.types";
 import type { AuctionLot } from "@/types/season.types";
 import { formatDate, formatTime } from "@/utils/formatDate";
@@ -80,6 +81,15 @@ const STATUS_TONE: Record<SeasonMatch["status"], string> = {
   cancelled: "bg-danger/15 text-danger",
   abandoned: "bg-danger/15 text-danger",
 };
+
+function getEventAuditSummary(value: MatchEventAuditValue | null): string {
+  if (!value) return "No event";
+  const time = formatMatchEventTime(value.period, value.minute, value.addedMinutes);
+  if (value.eventType === "goal") {
+    return `Goal · ${value.goalType === "own_goal" ? "Own goal" : "Normal"} · ${time} · Team ${value.scoringSeasonTeamRef}`;
+  }
+  return `Card · ${value.cardType.replaceAll("_", " ")} · ${time} · Team ${value.seasonTeamRef}`;
+}
 
 type MatchEvent = {
   id: string;
@@ -811,6 +821,27 @@ export function SeasonMatchDetailsPage(props: {
               </Link>
             ) : null}
           </div>
+        </GlassCard>
+      ) : null}
+
+      {match.eventAuditHistory?.length ? (
+        <GlassCard className="mt-3 p-4">
+          <h2 className="font-display text-lg text-fg">Goal and Card audit history</h2>
+          <p className="mt-1 text-xs text-muted">Event timestamps below are record/audit times. The match-event position is shown separately using the stored period, minute and added time.</p>
+          <ul className="mt-3 space-y-3">
+            {[...match.eventAuditHistory].reverse().map((entry, index) => (
+              <li key={`${entry.eventId}:${entry.timestamp}:${index}`} className="rounded-lg border border-line bg-surface p-3 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className="text-fg">{entry.eventType === "goal" ? "Goal" : "Card"} {entry.operation}</strong>
+                  <span className="text-xs text-muted">{formatDate(entry.timestamp)} · {new Date(entry.timestamp).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted">Event ID: {entry.eventId} · Admin: {entry.actor}</p>
+                {entry.previousValue ? <p className="mt-2 text-xs text-muted">Previous: {getEventAuditSummary(entry.previousValue)}</p> : null}
+                {entry.newValue ? <p className="mt-1 text-xs text-fg">New: {getEventAuditSummary(entry.newValue)}</p> : null}
+                {entry.reason ? <p className="mt-2 text-xs text-muted">Reason: {entry.reason}</p> : null}
+              </li>
+            ))}
+          </ul>
         </GlassCard>
       ) : null}
 

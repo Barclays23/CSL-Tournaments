@@ -1039,9 +1039,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
 
   async addCard(id: string, input: SeasonMatchCardDto, actor?: string): Promise<SeasonMatchResponseDto> {
-    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertCardManagementAllowed(match);
+    const actorId = this.requireEventActor(actor);
     const card = await this.buildCard(match, input);
     card._id = new Types.ObjectId();
     card.createdAt = new Date();
@@ -1087,9 +1087,9 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
 
   async addGoal(id: string, input: SeasonGoalDto, actor?: string): Promise<SeasonMatchResponseDto> {
-    const actorId = this.requireEventActor(actor);
     const match = await this.requireMatchAndActiveSeason(id);
     this.assertGoalManagementAllowed(match);
+    const actorId = this.requireEventActor(actor);
     const goal = await this.buildGoal(match, input);
     goal._id = new Types.ObjectId();
     goal.createdAt = new Date();
