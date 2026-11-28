@@ -1106,7 +1106,8 @@ export const seasonPreviewRepository = {
         const legacyUntimed = existingGoal.period == null
           && existingGoal.minute == null
           && goal.period == null
-          && goal.minute == null;
+          && goal.minute == null
+          && goal.addedMinutes == null;
         const timing = legacyUntimed
           ? {}
           : resolveMockEventTiming(match, goal, fail, Date.now(), existingGoal, true);
