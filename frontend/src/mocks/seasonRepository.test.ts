@@ -17,7 +17,6 @@ function expectCode(action: () => unknown, code: string): Promise<void> {
 }
 
 function goal(
-  match: MockSeasonMatch,
   overrides: Partial<MockSeasonMatch["goals"][number]> = {},
 ): MockSeasonMatch["goals"][number] {
   return {
@@ -35,7 +34,6 @@ function goal(
 }
 
 function card(
-  match: MockSeasonMatch,
   overrides: Partial<NonNullable<MockSeasonMatch["cards"]>[number]> = {},
 ): NonNullable<MockSeasonMatch["cards"]>[number] {
   return {
@@ -167,7 +165,7 @@ test("mock repository clock correction accepts only non-negative whole seconds",
 });
 
 test("mock repository rejects a clock correction that would place an existing goal after the clock", async () => {
-  const existingGoal = goal({} as MockSeasonMatch, { minute: 12 });
+  const existingGoal = goal({ minute: 12 });
   const { seasonId, match } = seedMockSeasonMatch({ goals: [existingGoal] });
   await expectCode(() => seasonPreviewRepository.correctSeasonMatchClock(
     seasonId, match._id,
@@ -176,7 +174,7 @@ test("mock repository rejects a clock correction that would place an existing go
 });
 
 test("mock repository rejects a clock correction that would place an existing card after the clock", async () => {
-  const existingCard = card({} as MockSeasonMatch, { minute: 13 });
+  const existingCard = card({ minute: 13 });
   const { seasonId, match } = seedMockSeasonMatch({ cards: [existingCard] });
   await expectCode(() => seasonPreviewRepository.correctSeasonMatchClock(
     seasonId, match._id,
@@ -185,8 +183,8 @@ test("mock repository rejects a clock correction that would place an existing ca
 });
 
 test("mock repository clock correction preserves event minutes and audits previous/new clock values", async () => {
-  const existingGoal = goal({} as MockSeasonMatch, { minute: 12 });
-  const existingCard = card({} as MockSeasonMatch, { minute: 13 });
+  const existingGoal = goal({ minute: 12 });
+  const existingCard = card({ minute: 13 });
   const { seasonId, match } = seedMockSeasonMatch({ goals: [existingGoal], cards: [existingCard] });
 
   const response = await seasonPreviewRepository.correctSeasonMatchClock(
@@ -295,7 +293,7 @@ test("mock repository prevents correcting phase before elapsed time or events in
       clockStartedAt: null,
       periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 900, extraTimeFirstHalf: 120, extraTimeSecondHalf: 0 },
     },
-    goals: [goal({} as MockSeasonMatch, { period: "extra_time_first_half", minute: 32 })],
+    goals: [goal({ period: "extra_time_first_half", minute: 32 })],
   });
   await expectCode(() => seasonPreviewRepository.correctSeasonMatchPhase(
     laterEvent.seasonId, laterEvent.match._id, { phase: "second_half", reason: "Correct phase" },
@@ -325,7 +323,7 @@ test("mock repository phase correction requires a reason and records previous/ne
 });
 
 test("completed mock correction updates period and minute while preserving an existing goal identity", async () => {
-  const existing = goal({} as MockSeasonMatch, { period: "first_half", minute: 8 });
+  const existing = goal({ period: "first_half", minute: 8 });
   const { seasonId, match } = completedMatch({ goals: [existing] });
 
   const response = await seasonPreviewRepository.correctCompletedSeasonMatch(seasonId, match._id, {
@@ -341,7 +339,7 @@ test("completed mock correction updates period and minute while preserving an ex
 });
 
 test("completed mock correction updates added/stoppage time", async () => {
-  const existing = goal({} as MockSeasonMatch, { period: "second_half", minute: 30, addedMinutes: 0 });
+  const existing = goal({ period: "second_half", minute: 30, addedMinutes: 0 });
   const { seasonId, match } = completedMatch({ goals: [existing] });
   const response = await seasonPreviewRepository.correctCompletedSeasonMatch(seasonId, match._id, {
     reason: "Stoppage time was omitted",
@@ -382,7 +380,7 @@ test("completed mock correction removes an existing goal and audits its deletion
 });
 
 test("completed mock correction preserves omitted timing fields like the real API", async () => {
-  const legacy = goal({} as MockSeasonMatch, { period: null, minute: null, addedMinutes: undefined });
+  const legacy = goal({ period: null, minute: null, addedMinutes: undefined });
   const { seasonId, match } = completedMatch({ goals: [legacy] });
   const response = await seasonPreviewRepository.correctCompletedSeasonMatch(seasonId, match._id, {
     reason: "Confirm a historical untimed goal",
@@ -428,7 +426,7 @@ test("completed mock correction preserves kickoff, actual kickoff and every cloc
 });
 
 test("completed mock correction returns matching original/corrected timing snapshots and event audit", async () => {
-  const existing = goal({} as MockSeasonMatch, { period: "first_half", minute: 8, addedMinutes: 0 });
+  const existing = goal({ period: "first_half", minute: 8, addedMinutes: 0 });
   const { seasonId, match } = completedMatch({ goals: [existing] });
   const response = await seasonPreviewRepository.correctCompletedSeasonMatch(seasonId, match._id, {
     reason: "Correct the recorded match timeline",
