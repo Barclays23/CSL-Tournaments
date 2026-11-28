@@ -118,6 +118,7 @@ export function MatchEngineCorrectionSection({ seasonId, match, isAdmin, onMatch
         <Button size="sm" disabled={saving || !clockStopped || invalidClock || !clockChanged || clockReason.trim().length < 3} onClick={() => void submitClock()}>Correct clock</Button>
       </div>
     </section>
+    {match.status === "live" ? (
     <section className="mt-4 grid gap-3">
       <div><h3 className="text-sm font-semibold text-fg">Match Phase Correction</h3>
         <p className="mt-0.5 text-xs text-muted">Only phase choices compatible with the fixture rules are offered. The backend validates existing elapsed periods and events before saving.</p></div>
@@ -132,5 +133,6 @@ export function MatchEngineCorrectionSection({ seasonId, match, isAdmin, onMatch
         <Button size="sm" disabled={saving || !clockStopped || !candidates.includes(phase) || phaseReason.trim().length < 3} onClick={() => void submitPhase()}>Correct phase</Button>
       </div>
     </section>
+    ) : null}
   </GlassCard>;
 }
