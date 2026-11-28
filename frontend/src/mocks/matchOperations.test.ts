@@ -215,6 +215,25 @@ test("mock clock correction rejects values that place a timed event after the co
   });
 });
 
+test("mock clock correction rejects elapsed time in a period the Match has not reached", async () => {
+  const { resolveMockClockCorrection } = await import("./matchOperations.ts");
+  const firstHalf = match({
+    phase: "first_half",
+    clock: { isRunning: false, clockStartedAt: null, periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 0, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 } },
+  });
+  expectCode(() => resolveMockClockCorrection(firstHalf, { secondHalf: 1 }, fail), "MATCH_CLOCK_FUTURE_PERIOD");
+  expectCode(() => resolveMockClockCorrection(firstHalf, { extraTimeFirstHalf: 1 }, fail), "MATCH_CLOCK_FUTURE_PERIOD");
+});
+
+test("mock clock correction rejects Extra Time values when Extra Time is disabled", async () => {
+  const { resolveMockClockCorrection } = await import("./matchOperations.ts");
+  const afterRegularTime = match({
+    phase: "regular_full_time",
+    clock: { isRunning: false, clockStartedAt: null, periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 900, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 } },
+  });
+  expectCode(() => resolveMockClockCorrection(afterRegularTime, { extraTimeFirstHalf: 1 }, fail), "EXTRA_TIME_DISABLED");
+});
+
 test("mock phase correction enforces stopped clock, Group Stage and deciding-rule constraints", async () => {
   const { assertMockPhaseCorrectionAllowed } = await import("./matchOperations.ts");
   const stoppedGroup = match({

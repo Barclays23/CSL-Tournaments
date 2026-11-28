@@ -236,6 +236,18 @@ export function resolveMockClockCorrection(
     }
   }
   const next = { ...match.clock.periodElapsedSecondsByPeriod, ...updates };
+  const lastAvailablePeriodIndex = mockLastPlayedPeriodIndex(match);
+  for (const period of MOCK_TIMED_PERIODS) {
+    if (PERIOD_INDEX[period] > lastAvailablePeriodIndex && next[CLOCK_KEY[period]] > 0) {
+      fail(409, "Clock correction cannot add elapsed time to a period that the Match has not reached.", "MATCH_CLOCK_FUTURE_PERIOD");
+    }
+  }
+  if (
+    (match.stage === "group" || !match.decidingRules.extraTime.isAllowed)
+    && (next.extraTimeFirstHalf > 0 || next.extraTimeSecondHalf > 0)
+  ) {
+    fail(409, "Extra Time clock values are not valid for a fixture with Extra Time disabled.", "EXTRA_TIME_DISABLED");
+  }
   const periodKey: Record<MatchTimedPeriod, keyof typeof next> = {
     first_half: "firstHalf",
     second_half: "secondHalf",
