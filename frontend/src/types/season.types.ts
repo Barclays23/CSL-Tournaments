@@ -16,7 +16,7 @@ export interface SeasonAuctionSettings {
   goalkeeperLimit: number;
 }
 
-export interface SeasonMatchDefaults {groupStageDrawAllowed:boolean;defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean};shootoutCountsForMatchScore:false;shootoutCountsForPlayerGoals:false;}
+export interface SeasonMatchDefaults {defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean};shootoutCountsForMatchScore:false;shootoutCountsForPlayerGoals:false;}
 
 export interface Season {
   _id: string;

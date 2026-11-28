@@ -38,7 +38,7 @@ import {
 const defaultForm = (seasonNumber = 1): SeasonFormState => ({
   seasonNumber, name: "", year: new Date().getFullYear(), startDate: "", endDate: "", groupStageEnabled: true, homeAndAwayFixtures: false,
   budgetPerTeam: 10000, playersCount: 54, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1,
-  win: 3, draw: 1, loss: 0, groupStageDrawAllowed:true,defaultMatchDurationMinutes:30,extraTimeAllowedByDefault:false,extraTimeDurationMinutes:10,penaltyShootoutAllowedByDefault:true,
+  win: 3, draw: 1, loss: 0, defaultMatchDurationMinutes:30,extraTimeAllowedByDefault:false,extraTimeDurationMinutes:10,penaltyShootoutAllowedByDefault:true,
   standingsTieBreakers: ["points", "goalDifference", "goalsScored", "teamNameAsc"],
 });
 const toDateInput = (value: string | null | undefined) => value ? value.slice(0, 10) : "";
@@ -380,7 +380,7 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
     },
     pointsRules: { win: form.win, draw: form.draw, loss: form.loss },
     standingsTieBreakers: form.standingsTieBreakers,
-    matchRules:{groupStageDrawAllowed:form.groupStageDrawAllowed,defaultMatchDurationMinutes:form.defaultMatchDurationMinutes,extraTime:{isAllowedByDefault:form.extraTimeAllowedByDefault,defaultDurationMinutes:form.extraTimeDurationMinutes},penaltyShootout:{isAllowedByDefault:form.penaltyShootoutAllowedByDefault},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false},
+    matchRules:{defaultMatchDurationMinutes:form.defaultMatchDurationMinutes,extraTime:{isAllowedByDefault:form.extraTimeAllowedByDefault,defaultDurationMinutes:form.extraTimeDurationMinutes},penaltyShootout:{isAllowedByDefault:form.penaltyShootoutAllowedByDefault},shootoutCountsForMatchScore:false,shootoutCountsForPlayerGoals:false},
   });
 
   /* ── handlers (logic unchanged) ── */
@@ -410,7 +410,6 @@ function SeasonDetailsBody({ seasonId }: { seasonId: string }) {
         pointsRules: { win: editForm.win, draw: editForm.draw, loss: editForm.loss },
         standingsTieBreakers: editForm.standingsTieBreakers,
         matchRules: {
-          groupStageDrawAllowed:editForm.groupStageDrawAllowed,
           defaultMatchDurationMinutes:editForm.defaultMatchDurationMinutes,
           extraTime:{isAllowedByDefault:editForm.extraTimeAllowedByDefault,defaultDurationMinutes:editForm.extraTimeDurationMinutes},
           penaltyShootout:{isAllowedByDefault:editForm.penaltyShootoutAllowedByDefault},
