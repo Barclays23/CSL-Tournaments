@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveFixtureDecidingRulesForStage } from "./seasonMatch.fixtureRules.js";
-import { resolveMockFixtureDecidingRulesForStage } from "../../../frontend/src/mocks/seasonFixtureRules.js";
+import { resolveFixtureDecidingRulesForStage } from "../../../backend/src/modules/matches/seasonMatch.fixtureRules.js";
+import { resolveMockFixtureDecidingRulesForStage } from "./seasonFixtureRules.js";
 
 const defaults = {
   extraTime: { isAllowedByDefault: true, defaultDurationMinutes: 14 },
