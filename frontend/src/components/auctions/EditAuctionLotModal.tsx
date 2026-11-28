@@ -8,8 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
-
-import { TONES, ToneSection, type Tone } from "@/lib/tones/Tones";
+import { TONES, ToneSection, type Tone } from "@/components/ui/Tones";
 
 import type { Asset } from "@/types/api.types";
 import type {
@@ -19,6 +18,9 @@ import type {
   AuctionLifecycleStatus,
   SeasonPlayerPosition,
 } from "@/types/season.types";
+
+
+
 
 interface EditAuctionLotModalProps {
   open: boolean;

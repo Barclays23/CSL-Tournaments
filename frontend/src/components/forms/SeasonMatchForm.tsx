@@ -15,7 +15,7 @@ import { refId } from "@/utils/refs";
 import { seasonMatchFormSchema, type SeasonMatchFormInput, type SeasonMatchFormValues } from "@/schemas/seasonMatch.schema";
 import type { Venue } from "@/types/venue.types";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { TONES, ToneSection } from "@/lib/tones/Tones";
+import { TONES, ToneSection } from "@/components/ui/Tones";
 
 
 const STAGES: Array<{ value: SeasonMatchStage; label: string }> = [
