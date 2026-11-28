@@ -11,7 +11,7 @@ import { ApiError } from "@/utils/errorHandler";
 import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
 import { assertMockPhaseCorrectionAllowed, assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, resolveMockClockCorrection, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
-import type { MatchAuditSnapshot, MatchDecidingRules, MatchEventAuditHistoryEntry, MatchEventAuditValue, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
+import type { MatchAuditAction, MatchAuditSnapshot, MatchDecidingRules, MatchEventAuditHistoryEntry, MatchEventAuditValue, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
 import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, isMockActiveFixtureVenue, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
@@ -184,7 +184,7 @@ function mockMatchAuditSnapshot(match: MockSeasonMatch): MatchAuditSnapshot {
 
 function appendMockMatchAudit(
   match: MockSeasonMatch,
-  action: string,
+  action: MatchAuditAction,
   previousValue: MatchAuditSnapshot,
   reason: string | null = null,
   timestamp = now(),

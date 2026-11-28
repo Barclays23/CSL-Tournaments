@@ -606,7 +606,7 @@ export function SeasonMatchDetailsPage(props: {
     });
     if (!yes) return;
     try {
-      await deleteSeasonMatchGoal(seasonId, matchId, goalId, reason.trim());
+      await deleteSeasonMatchGoal(seasonId, matchId, goalId, goalReason.trim() || undefined);
       toast.success("Goal removed");
       if (editingGoalId === goalId) setEditingGoalId(null);
       matchQuery.reload();
