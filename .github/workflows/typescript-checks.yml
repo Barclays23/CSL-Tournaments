@@ -48,6 +48,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install backend dependencies
         run: npm ci
+      - name: Install frontend dependencies for mock repository tests
+        run: npm ci --prefix ../frontend
       - name: Run backend tests
         run: npm test
       - name: Typecheck backend
