@@ -275,6 +275,9 @@ export function assertMockPhaseCorrectionAllowed(
     penalty_shootout_completed: match.clock.periodElapsedSecondsByPeriod.extraTimeFirstHalf > 0
       || match.clock.periodElapsedSecondsByPeriod.extraTimeSecondHalf > 0 ? 3 : 1,
   };
+  if (!Object.hasOwn(indexByPhase, phase)) {
+    fail(422, "Choose a valid Match phase.", "INVALID_MATCH_PHASE");
+  }
   const targetIndex = indexByPhase[phase];
   const elapsed = Object.values(match.clock.periodElapsedSecondsByPeriod);
   if (elapsed.some((seconds, index) => index > targetIndex && seconds > 0)) {
