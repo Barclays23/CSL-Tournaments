@@ -967,6 +967,16 @@ export class SeasonMatchService implements ISeasonMatchService {
         originalResult: snapshot(existing, originalScore),
         correctedResult: snapshot(correctedMatch, correctedScore),
       };
+    const eventAuditEntries: MatchEventAuditHistoryEntry[] = [];
+    const originalById = new Map(existing.goals.map((goal) => [String(goal._id), goal]));
+    const correctedIds = new Set(correctedGoals.map((goal) => String(goal._id)));
+    for (const goal of correctedGoals) {
+      const previous = originalById.get(String(goal._id)) ?? null;
+      eventAuditEntries.push(this.createGoalAuditEntry(goal, previous ? "updated" : "created", new Types.ObjectId(correctedBy), previous, reason));
+    }
+    for (const previous of existing.goals) {
+      if (!correctedIds.has(String(previous._id))) eventAuditEntries.push(this.createGoalAuditEntry(previous, "deleted", new Types.ObjectId(correctedBy), previous, reason));
+    }
     const saved = await this._seasonMatchRepo.correctCompletedMatch(
       id,
       existing.updatedAt,
@@ -982,6 +992,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         newValue: this.auditSnapshot(correctedMatch),
         reason,
       },
+      eventAuditEntries,
     );
     if (!saved) throw new AppError("Match not found", 404, "MATCH_NOT_FOUND");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);

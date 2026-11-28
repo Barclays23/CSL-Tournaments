@@ -1155,6 +1155,16 @@ export const seasonPreviewRepository = {
       originalResult: { ...originalScore, goals: originalGoals, penaltyShootout: originalShootout, winnerSeasonTeamRef: originalWinner },
       correctedResult: { ...correctedScore, goals: correctedGoals.map((goal) => ({ ...goal })), penaltyShootout: shootout ? { ...shootout, kicks: shootout.kicks.map((kick) => ({ ...kick })) } : null, winnerSeasonTeamRef: correctedWinner },
     });
+    const originalById = new Map(originalGoals.map((goal) => [goal._id, goal]));
+    const correctedIds = new Set(correctedGoals.map((goal) => goal._id));
+    for (const goal of correctedGoals) {
+      const previous = originalById.get(goal._id) ?? null;
+      appendMockEventAudit(match, "goal", previous ? "updated" : "created", goal._id,
+        previous ? mockGoalAuditValue(previous) : null, mockGoalAuditValue(goal), reason, correctedBy!, correctedAt);
+    }
+    for (const previous of originalGoals) {
+      if (!correctedIds.has(previous._id)) appendMockEventAudit(match, "goal", "deleted", previous._id, mockGoalAuditValue(previous), null, reason, correctedBy!, correctedAt);
+    }
     match.goals = correctedGoals;
     match.penaltyShootout = shootout;
     match.winnerSeasonTeamRef = correctedWinner;

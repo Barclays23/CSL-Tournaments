@@ -385,7 +385,7 @@ export class SeasonMatchRepository {
     }, false, options.requireAuctionCompleted ?? false);
   }
 
-  async correctCompletedMatch(id: string, expectedUpdatedAt: Date, goals: SeasonMatchFields["goals"], penaltyShootout: SeasonMatchFields["penaltyShootout"], winnerSeasonTeamRef: Types.ObjectId | null, historyEntry: import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry, auditEntry?: MatchAuditHistoryEntry): Promise<SeasonMatchEntity | null> {
+  async correctCompletedMatch(id: string, expectedUpdatedAt: Date, goals: SeasonMatchFields["goals"], penaltyShootout: SeasonMatchFields["penaltyShootout"], winnerSeasonTeamRef: Types.ObjectId | null, historyEntry: import("./seasonMatch.types.js").SeasonMatchCorrectionHistoryEntry, auditEntry?: MatchAuditHistoryEntry, eventAuditEntries: MatchEventAuditHistoryEntry[] = []): Promise<SeasonMatchEntity | null> {
     const existing = await SeasonMatchModel.findById(id).select("seasonRef").lean<{ seasonRef: Types.ObjectId }>().exec();
     if (!existing) return null;
     return this.withSeasonWriteLock(String(existing.seasonRef), async (session) => {
@@ -396,7 +396,11 @@ export class SeasonMatchRepository {
         if (!latest) return null;
         throw new AppError("This completed match changed while the correction was being prepared. Refresh and try again.", 409, "MATCH_CORRECTION_CONFLICT");
       }
-      return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: { correctionHistory: historyEntry, ...(auditEntry ? { auditHistory: auditEntry } : {}) } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
+      return SeasonMatchModel.findOneAndUpdate(filter, { $set: { goals, penaltyShootout, winnerSeasonTeamRef }, $push: {
+        correctionHistory: historyEntry,
+        ...(auditEntry ? { auditHistory: auditEntry } : {}),
+        ...(eventAuditEntries.length ? { eventAuditHistory: { $each: eventAuditEntries } } : {}),
+      } }, { session, returnDocument: "after", runValidators: true }).lean<SeasonMatchEntity>().exec();
     }, true, false);
   }
 
