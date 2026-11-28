@@ -15,6 +15,7 @@ import { PenaltyShootoutManagementDrawer } from "@/components/matches/PenaltySho
 import { CompletedMatchCorrectionDrawer } from "@/components/matches/CompletedMatchCorrectionDrawer";
 import { MatchStatusManager } from "@/components/matches/MatchStatusManager";
 import { MatchDecidingRulesSection } from "@/components/matches/MatchDecidingRulesSection";
+import { MatchEngineCorrectionSection } from "@/components/matches/MatchEngineCorrectionSection";
 import {
   MatchEventIcon,
   type MatchEventKind,
@@ -836,6 +837,15 @@ export function SeasonMatchDetailsPage(props: {
         </GlassCard>
       ) : null}
 
+      <MatchEngineCorrectionSection
+        key={`${match._id}:corrections:${match.updatedAt}`}
+        seasonId={seasonId}
+        match={match}
+        isAdmin={canManageActiveSeason}
+        onMatchUpdated={(updatedMatch) => {
+          matchQuery.setData((current) => current ? { ...current, data: updatedMatch } : current);
+        }}
+      />
       <MatchStatusManager
         seasonId={seasonId}
         match={match}
