@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 import { ApiError } from "../utils/errorHandler.js";
 import { seasonPreviewRepository } from "./seasonRepository.js";
-import { readSeasonDb, commitSeasonDb } from "./seasonStore.js";
 import type { MockSeasonMatch } from "./seasonSeed.js";
 import { readDb, writeSession } from "./store.js";
 import { resetMockSeasonRepositoryState, seedMockSeasonMatch } from "./matchEngineTestUtils.js";
@@ -21,7 +20,7 @@ function goal(
 ): MockSeasonMatch["goals"][number] {
   return {
     _id: "e00000000000000000000001",
-    scoringSeasonTeamRef: match.homeSeasonTeamRef,
+    scoringSeasonTeamRef: "",
     scorerPlayerRef: null,
     playerSeasonTeamRef: null,
     goalType: "own_goal",
@@ -38,7 +37,7 @@ function card(
 ): NonNullable<MockSeasonMatch["cards"]>[number] {
   return {
     _id: "c00000000000000000000001",
-    seasonTeamRef: match.homeSeasonTeamRef,
+    seasonTeamRef: "",
     playerRef: "0000000000000000000000c1",
     cardType: "yellow_card",
     period: "first_half",
@@ -365,7 +364,7 @@ test("completed mock correction adds a new timed goal with a new event identity"
 });
 
 test("completed mock correction removes an existing goal and audits its deletion", async () => {
-  const existing = goal({} as MockSeasonMatch);
+  const existing = goal();
   const { seasonId, match } = completedMatch({ goals: [existing] });
   const response = await seasonPreviewRepository.correctCompletedSeasonMatch(seasonId, match._id, {
     reason: "The original event was incorrectly recorded",
@@ -409,7 +408,7 @@ test("completed mock correction rejects invalid period/minute and added-time val
 });
 
 test("completed mock correction preserves kickoff, actual kickoff and every clock value", async () => {
-  const existing = goal({} as MockSeasonMatch);
+  const existing = goal();
   const { seasonId, match } = completedMatch({ goals: [existing] });
   const kickoffAt = match.kickoffAt;
   const actualStartedAt = match.actualStartedAt;

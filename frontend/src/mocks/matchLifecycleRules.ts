@@ -61,7 +61,7 @@ type CompletionMatch = {
   penaltyShootout: Shootout | null;
 };
 type CompletionSeason = {
-  matchRules?: {groupStageDrawAllowed:boolean;defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean}} | null;
+  matchRules?: {defaultMatchDurationMinutes:number;extraTime:{isAllowedByDefault:boolean;defaultDurationMinutes:number};penaltyShootout:{isAllowedByDefault:boolean}} | null;
   pointsRules?: { win: number; draw: number; loss: number } | null;
 };
 
