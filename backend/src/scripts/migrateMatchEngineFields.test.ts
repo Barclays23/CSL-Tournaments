@@ -26,10 +26,10 @@ class MemoryCollection<T extends {_id:Types.ObjectId;updatedAt?:Date}> implement
  const doc=this.documents.find(item=>matchesFilter(item,filter));if(!doc)return {matchedCount:0,modifiedCount:0};this.writes++;let changed=false;
  for(const [path,value] of Object.entries(update.$set)){
  const arr=/^(goals|cards)\.\$\[([^\]]+)\]\.([^.]+)$/.exec(path);
- if(arr){const [,arrayName,alias,field]=arr;const events=(doc as Record<string,unknown>)[arrayName] as Array<Record<string,unknown>>|undefined;
+ if(arr){const [,arrayName,alias,field]=arr;const events=(doc as unknown as Record<string,unknown>)[arrayName] as Array<Record<string,unknown>>|undefined;
  const filterForAlias=options?.arrayFilters?.find(candidate=>Object.keys(candidate).some(key=>key.startsWith(`${alias}.`)));
  for(const event of events??[])if(filterForAlias&&matchesArrayFilter(event,filterForAlias)&&(!Object.hasOwn(event,field)||event[field]!==value)){event[field]=value;changed=true;}continue;}
- const segments=path.split(".");let target=doc as Record<string,unknown>;for(const segment of segments.slice(0,-1)){if(!target[segment]||typeof target[segment]!=="object")target[segment]={};target=target[segment] as Record<string,unknown>;}
+ const segments=path.split(".");let target=doc as unknown as Record<string,unknown>;for(const segment of segments.slice(0,-1)){if(!target[segment]||typeof target[segment]!=="object")target[segment]={};target=target[segment] as Record<string,unknown>;}
  const leaf=segments.at(-1)!;if(!Object.hasOwn(target,leaf)||JSON.stringify(target[leaf])!==JSON.stringify(value)){target[leaf]=value;changed=true;}
  }
  return {matchedCount:1,modifiedCount:changed?1:0};

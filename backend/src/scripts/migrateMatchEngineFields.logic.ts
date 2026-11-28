@@ -160,8 +160,8 @@ export async function runMatchEngineMigration(seasons: MigrationCollection<Legac
     report.seasonsNeedingUpdate++;
     if (!apply) continue;
     const result = await seasons.updateOne(optimisticFilter(season), { $set: patch });
-    if (result.matchedCount !== 1) { report.updateConflicts++; report.conflictingSeasons.push(String(season._id)); }
-    else if (result.modifiedCount === 1) report.seasonsUpdated++;
+    if (result.matchedCount !== 1 || result.modifiedCount !== 1) { report.updateConflicts++; report.conflictingSeasons.push(String(season._id)); }
+    else report.seasonsUpdated++;
   }
   const matchRows = await matches.find({}).toArray();
   for (const match of matchRows) {
@@ -177,8 +177,8 @@ export async function runMatchEngineMigration(seasons: MigrationCollection<Legac
     if (!apply) continue;
     const options = plan.arrayFilters.length ? { arrayFilters: plan.arrayFilters } : undefined;
     const result = await matches.updateOne(optimisticFilter(match), { $set: plan.set }, options);
-    if (result.matchedCount !== 1) { report.updateConflicts++; report.conflictingMatches.push(String(match._id)); }
-    else if (result.modifiedCount === 1) report.matchesUpdated++;
+    if (result.matchedCount !== 1 || result.modifiedCount !== 1) { report.updateConflicts++; report.conflictingMatches.push(String(match._id)); }
+    else report.matchesUpdated++;
   }
   return report;
 }
