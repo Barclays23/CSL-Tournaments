@@ -1,6 +1,6 @@
 import { getFixtureGroupReadinessBlockers } from "./seasonMatch.readiness.js";
 import { Types } from "mongoose";
-import { getPairFixtureError, resolveFixtureDecidingRulesForStage } from "./seasonMatch.fixtureRules.js";
+import { getPairFixtureError, isActiveFixtureVenue, resolveFixtureDecidingRulesForStage } from "./seasonMatch.fixtureRules.js";
 import { hasRecordedMatchIncidents } from "./seasonMatch.deletion.js";
 import {
   assertStageMatchesResolved,
@@ -616,7 +616,7 @@ export class SeasonMatchService implements ISeasonMatchService {
       season.homeAndAwayFixtures ?? false,
     );
     const venue = await this._seasonMatchRepo.findVenue(input.venueRef);
-    if (!venue || venue.status !== "active")
+    if (!isActiveFixtureVenue(venue))
       throw new AppError(
         "Choose an active venue from the venue list",
         422,
@@ -735,7 +735,7 @@ export class SeasonMatchService implements ISeasonMatchService {
         await this.validateFixturePair(String(existing.seasonRef), stage, groupId, roundNumber, homeId, awayId, season.homeAndAwayFixtures ?? false, id);
       }
       const venue = await this._seasonMatchRepo.findVenue(venueRef);
-      if (!venue || venue.status !== "active") {
+      if (!isActiveFixtureVenue(venue)) {
         throw new AppError("Choose an active venue from the venue list.", 422, "INVALID_VENUE", { venueRef: "Choose an active venue" });
       }
       this.assertKickoffWithinSeason(season, kickoffAt);

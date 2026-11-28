@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getLiveMatchConflictingTeamIds, getPairFixtureError, resolveFixtureDecidingRulesForStage } from "./seasonMatch.fixtureRules.js";
+import { getLiveMatchConflictingTeamIds, getPairFixtureError, resolveFixtureDecidingRulesForStage, isActiveFixtureVenue } from "./seasonMatch.fixtureRules.js";
 const fixture = (roundNumber:number, homeSeasonTeamRef:string, awaySeasonTeamRef:string, _id:string) => ({roundNumber,homeSeasonTeamRef,awaySeasonTeamRef,_id});
 test("blocks same pair in same round even when home and away are reversed", () => {
   assert.equal(getPairFixtureError([fixture(1,"A","B","1")],1,"B","A",true),"DUPLICATE_PAIR_IN_ROUND");
@@ -69,4 +69,12 @@ test("Group Stage to knockout re-inherits Season defaults", () => {
     extraTime: { isAllowed: true, durationMinutes: 14 },
     penaltyShootout: { isAllowed: false },
   });
+});
+
+
+test("fixture venue selection requires an active Venue for creation and editing", () => {
+  assert.equal(isActiveFixtureVenue({ status: "active" }), true);
+  assert.equal(isActiveFixtureVenue({ status: "inactive" }), false);
+  assert.equal(isActiveFixtureVenue(null), false);
+  assert.equal(isActiveFixtureVenue(undefined), false);
 });

@@ -70,3 +70,8 @@ export function resolveFixtureDecidingRulesForStage(
     penaltyShootout: { ...current.penaltyShootout },
   };
 }
+
+
+export function isActiveFixtureVenue(venue: { status?: string | null } | null | undefined): boolean {
+  return venue?.status === "active";
+}
