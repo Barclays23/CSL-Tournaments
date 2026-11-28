@@ -1602,9 +1602,7 @@ export class SeasonMatchService implements ISeasonMatchService {
   }
   private calculateWinner(
     match: SeasonMatchFields,
-    rules: {
-      groupStageDrawAllowed:boolean;
-    },
+    rules: import("../seasons/season.types.js").SeasonMatchRules,
     pointsRules: import("../seasons/season.types.js").SeasonPointsRules | null,
   ): Types.ObjectId | null {
     const winner = calculateCompletedMatchWinner(match, rules, pointsRules);
