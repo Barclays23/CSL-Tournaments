@@ -83,6 +83,32 @@ const auditHistorySchema=new Schema({
  newValue:{type:auditSnapshotSchema,required:true},
  reason:{type:String,default:null,trim:true,maxlength:1000},
 },{_id:false,timestamps:false});
+const eventAuditValueSchema = new Schema({
+  eventType: { type: String, enum: ["goal", "card"], required: true },
+  eventId: { type: Schema.Types.ObjectId, required: true },
+  scoringSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: undefined },
+  scorerPlayerRef: { type: Schema.Types.ObjectId, ref: "Player", default: undefined },
+  playerSeasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: undefined },
+  goalType: { type: String, enum: ["normal", "own_goal"], default: undefined },
+  seasonTeamRef: { type: Schema.Types.ObjectId, ref: "SeasonTeam", default: undefined },
+  playerRef: { type: Schema.Types.ObjectId, ref: "Player", default: undefined },
+  cardType: { type: String, enum: ["yellow_card", "red_card", "second_yellow"], default: undefined },
+  period: { type: String, enum: ["first_half", "second_half", "extra_time_first_half", "extra_time_second_half"], default: null },
+  minute: { type: Number, min: 1, default: null },
+  addedMinutes: { type: Number, min: 0, default: 0 },
+  createdAt: { type: Date, default: null },
+}, { _id: false, strict: true });
+const eventAuditHistorySchema = new Schema({
+  eventId: { type: Schema.Types.ObjectId, required: true },
+  eventType: { type: String, enum: ["goal", "card"], required: true },
+  operation: { type: String, enum: ["created", "updated", "deleted"], required: true },
+  actor: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  timestamp: { type: Date, required: true },
+  previousValue: { type: eventAuditValueSchema, default: null },
+  newValue: { type: eventAuditValueSchema, default: null },
+  reason: { type: String, default: null, trim: true, maxlength: 1000 },
+}, { _id: false, timestamps: false });
+
 const schema = new Schema<SeasonMatchFields>({
   seasonRef: { type: Schema.Types.ObjectId, ref: "Season", required: true, immutable: true },
   matchNumber: { type: Number, required: true, min: 1 },
@@ -107,6 +133,7 @@ const schema = new Schema<SeasonMatchFields>({
   statusHistory: { type: [statusHistorySchema], default: [] },
   correctionHistory: { type: [correctionHistorySchema], default: [] },
   auditHistory: { type: [auditHistorySchema], default: [] },
+  eventAuditHistory: { type: [eventAuditHistorySchema], default: [] },
 }, { timestamps: true, versionKey: false });
 
 // Group-stage deciding-rule restrictions are enforced in Zod and the service layer.

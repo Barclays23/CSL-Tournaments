@@ -1,5 +1,5 @@
 import type { Asset } from "../../shared/types/common.types.js";
-import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult, MatchPhase, MatchTimedPeriod, MatchDecidingRules, MatchClock, MatchAuditHistoryEntry } from "./seasonMatch.types.js";
+import type { SeasonMatchStage, SeasonMatchStatus, SeasonGoalType, SeasonCardType, ShootoutStatus, ShootoutKickResult, MatchPhase, MatchTimedPeriod, MatchDecidingRules, MatchClock, MatchAuditHistoryEntry, MatchEventType, MatchEventOperation } from "./seasonMatch.types.js";
 
 export interface SeasonMatchResolutionDto {
   status: "cancelled" | "abandoned";
@@ -115,6 +115,19 @@ export interface MatchAuditHistoryDto {
   newValue: MatchAuditSnapshotDto;
   reason: string | null;
 }
+export type MatchEventAuditValueDto =
+  | { eventType: "goal"; eventId: string; scoringSeasonTeamRef: string; scorerPlayerRef: string | null; playerSeasonTeamRef: string | null; goalType: SeasonGoalType; period: MatchTimedPeriod | null; minute: number | null; addedMinutes: number; createdAt: string | null }
+  | { eventType: "card"; eventId: string; seasonTeamRef: string; playerRef: string; cardType: SeasonCardType; period: MatchTimedPeriod | null; minute: number | null; addedMinutes: number; createdAt: string | null };
+export interface MatchEventAuditHistoryDto {
+  eventId: string;
+  eventType: MatchEventType;
+  operation: MatchEventOperation;
+  actor: string;
+  timestamp: string;
+  previousValue: MatchEventAuditValueDto | null;
+  newValue: MatchEventAuditValueDto | null;
+  reason: string | null;
+}
 export interface SeasonGoalDto extends MatchEventTimingDto {scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:SeasonGoalType;}
 export interface SeasonMatchCardDto extends MatchEventTimingDto {seasonTeamRef:string;playerRef:string;cardType:SeasonCardType;}
 export interface SeasonMatchCardResponseDto { _id:string;seasonTeamRef:SeasonMatchTeamDto|string;playerRef:SeasonMatchPlayerDto|string;cardType:SeasonCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string;}
@@ -164,6 +177,7 @@ export interface SeasonMatchResponseDto {
   statusHistory: SeasonMatchStatusHistoryDto[];
   correctionHistory: SeasonMatchCorrectionHistoryDto[];
   auditHistory: MatchAuditHistoryDto[];
+  eventAuditHistory: MatchEventAuditHistoryDto[];
   createdAt: string;
   updatedAt: string;
 }
