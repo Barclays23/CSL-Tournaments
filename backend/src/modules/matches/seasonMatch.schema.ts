@@ -122,6 +122,7 @@ export const seasonMatchCorrectionSchema = z
             scoringSeasonTeamRef: objectId,
             scorerPlayerRef: objectId.nullable().optional(),
             goalType:z.enum(["normal","own_goal"]),...eventTiming.shape,
+    reason: z.string().trim().min(3).max(1000).optional(),
           })
           .strict(),
       )
@@ -201,5 +202,11 @@ export const seasonMatchCardSchema = z
     seasonTeamRef: objectId,
     playerRef: objectId,
     cardType:z.enum(["yellow_card","red_card","second_yellow"]),...eventTiming.shape,
+    reason: z.string().trim().min(3).max(1000).optional(),
   })
   .strict();
+
+
+export const matchEventDeleteSchema = z.object({
+  reason: z.string().trim().min(3).max(1000).optional(),
+}).strict();

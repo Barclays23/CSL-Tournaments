@@ -42,3 +42,35 @@ export function hasMockMatchIncidents(match: MockMatchIncidentSnapshot): boolean
     || (match.penaltyShootout?.kicks?.length ?? 0) > 0
     || (match.correctionHistory?.length ?? 0) > 0;
 }
+
+
+export interface MockFixtureStageDefaults {
+  extraTime: { isAllowedByDefault: boolean; defaultDurationMinutes: number };
+  penaltyShootout: { isAllowedByDefault: boolean };
+}
+export interface MockFixtureDecidingRules {
+  extraTime: { isAllowed: boolean; durationMinutes: number };
+  penaltyShootout: { isAllowed: boolean };
+}
+export function resolveMockFixtureDecidingRulesForStage(
+  previousStage: "group" | "round_of_16" | "quarter_final" | "semi_final" | "third_place" | "final",
+  nextStage: "group" | "round_of_16" | "quarter_final" | "semi_final" | "third_place" | "final",
+  current: MockFixtureDecidingRules,
+  defaults: MockFixtureStageDefaults,
+): MockFixtureDecidingRules {
+  if (nextStage === "group") {
+    return { extraTime: { isAllowed: false, durationMinutes: current.extraTime.durationMinutes }, penaltyShootout: { isAllowed: false } };
+  }
+  if (previousStage === "group") {
+    return {
+      extraTime: { isAllowed: defaults.extraTime.isAllowedByDefault, durationMinutes: defaults.extraTime.defaultDurationMinutes },
+      penaltyShootout: { isAllowed: defaults.penaltyShootout.isAllowedByDefault },
+    };
+  }
+  return { extraTime: { ...current.extraTime }, penaltyShootout: { ...current.penaltyShootout } };
+}
+
+
+export function isMockActiveFixtureVenue(status: string | null | undefined): boolean {
+  return status === "active";
+}

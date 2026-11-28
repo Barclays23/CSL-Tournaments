@@ -79,6 +79,7 @@ export type SeasonGoalWrite = {
   scoringSeasonTeamRef: string;
   scorerPlayerRef?: string | null;
   goalType: "normal" | "own_goal";
+  reason?: string;
 } & MatchEventTimingWrite;
 
 export function deleteSeasonMatch(seasonId: string, matchId: string) {
@@ -105,15 +106,15 @@ export function updateSeasonMatchGoal(seasonId: string, matchId: string, goalId:
   );
 }
 
-export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string) {
+export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, reason?: string) {
   return run(() =>
     USE_MOCK_API
-      ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId)
-      : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`).then((response) => response.data),
+      ? seasonPreviewRepository.deleteSeasonMatchGoal(seasonId, matchId, goalId, reason)
+      : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/goals/${goalId}`, { data: reason ? { reason } : {} }).then((response) => response.data),
   );
 }
 
-export interface SeasonMatchCardWrite extends MatchEventTimingWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; }
+export interface SeasonMatchCardWrite extends MatchEventTimingWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; reason?: string; }
 
 export function addSeasonMatchCard(seasonId: string, matchId: string, data: SeasonMatchCardWrite) {
   return run(() => USE_MOCK_API
@@ -125,10 +126,10 @@ export function updateSeasonMatchCard(seasonId: string, matchId: string, cardId:
     ? seasonPreviewRepository.updateSeasonMatchCard(seasonId, matchId, cardId, data)
     : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`, data).then((response) => response.data));
 }
-export function deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string) {
+export function deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string, reason?: string) {
   return run(() => USE_MOCK_API
-    ? seasonPreviewRepository.deleteSeasonMatchCard(seasonId, matchId, cardId)
-    : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`).then((response) => response.data));
+    ? seasonPreviewRepository.deleteSeasonMatchCard(seasonId, matchId, cardId, reason)
+    : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`, { data: reason ? { reason } : {} }).then((response) => response.data));
 }
 
 export function correctCompletedSeasonMatch(seasonId: string, matchId: string, data: SeasonMatchCorrectionWrite) {
@@ -248,4 +249,44 @@ export function updateSeasonMatchShootout(seasonId: string, matchId: string, val
   return run(() => USE_MOCK_API
     ? seasonPreviewRepository.updateSeasonMatchShootout(seasonId, matchId, value)
     : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/shootout`, value).then((response) => response.data));
+}
+
+
+export function correctSeasonMatchActualKickoff(
+  seasonId: string,
+  matchId: string,
+  data: import("@/types/seasonMatch.types").ActualKickoffCorrectionWrite,
+) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.correctSeasonMatchActualKickoff(seasonId, matchId, data)
+    : api.patch<ApiResponse<SeasonMatch>>(
+        `/seasons/${seasonId}/matches/${matchId}/timing/actual-kickoff`,
+        data,
+      ).then((response) => response.data));
+}
+
+export function correctSeasonMatchClock(
+  seasonId: string,
+  matchId: string,
+  data: import("@/types/seasonMatch.types").MatchClockCorrectionWrite,
+) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.correctSeasonMatchClock(seasonId, matchId, data)
+    : api.patch<ApiResponse<SeasonMatch>>(
+        `/seasons/${seasonId}/matches/${matchId}/timing/clock`,
+        data,
+      ).then((response) => response.data));
+}
+
+export function correctSeasonMatchPhase(
+  seasonId: string,
+  matchId: string,
+  data: import("@/types/seasonMatch.types").MatchPhaseCorrectionWrite,
+) {
+  return run(() => USE_MOCK_API
+    ? seasonPreviewRepository.correctSeasonMatchPhase(seasonId, matchId, data)
+    : api.patch<ApiResponse<SeasonMatch>>(
+        `/seasons/${seasonId}/matches/${matchId}/phase/correction`,
+        data,
+      ).then((response) => response.data));
 }

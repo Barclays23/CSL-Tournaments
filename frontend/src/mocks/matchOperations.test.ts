@@ -111,6 +111,25 @@ test("mock event timing rejects future stoppage minutes and accepts elapsed adde
   ), "MATCH_EVENT_IN_FUTURE");
 });
 
+test("completed-match mock timing correction requires explicit period/minute and preserves added time", () => {
+  const completed = match({
+    status: "completed",
+    phase: "full_time",
+    actualStartedAt: start.toISOString(),
+    clock: {
+      isRunning: false,
+      clockStartedAt: null,
+      periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 900, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 },
+    },
+  });
+  const corrected = resolveMockEventTiming(completed, { minute: 28, addedMinutes: 0 }, fail, Date.now(), {
+    period: "second_half", minute: 27, addedMinutes: 0,
+  }, true);
+  assert.deepEqual(corrected, { period: "second_half", minute: 28, addedMinutes: 0 });
+  expectCode(() => resolveMockEventTiming(completed, {}, fail, Date.now(), undefined, true), "MATCH_EVENT_PERIOD_REQUIRED");
+  expectCode(() => resolveMockEventTiming(completed, { period: "second_half" }, fail, Date.now(), undefined, true), "MATCH_EVENT_MINUTE_REQUIRED");
+});
+
 test("mock event timing rejects a future period even if the user supplies a valid minute", () => {
   expectCode(() => resolveMockEventTiming(
     match(),
@@ -173,4 +192,40 @@ test("mock Group Stage cannot enter Extra Time even when the fixture is tied", (
     },
   });
   expectCode(() => assertMockPhaseTransitionAllowed(group, "start_extra_time", 1, 1, fail), "GROUP_EXTRA_TIME");
+});
+
+
+test("mock clock correction rejects values that place a timed event after the corrected period clock", async () => {
+  const { resolveMockClockCorrection } = await import("./matchOperations.ts");
+  const paused = match({
+    clock: {
+      isRunning: false,
+      clockStartedAt: null,
+      periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 900, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 },
+    },
+    goals: [{
+      _id: "goal-1", scoringSeasonTeamRef: "home", scorerPlayerRef: "p1",
+      playerSeasonTeamRef: "home", goalType: "normal", period: "second_half", minute: 27, addedMinutes: 0,
+      createdAt: start.toISOString(),
+    }],
+  });
+  expectCode(() => resolveMockClockCorrection(paused, { secondHalf: 600 }, fail), "MATCH_CLOCK_BEFORE_EXISTING_EVENT");
+  assert.deepEqual(resolveMockClockCorrection(paused, { secondHalf: 800 }, fail), {
+    firstHalf: 900, secondHalf: 800, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0,
+  });
+});
+
+test("mock phase correction enforces stopped clock, Group Stage and deciding-rule constraints", async () => {
+  const { assertMockPhaseCorrectionAllowed } = await import("./matchOperations.ts");
+  const stoppedGroup = match({
+    stage: "group",
+    phase: "regular_full_time",
+    clock: {
+      isRunning: false, clockStartedAt: null,
+      periodElapsedSecondsByPeriod: { firstHalf: 900, secondHalf: 900, extraTimeFirstHalf: 0, extraTimeSecondHalf: 0 },
+    },
+    decidingRules: { extraTime: { isAllowed: false, durationMinutes: 10 }, penaltyShootout: { isAllowed: false } },
+  });
+  expectCode(() => assertMockPhaseCorrectionAllowed(stoppedGroup, "extra_time_first_half", 0, 0, fail), "EXTRA_TIME_DISABLED");
+  expectCode(() => assertMockPhaseCorrectionAllowed({ ...stoppedGroup, clock: { ...stoppedGroup.clock, isRunning: true } }, "second_half", 0, 0, fail), "MATCH_PHASE_CORRECTION_NOT_ALLOWED");
 });

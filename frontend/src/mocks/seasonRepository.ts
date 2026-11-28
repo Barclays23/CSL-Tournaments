@@ -10,9 +10,9 @@ import type { SeasonAward, SeasonAwardInput } from "@/types/seasonAward.types";
 import { ApiError } from "@/utils/errorHandler";
 import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
-import { assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
-import type { MatchDecidingRules, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
-import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents } from "@/mocks/seasonFixtureRules";
+import { assertMockPhaseCorrectionAllowed, assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, resolveMockClockCorrection, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
+import type { MatchAuditSnapshot, MatchDecidingRules, MatchEventAuditHistoryEntry, MatchEventAuditValue, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
+import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, isMockActiveFixtureVenue, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
   assertMockShootoutScore,
@@ -165,7 +165,7 @@ function assertLiveMatch(match: MockSeasonMatch): void {
   assertMockGoalManagementAllowed(match.status, fail);
 }
 
-function mockMatchAuditSnapshot(match: MockSeasonMatch): Record<string, unknown> {
+function mockMatchAuditSnapshot(match: MockSeasonMatch): MatchAuditSnapshot {
   return {
     status: match.status,
     phase: match.phase,
@@ -185,7 +185,7 @@ function mockMatchAuditSnapshot(match: MockSeasonMatch): Record<string, unknown>
 function appendMockMatchAudit(
   match: MockSeasonMatch,
   action: string,
-  previousValue: Record<string, unknown>,
+  previousValue: MatchAuditSnapshot,
   reason: string | null = null,
   timestamp = now(),
 ): void {
@@ -229,6 +229,74 @@ function mockNormalScore(match: MockSeasonMatch) {
     home: match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.homeSeasonTeamRef).length,
     away: match.goals.filter((goal) => goal.scoringSeasonTeamRef === match.awaySeasonTeamRef).length,
   };
+}
+
+function mockEventActor(): string {
+  const actor = readSession()?._id;
+  if (!actor) fail(401, "An authenticated administrator is required for Match event operations.", "UNAUTHENTICATED");
+  return actor;
+}
+
+function mockAuditReason(value?: string): string | null {
+  const reason = value?.trim() ?? "";
+  if (reason && (reason.length < 3 || reason.length > 1000)) {
+    fail(422, "Event correction reason must be between 3 and 1000 characters.", "MATCH_EVENT_AUDIT_REASON_INVALID");
+  }
+  return reason || null;
+}
+
+function mockGoalAuditValue(goal: MockSeasonMatch["goals"][number]): MatchEventAuditValue {
+  return {
+    eventType: "goal",
+    eventId: goal._id,
+    scoringSeasonTeamRef: goal.scoringSeasonTeamRef,
+    scorerPlayerRef: goal.scorerPlayerRef,
+    playerSeasonTeamRef: goal.playerSeasonTeamRef,
+    goalType: goal.goalType,
+    period: goal.period ?? null,
+    minute: goal.minute ?? null,
+    addedMinutes: goal.addedMinutes ?? 0,
+    createdAt: goal.createdAt ?? null,
+  };
+}
+
+function mockCardAuditValue(card: NonNullable<MockSeasonMatch["cards"]>[number]): MatchEventAuditValue {
+  return {
+    eventType: "card",
+    eventId: card._id,
+    seasonTeamRef: card.seasonTeamRef,
+    playerRef: card.playerRef,
+    cardType: card.cardType,
+    period: card.period ?? null,
+    minute: card.minute ?? null,
+    addedMinutes: card.addedMinutes ?? 0,
+    createdAt: card.createdAt ?? null,
+  };
+}
+
+function appendMockEventAudit(
+  match: MockSeasonMatch,
+  eventType: "goal" | "card",
+  operation: "created" | "updated" | "deleted",
+  eventId: string,
+  previousValue: MatchEventAuditValue | null,
+  newValue: MatchEventAuditValue | null,
+  reason: string | null,
+  actor = mockEventActor(),
+  timestamp = now(),
+): void {
+  const entry: MatchEventAuditHistoryEntry = {
+    eventId,
+    eventType,
+    operation,
+    actor,
+    timestamp,
+    previousValue,
+    newValue,
+    reason,
+  };
+  match.eventAuditHistory ??= [];
+  match.eventAuditHistory.push(entry);
 }
 
 function validExtraTimeDuration(value: number): boolean {
@@ -704,6 +772,82 @@ export const seasonPreviewRepository = {
     return ok("Match phase updated", populatedSeasonMatch(db, match));
   },
 
+  async correctSeasonMatchActualKickoff(
+    seasonId: string,
+    matchId: string,
+    input: { actualStartedAt: string; reason: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Actual kickoff correction");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const parsed = new Date(input.actualStartedAt);
+    const reason = input.reason.trim();
+    if (!match.actualStartedAt || !Number.isFinite(parsed.getTime())) {
+      fail(409, "Only an existing actual kickoff can be corrected to a valid timestamp.", "ACTUAL_KICKOFF_CORRECTION_NOT_ALLOWED");
+    }
+    if (reason.length < 3 || reason.length > 1000 || parsed.getTime() > Date.now()) {
+      fail(422, "Enter a valid past actual kickoff and a correction reason.", "MATCH_AUDIT_REASON_REQUIRED");
+    }
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.actualStartedAt = parsed.toISOString();
+    appendMockMatchAudit(match, "actual_kickoff_correction", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Actual kickoff corrected", populatedSeasonMatch(db, match));
+  },
+
+  async correctSeasonMatchClock(
+    seasonId: string,
+    matchId: string,
+    input: { periodElapsedSecondsByPeriod: Partial<MockSeasonMatch["clock"]["periodElapsedSecondsByPeriod"]>; reason: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match clock correction");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const nextElapsed = resolveMockClockCorrection(match, input.periodElapsedSecondsByPeriod, fail);
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 1000) fail(422, "A clock correction reason is required.", "MATCH_AUDIT_REASON_REQUIRED");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.clock = { ...match.clock, isRunning: false, clockStartedAt: null, periodElapsedSecondsByPeriod: nextElapsed };
+    appendMockMatchAudit(match, "clock_correction", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match clock corrected", populatedSeasonMatch(db, match));
+  },
+
+  async correctSeasonMatchPhase(
+    seasonId: string,
+    matchId: string,
+    input: { phase: Exclude<MockSeasonMatch["phase"], null | "full_time">; reason: string },
+  ) {
+    requireAdmin();
+    const db = readSeasonDb();
+    const season = seasonById(db, seasonId);
+    assertActiveSeasonForMatchOperations(season, "Match phase correction");
+    const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
+    if (!match) return fail(404, "Season fixture not found", "MATCH_NOT_FOUND");
+    const score = mockNormalScore(match);
+    assertMockPhaseCorrectionAllowed(match, input.phase, score.home, score.away, fail);
+    const reason = input.reason.trim();
+    if (reason.length < 3 || reason.length > 1000) fail(422, "A phase correction reason is required.", "MATCH_AUDIT_REASON_REQUIRED");
+    const previous = mockMatchAuditSnapshot(match);
+    const timestamp = now();
+    match.phase = input.phase;
+    match.clock = { ...match.clock, isRunning: false, clockStartedAt: null };
+    appendMockMatchAudit(match, "phase_correction", previous, reason, timestamp);
+    match.updatedAt = timestamp;
+    commitSeasonDb(db);
+    return ok("Match phase corrected", populatedSeasonMatch(db, match));
+  },
+
   async completeSeasonMatch(seasonId: string, matchId: string) {
     requireAdmin();
     const db = readSeasonDb();
@@ -918,7 +1062,14 @@ export const seasonPreviewRepository = {
     matchId: string,
     input: {
       reason: string;
-      goals: Array<{ scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal" }>;
+      goals: Array<{
+        scoringSeasonTeamRef: string;
+        scorerPlayerRef?: string | null;
+        goalType: "normal" | "own_goal";
+        period?: MatchTimedPeriod | null;
+        minute?: number | null;
+        addedMinutes?: number | null;
+      }>;
       penaltyShootout: MockSeasonMatch["penaltyShootout"];
     },
   ) {
@@ -952,7 +1103,15 @@ export const seasonPreviewRepository = {
         && item.scoringSeasonTeamRef === scoring && item.scorerPlayerRef === scorerId && item.goalType === goal.goalType);
       if (existingGoal) {
         usedIds.add(existingGoal._id);
-        correctedGoals.push({ ...existingGoal });
+        const legacyUntimed = existingGoal.period == null
+          && existingGoal.minute == null
+          && goal.period == null
+          && goal.minute == null
+          && goal.addedMinutes == null;
+        const timing = legacyUntimed
+          ? {}
+          : resolveMockEventTiming(match, goal, fail, Date.now(), existingGoal, true);
+        correctedGoals.push({ ...existingGoal, ...timing });
         continue;
       }
       let playerSeasonTeamRef: string | null = null;
@@ -968,7 +1127,8 @@ export const seasonPreviewRepository = {
         if (!lot || lot.seasonTeamRef !== responsibleTeam) fail(422, "Own-goal player must belong to the opposing season team", "INVALID_OWN_GOAL_PLAYER");
         playerSeasonTeamRef = responsibleTeam;
       } else if (goal.goalType !== "own_goal") fail(422, "Unsupported goal type", "INVALID_GOAL_TYPE");
-      correctedGoals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: goal.goalType, createdAt: now() });
+      const timing = resolveMockEventTiming(match, goal, fail, Date.now(), undefined, true);
+      correctedGoals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: goal.goalType, ...timing, createdAt: now() });
     }
 
     const shootout = input.penaltyShootout ? { ...input.penaltyShootout, kicks: input.penaltyShootout.kicks.map((kick) => ({ ...kick })) } : null;
@@ -996,6 +1156,16 @@ export const seasonPreviewRepository = {
       originalResult: { ...originalScore, goals: originalGoals, penaltyShootout: originalShootout, winnerSeasonTeamRef: originalWinner },
       correctedResult: { ...correctedScore, goals: correctedGoals.map((goal) => ({ ...goal })), penaltyShootout: shootout ? { ...shootout, kicks: shootout.kicks.map((kick) => ({ ...kick })) } : null, winnerSeasonTeamRef: correctedWinner },
     });
+    const originalById = new Map(originalGoals.map((goal) => [goal._id, goal]));
+    const correctedIds = new Set(correctedGoals.map((goal) => goal._id));
+    for (const goal of correctedGoals) {
+      const previous = originalById.get(goal._id) ?? null;
+      appendMockEventAudit(match, "goal", previous ? "updated" : "created", goal._id,
+        previous ? mockGoalAuditValue(previous) : null, mockGoalAuditValue(goal), reason, correctedBy!, correctedAt);
+    }
+    for (const previous of originalGoals) {
+      if (!correctedIds.has(previous._id)) appendMockEventAudit(match, "goal", "deleted", previous._id, mockGoalAuditValue(previous), null, reason, correctedBy!, correctedAt);
+    }
     match.goals = correctedGoals;
     match.penaltyShootout = shootout;
     match.winnerSeasonTeamRef = correctedWinner;
@@ -1042,7 +1212,7 @@ export const seasonPreviewRepository = {
     }
     if (input.stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
     validateMockPair(db, season, input.stage, input.stage === "group" ? input.groupRef ?? null : null, input.roundNumber, input.homeSeasonTeamRef, input.awaySeasonTeamRef);
-    const venue = db.venues.find((item) => item._id === input.venueRef && item.status === "active");
+    const venue = db.venues.find((item) => item._id === input.venueRef && isMockActiveFixtureVenue(item.status));
     if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (input.stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, input.stage);
@@ -1129,7 +1299,7 @@ export const seasonPreviewRepository = {
     const venueRef = input.venueRef ?? match.venueRef;
     const pairingChanged = homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef || roundNumber !== match.roundNumber;
     if (pairingChanged) validateMockPair(db, season, stage, groupRef, roundNumber, homeId, awayId, matchId);
-    const venue = db.venues.find((item) => item._id === venueRef && item.status === "active");
+    const venue = db.venues.find((item) => item._id === venueRef && isMockActiveFixtureVenue(item.status));
     if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (homeId === awayId) fail(422, "A team cannot play itself");
     if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)
@@ -1142,9 +1312,6 @@ export const seasonPreviewRepository = {
       return fail(422, "Both teams must be eligible participants in this season");
     }
     if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
-    if (stage === "group" && (match.decidingRules.extraTime.isAllowed || match.decidingRules.penaltyShootout.isAllowed)) {
-      fail(422, "Disable Extra Time and Penalty Shootout through Match Deciding Rules before changing this fixture to Group Stage.", "GROUP_DECIDING_RULES");
-    }
     if (stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, stage);
       if (!eligible.has(homeId) || !eligible.has(awayId)) fail(422, "Both teams must have qualified for this knockout stage");
@@ -1163,6 +1330,14 @@ export const seasonPreviewRepository = {
     if (input.matchNumber !== undefined && db.matches.some((item) => item._id !== matchId && item.seasonRef === seasonId && item.matchNumber === input.matchNumber)) fail(409, "Match number already exists in this season");
 
     match.matchNumber = input.matchNumber ?? match.matchNumber;
+    if (stage !== match.stage) {
+      match.decidingRules = resolveMockFixtureDecidingRulesForStage(
+        match.stage,
+        stage,
+        match.decidingRules,
+        season.matchRules,
+      );
+    }
     match.stage = stage;
     match.roundNumber = roundNumber;
     match.groupRef = groupRef;
@@ -1200,14 +1375,16 @@ export const seasonPreviewRepository = {
     commitSeasonDb(db);
     return ok("Season fixture deleted", null);
   },
-  async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
+  async addSeasonMatchGoal(seasonId: string, matchId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null; reason?: string }) {
     requireAdmin();
+    const actor = mockEventActor();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
+    const reason = mockAuditReason(input.reason);
     const timing = resolveMockEventTiming(match, input, fail);
     const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
     if (scoring !== home && scoring !== away) fail(422, "Credited team must be one of the match participants");
@@ -1221,14 +1398,17 @@ export const seasonPreviewRepository = {
       if (!player || !lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must be an active player belonging to the credited team" : "Own-goal player must belong to the opposing team");
       playerSeasonTeamRef = lot.seasonTeamRef;
     }
-    match.goals.push({ _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, ...timing, createdAt: now() });
+    const goal = { _id: newId(), scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, ...timing, createdAt: now() };
+    match.goals.push(goal);
+    appendMockEventAudit(match, "goal", "created", goal._id, null, mockGoalAuditValue(goal), reason, actor);
     this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Goal added", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
+  async updateSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, input: { scoringSeasonTeamRef: string; scorerPlayerRef?: string | null; goalType: "normal" | "own_goal"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null; reason?: string }) {
     requireAdmin();
+    const actor = mockEventActor();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match incident management");
@@ -1237,6 +1417,7 @@ export const seasonPreviewRepository = {
     assertLiveMatch(match);
     const index = match.goals.findIndex((goal) => goal._id === goalId);
     if (index < 0) return fail(404, "Goal not found");
+    const reason = mockAuditReason(input.reason);
     const existing = match.goals[index];
     const timing = resolveMockEventTiming(match, input, fail, Date.now(), existing);
     const home = match.homeSeasonTeamRef, away = match.awaySeasonTeamRef, scoring = input.scoringSeasonTeamRef;
@@ -1251,14 +1432,17 @@ export const seasonPreviewRepository = {
       if (!player || !lot || lot.seasonTeamRef !== expectedTeam) return fail(422, input.goalType === "normal" ? "Normal scorer must be an active player belonging to the credited team" : "Own-goal player must belong to the opposing team");
       playerSeasonTeamRef = lot.seasonTeamRef;
     }
-    match.goals[index] = { ...existing, scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, ...timing };
+    const updated = { ...existing, scoringSeasonTeamRef: scoring, scorerPlayerRef: scorerId, playerSeasonTeamRef, goalType: input.goalType, ...timing };
+    match.goals[index] = updated;
+    appendMockEventAudit(match, "goal", "updated", existing._id, mockGoalAuditValue(existing), mockGoalAuditValue(updated), reason, actor);
     this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Goal updated", populatedSeasonMatch(db, match));
   },
-  async deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string) {
+  async deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId: string, reasonInput?: string) {
     requireAdmin();
+    const actor = mockEventActor();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match incident management");
@@ -1267,33 +1451,40 @@ export const seasonPreviewRepository = {
     assertLiveMatch(match);
     const index = match.goals.findIndex((goal) => goal._id === goalId);
     if (index < 0) return fail(404, "Goal not found");
-    match.goals.splice(index, 1);
+    const reason = mockAuditReason(reasonInput);
+    const [removed] = match.goals.splice(index, 1);
+    appendMockEventAudit(match, "goal", "deleted", removed._id, mockGoalAuditValue(removed), null, reason, actor);
     this.recalculateMockWinner(season, match);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Goal deleted", populatedSeasonMatch(db, match));
   },
-  async addSeasonMatchCard(seasonId: string, matchId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
+  async addSeasonMatchCard(seasonId: string, matchId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null; reason?: string }) {
     requireAdmin();
+    const actor = mockEventActor();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match incident management");
     const match = db.matches.find((item) => item._id === matchId && item.seasonRef === seasonId);
     if (!match) return fail(404, "Season fixture not found");
     assertLiveMatch(match);
+    const reason = mockAuditReason(input.reason);
     const timing = resolveMockEventTiming(match, input, fail);
     if (input.seasonTeamRef !== match.homeSeasonTeamRef && input.seasonTeamRef !== match.awaySeasonTeamRef) fail(422, "Card recipient team must be one of the match participants", "INVALID_CARD_TEAM");
     const player = db.players.find((item) => item._id === input.playerRef && item.status === "active");
     const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === input.playerRef && item.auctionStatus === "sold");
     if (!player || !lot || lot.seasonTeamRef !== input.seasonTeamRef) fail(422, "Card recipient must be an active player registered to the selected match team", "INVALID_CARD_PLAYER");
     match.cards ??= [];
-    match.cards.push({ _id: newId(), seasonTeamRef: input.seasonTeamRef, playerRef: input.playerRef, cardType: input.cardType, ...timing, createdAt: now() });
+    const card = { _id: newId(), seasonTeamRef: input.seasonTeamRef, playerRef: input.playerRef, cardType: input.cardType, ...timing, createdAt: now() };
+    match.cards.push(card);
+    appendMockEventAudit(match, "card", "created", card._id, null, mockCardAuditValue(card), reason, actor);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Card recorded", populatedSeasonMatch(db, match));
   },
-  async updateSeasonMatchCard(seasonId: string, matchId: string, cardId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null }) {
+  async updateSeasonMatchCard(seasonId: string, matchId: string, cardId: string, input: { seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: MatchTimedPeriod | null; minute?: number | null; addedMinutes?: number | null; reason?: string }) {
     requireAdmin();
+    const actor = mockEventActor();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match incident management");
@@ -1303,20 +1494,24 @@ export const seasonPreviewRepository = {
     const cards = match.cards ?? [];
     const index = cards.findIndex((card) => card._id === cardId);
     if (index < 0) return fail(404, "Card not found");
+    const reason = mockAuditReason(input.reason);
     const existing = cards[index];
     const timing = resolveMockEventTiming(match, input, fail, Date.now(), existing);
     if (input.seasonTeamRef !== match.homeSeasonTeamRef && input.seasonTeamRef !== match.awaySeasonTeamRef) fail(422, "Card recipient team must be one of the match participants", "INVALID_CARD_TEAM");
     const player = db.players.find((item) => item._id === input.playerRef && item.status === "active");
     const lot = db.auctionLots.find((item) => item.seasonRef === seasonId && item.playerRef === input.playerRef && item.auctionStatus === "sold");
     if (!player || !lot || lot.seasonTeamRef !== input.seasonTeamRef) fail(422, "Card recipient must be an active player registered to the selected match team", "INVALID_CARD_PLAYER");
-    cards[index] = { ...existing, seasonTeamRef: input.seasonTeamRef, playerRef: input.playerRef, cardType: input.cardType, ...timing };
+    const updated = { ...existing, seasonTeamRef: input.seasonTeamRef, playerRef: input.playerRef, cardType: input.cardType, ...timing };
+    cards[index] = updated;
     match.cards = cards;
+    appendMockEventAudit(match, "card", "updated", existing._id, mockCardAuditValue(existing), mockCardAuditValue(updated), reason, actor);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Card updated", populatedSeasonMatch(db, match));
   },
-  async deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string) {
+  async deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string, reasonInput?: string) {
     requireAdmin();
+    const actor = mockEventActor();
     const db = readSeasonDb();
     const season = seasonById(db, seasonId);
     assertActiveSeasonForMatchOperations(season, "Match incident management");
@@ -1326,8 +1521,10 @@ export const seasonPreviewRepository = {
     const cards = match.cards ?? [];
     const index = cards.findIndex((card) => card._id === cardId);
     if (index < 0) return fail(404, "Card not found");
-    cards.splice(index, 1);
+    const reason = mockAuditReason(reasonInput);
+    const [removed] = cards.splice(index, 1);
     match.cards = cards;
+    appendMockEventAudit(match, "card", "deleted", removed._id, mockCardAuditValue(removed), null, reason, actor);
     match.updatedAt = now();
     commitSeasonDb(db);
     return ok("Card removed", populatedSeasonMatch(db, match));

@@ -20,7 +20,6 @@ export type SeasonFormState = {
   win: number;
   draw: number;
   loss: number;
-  groupStageDrawAllowed:boolean;
   defaultMatchDurationMinutes:number;
   extraTimeAllowedByDefault:boolean;
   extraTimeDurationMinutes:number;
@@ -187,12 +186,10 @@ export function SeasonConfigurationFields({
         </div>
       </Section>
 
-      <Section icon={ShieldCheck} title="Match and standings rules" description="Configure match outcomes and decide how teams are ranked when they finish level on points.">
+      <Section icon={ShieldCheck} title="Match and standings rules" description="Group Stage draws are always allowed. Knockout deciding rules are configured independently on each fixture.">
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Match outcomes</p>
           <div className="grid gap-3 sm:grid-cols-2">
-            <ToggleField label="Allow draws in group-stage matches" description="When enabled, group-stage matches may finish level." checked={value.groupStageDrawAllowed} disabled={matchDisabled}
-              onChange={(next) => onChange("groupStageDrawAllowed", next)} />
             <NumberField label="Default regular match duration (minutes)" value={value.defaultMatchDurationMinutes} min={10} max={120} step={2} required disabled={matchDisabled} error={regularDurationError}
               onChange={(next) => onChange("defaultMatchDurationMinutes", next)} />
             <ToggleField label="Allow Extra Time by default" description="New knockout fixtures inherit this setting. Group-stage fixtures always disable Extra Time." checked={value.extraTimeAllowedByDefault} disabled={matchDisabled}

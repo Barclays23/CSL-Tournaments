@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getLiveMatchConflictingTeamIds, getPairFixtureError } from "./seasonMatch.fixtureRules.js";
+import { getLiveMatchConflictingTeamIds, getPairFixtureError, resolveFixtureDecidingRulesForStage, isActiveFixtureVenue } from "./seasonMatch.fixtureRules.js";
 const fixture = (roundNumber:number, homeSeasonTeamRef:string, awaySeasonTeamRef:string, _id:string) => ({roundNumber,homeSeasonTeamRef,awaySeasonTeamRef,_id});
 test("blocks same pair in same round even when home and away are reversed", () => {
   assert.equal(getPairFixtureError([fixture(1,"A","B","1")],1,"B","A",true),"DUPLICATE_PAIR_IN_ROUND");
@@ -34,4 +34,47 @@ test("live match conflict detection ignores the fixture being updated", () => {
 
   assert.deepEqual(getLiveMatchConflictingTeamIds(ongoing, "A", "C", "current"), ["C"]);
   assert.deepEqual(getLiveMatchConflictingTeamIds(ongoing, "A", "B", "current"), []);
+});
+
+
+test("knockout to Group Stage disables all deciding flags and preserves the configured Extra Time duration", () => {
+  const combinations = [
+    { extraTime: true, penaltyShootout: true },
+    { extraTime: true, penaltyShootout: false },
+    { extraTime: false, penaltyShootout: true },
+    { extraTime: false, penaltyShootout: false },
+  ];
+  for (const combination of combinations) {
+    assert.deepEqual(resolveFixtureDecidingRulesForStage("final", "group", {
+      extraTime: { isAllowed: combination.extraTime, durationMinutes: 18 },
+      penaltyShootout: { isAllowed: combination.penaltyShootout },
+    }, {
+      extraTime: { isAllowedByDefault: true, defaultDurationMinutes: 12 },
+      penaltyShootout: { isAllowedByDefault: true },
+    }), {
+      extraTime: { isAllowed: false, durationMinutes: 18 },
+      penaltyShootout: { isAllowed: false },
+    });
+  }
+});
+
+test("Group Stage to knockout re-inherits Season defaults", () => {
+  assert.deepEqual(resolveFixtureDecidingRulesForStage("group", "quarter_final", {
+    extraTime: { isAllowed: false, durationMinutes: 18 },
+    penaltyShootout: { isAllowed: false },
+  }, {
+    extraTime: { isAllowedByDefault: true, defaultDurationMinutes: 14 },
+    penaltyShootout: { isAllowedByDefault: false },
+  }), {
+    extraTime: { isAllowed: true, durationMinutes: 14 },
+    penaltyShootout: { isAllowed: false },
+  });
+});
+
+
+test("fixture venue selection requires an active Venue for creation and editing", () => {
+  assert.equal(isActiveFixtureVenue({ status: "active" }), true);
+  assert.equal(isActiveFixtureVenue({ status: "inactive" }), false);
+  assert.equal(isActiveFixtureVenue(null), false);
+  assert.equal(isActiveFixtureVenue(undefined), false);
 });
