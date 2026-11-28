@@ -12,7 +12,7 @@ import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
 import { assertMockPhaseCorrectionAllowed, assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, resolveMockClockCorrection, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
 import type { MatchAuditSnapshot, MatchDecidingRules, MatchEventAuditHistoryEntry, MatchEventAuditValue, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
-import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
+import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, isMockActiveFixtureVenue, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
   assertMockShootoutScore,
@@ -1211,7 +1211,7 @@ export const seasonPreviewRepository = {
     }
     if (input.stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
     validateMockPair(db, season, input.stage, input.stage === "group" ? input.groupRef ?? null : null, input.roundNumber, input.homeSeasonTeamRef, input.awaySeasonTeamRef);
-    const venue = db.venues.find((item) => item._id === input.venueRef && item.status === "active");
+    const venue = db.venues.find((item) => item._id === input.venueRef && isMockActiveFixtureVenue(item.status));
     if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (input.stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, input.stage);
@@ -1298,7 +1298,7 @@ export const seasonPreviewRepository = {
     const venueRef = input.venueRef ?? match.venueRef;
     const pairingChanged = homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef || roundNumber !== match.roundNumber;
     if (pairingChanged) validateMockPair(db, season, stage, groupRef, roundNumber, homeId, awayId, matchId);
-    const venue = db.venues.find((item) => item._id === venueRef && item.status === "active");
+    const venue = db.venues.find((item) => item._id === venueRef && isMockActiveFixtureVenue(item.status));
     if (!venue) return fail(422, "Choose an active venue from the venue list");
     if (homeId === awayId) fail(422, "A team cannot play itself");
     if ((homeId !== match.homeSeasonTeamRef || awayId !== match.awaySeasonTeamRef || stage !== match.stage || groupRef !== match.groupRef)

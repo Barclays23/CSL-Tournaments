@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, resolveMockFixtureDecidingRulesForStage } from "./seasonFixtureRules.js";
+import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, resolveMockFixtureDecidingRulesForStage, isMockActiveFixtureVenue } from "./seasonFixtureRules.js";
 
 test("fixture readiness rejects a participating team without a valid group", () => {
   const blockers = getMockFixtureGroupReadinessBlockers({
@@ -76,4 +76,12 @@ test("mock Group Stage to knockout restores Season defaults", () => {
     extraTime: { isAllowed: true, durationMinutes: 12 },
     penaltyShootout: { isAllowed: false },
   });
+});
+
+
+test("mock fixture create and edit venue validation only accepts active Venues", () => {
+  assert.equal(isMockActiveFixtureVenue("active"), true);
+  assert.equal(isMockActiveFixtureVenue("inactive"), false);
+  assert.equal(isMockActiveFixtureVenue(undefined), false);
+  assert.equal(isMockActiveFixtureVenue(null), false);
 });

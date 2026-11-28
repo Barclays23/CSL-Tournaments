@@ -69,3 +69,8 @@ export function resolveMockFixtureDecidingRulesForStage(
   }
   return { extraTime: { ...current.extraTime }, penaltyShootout: { ...current.penaltyShootout } };
 }
+
+
+export function isMockActiveFixtureVenue(status: string | null | undefined): boolean {
+  return status === "active";
+}
