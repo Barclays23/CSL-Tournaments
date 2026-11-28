@@ -253,7 +253,7 @@ function TeamSide({
       <Avatar
         name={team.name}
         asset={team.logo}
-        className={`h-14 w-14 shrink-0 rounded-xl ring-2 sm:h-16 sm:w-16 ${side === "home" ? "ring-primary/50" : "ring-info/50"}`}
+        className={`h-14 w-14 shrink-0 rounded-xl ring-0 sm:h-16 sm:w-16 ${side === "home" ? "ring-primary/50" : "ring-info/50"}`}
       />
       <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">
         {team.name}
@@ -881,6 +881,8 @@ export function SeasonMatchDetailsPage(props: {
         }}
       />
 
+
+
       {/* Match Deciding Rules Section */}
       {selectedSeason ? (
         <MatchDecidingRulesSection
@@ -925,7 +927,7 @@ export function SeasonMatchDetailsPage(props: {
         />
 
         <div className="relative">
-          {/* Date, round, group, venue */}
+          {/* Match Header Info - Stage, Date, Round, Group, Venue */}
           <div className="flex flex-col items-center gap-3">
             <p className="text-center font-display text-lg text-fg sm:text-xl">
               {STAGE_LABEL[match.stage]}
@@ -947,7 +949,7 @@ export function SeasonMatchDetailsPage(props: {
             </div>
           </div>
 
-          {/* Teams + score */}
+          {/* Teams + Score */}
           <div
             className={`mt-8 grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-6 ${match.penaltyShootout ? "pb-20" : "pb-10"}`}
           >
@@ -995,7 +997,7 @@ export function SeasonMatchDetailsPage(props: {
             </p>
           ) : null}
 
-          {/* Events under each team, icon on the centre line */}
+          {/* Match Events/Incidents (Goals, Cards) under each team, icon on the centre line */}
           <div className={`mt-8 border-t pt-5 ${tFixture.divider}`}>
             {events.length === 0 ? (
               <p className="text-center text-sm text-muted">
