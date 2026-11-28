@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { GlassCard } from "@/components/ui/GlassCard";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Drawer } from "@/components/ui/Drawer";
+import { ICONS, TONES, ToneHeader, ToneIcon, pillClass, type Tone } from "@/components/ui/Tones";
 import { GoalManagementDrawer } from "@/components/matches/GoalManagementDrawer";
 import { CardManagementDrawer } from "@/components/matches/CardManagementDrawer";
 import { PenaltyShootoutManagementDrawer } from "@/components/matches/PenaltyShootoutManagementDrawer";
@@ -81,6 +82,15 @@ const STATUS_TONE: Record<SeasonMatch["status"], string> = {
   cancelled: "bg-danger/15 text-danger",
   abandoned: "bg-danger/15 text-danger",
 };
+
+// Tone per match-event kind (ring around the timeline icon + action buttons)
+const EVENT_TONE: Record<MatchEventKind, Tone> = {
+  goal: "success",
+  own_goal: "accent",
+  yellow_card: "gold",
+  second_yellow: "gold",
+  red_card: "info",
+} as Record<MatchEventKind, Tone>;
 
 function getEventAuditSummary(value: MatchEventAuditValue | null): string {
   if (!value) return "No event";
@@ -219,10 +229,8 @@ const TrashIcon = () => (
   </svg>
 );
 
-const chipClass =
-  "inline-flex items-center gap-1.5 rounded-full border border-line bg-glass px-3 py-1 text-xs font-semibold text-muted backdrop-blur-md";
-const iconBtnClass =
-  "inline-flex h-7 w-7 items-center justify-center rounded-full border border-line bg-surface/60 text-muted backdrop-blur-md transition-colors hover:bg-glass-strong hover:text-fg";
+const iconBtnBase =
+  "inline-flex h-7 w-7 items-center justify-center rounded-full border backdrop-blur-md transition-colors";
 
 function TeamSide({
   team,
@@ -233,6 +241,7 @@ function TeamSide({
   side: "home" | "away";
   adminMode: boolean;
 }) {
+  // Home = primary, Away = info, so the two sides are told apart at a glance
   const content = (
     <div
       className={`flex min-w-0 flex-col items-center gap-3 text-center ${
@@ -244,7 +253,7 @@ function TeamSide({
       <Avatar
         name={team.name}
         asset={team.logo}
-        className="h-14 w-14 shrink-0 rounded-xl ring-0 ring-line sm:h-16 sm:w-16"
+        className={`h-14 w-14 shrink-0 rounded-xl ring-2 sm:h-16 sm:w-16 ${side === "home" ? "ring-primary/50" : "ring-info/50"}`}
       />
       <p className="min-w-0 wrap-break-word font-display text-lg leading-tight text-fg sm:text-2xl">
         {team.name}
@@ -259,7 +268,7 @@ function TeamSide({
       to={adminMode ? "/admin/teams/$teamId" : "/teams/$teamId"}
       params={{ teamId: team.teamId }}
       aria-label={"View " + team.name + " team details"}
-      className="rounded-xl transition hover:text-accent focus-visible:outline-2 focus-visible:outline-accent"
+      className={`rounded-xl p-2 transition hover:bg-glass focus-visible:outline-2 focus-visible:outline-accent ${side === "home" ? "hover:text-success" : "hover:text-info"}`}
     >
       {content}
     </Link>
@@ -284,6 +293,7 @@ function EventText({
   onDeleteCard: (id: string) => void;
 }) {
   const manage = canManageEvents && Boolean(event.goalId || event.cardId);
+  const t = TONES[EVENT_TONE[event.kind] ?? "info"];
   const title =
     event.kind === "yellow_card"
       ? "Yellow card"
@@ -302,7 +312,7 @@ function EventText({
           <span className="ml-1 font-medium text-danger">(OG)</span>
         ) : null}
       </p>
-      <p className="text-xs text-muted">{title}</p>
+      <p className={`text-xs font-medium ${t.text}`}>{title}</p>
       <p className="text-xs tabular text-faint">{formatMatchEventTime(event.period, event.minute, event.addedMinutes)}</p>
     </div>
   );
@@ -310,7 +320,7 @@ function EventText({
     <div className="flex shrink-0 items-center gap-1.5">
       <button
         type="button"
-        className={iconBtnClass}
+        className={`${iconBtnBase} ${t.iconBtn}`}
         aria-label={`Edit ${title} for ${event.playerName}`}
         onClick={() =>
           event.goalId ? onEditGoal(event.goalId) : onEditCard(event.cardId!)
@@ -320,7 +330,7 @@ function EventText({
       </button>
       <button
         type="button"
-        className={`${iconBtnClass} hover:text-danger`}
+        className={`${iconBtnBase} border-line bg-surface/60 text-muted hover:bg-glass-strong hover:text-danger`}
         aria-label={`Delete ${title} for ${event.playerName}`}
         onClick={() =>
           event.goalId
@@ -715,8 +725,19 @@ export function SeasonMatchDetailsPage(props: {
     }
   };
 
+  // Section tones for this page
+  const tCorrection = TONES.gold; // completed result correction banner
+  const tSeason = TONES.gold; // season info
+  const tHint = TONES.info; // fixture-management hint
+  const tEventAudit = TONES.accent; // goal & card audit history
+  const tCorrAudit = TONES.gold; // correction audit history
+  const tFixture = TONES.primary; // edit-fixture card + match header
+  const tShootout = TONES.accent; // shootout strip
+  const tResolution = TONES.gold; // resolution history
+
   return (
     <PageContainer>
+      {/* Link to Matches Page */}
       <Link
         to={adminMode ? "/admin/matches" : "/matches"}
         search={{ seasonId }}
@@ -734,45 +755,29 @@ export function SeasonMatchDetailsPage(props: {
         >
           <path d="M15 5l-7 7 7 7" />
         </svg>
-        Back to matches
+        Back to Matches
       </Link>
 
-      {canManageActiveSeason && match.status === "completed" ? (
-        <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 border border-warning/30 p-4">
-          <div className="min-w-0">
-            <h2 className="font-display text-lg text-fg">
-              Completed result correction
-            </h2>
-            <p className="mt-0.5 text-sm text-muted">
-              Use the audited correction workflow to amend the official result.
-              Ordinary goal editing is disabled.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="surface"
-            onClick={() => setCorrectionOpen(true)}
-          >
-            Correct completed result
-          </Button>
-        </GlassCard>
-      ) : null}
-
+      {/* Season Info Banner */}
       {selectedSeason ? (
         <section
           aria-label="Selected season information"
-          className="mb-5 rounded-2xl border border-line bg-glass p-4 shadow-sm sm:p-5"
+          className={`relative mb-5 mt-3 overflow-hidden rounded-2xl border p-4 sm:p-5 ${tSeason.glass}`}
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
-                Season {selectedSeason.year} <span aria-hidden="true">·</span>{" "}
-                Edition {selectedSeason.seasonNumber}
-              </p>
-              <h2 className="mt-1 truncate font-display text-xl text-fg sm:text-2xl">
-                {selectedSeason.name}
-              </h2>
-              <p className="mt-2 text-sm text-muted">{seasonDateRange}</p>
+          <div aria-hidden="true" className={`pointer-events-none absolute inset-0 ${tSeason.glow}`} />
+          <div className="relative flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tSeason.chip}`}><ToneIcon d={ICONS.trophy} /></span>
+              <div className="min-w-0">
+                <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${tSeason.text}`}>
+                  Season {selectedSeason.year} <span aria-hidden="true">·</span>{" "}
+                  Edition {selectedSeason.seasonNumber}
+                </p>
+                <h2 className="mt-1 truncate font-display text-xl text-fg sm:text-2xl">
+                  {selectedSeason.name}
+                </h2>
+                <p className="mt-2 text-sm text-muted">{seasonDateRange}</p>
+              </div>
             </div>
             <div className="flex shrink-0 items-center gap-2 self-start rounded-full border border-line bg-surface px-3 py-1.5">
               <span
@@ -797,19 +802,23 @@ export function SeasonMatchDetailsPage(props: {
         </section>
       ) : null}
 
+      {/* Fixture Management Hint (For Admin) */}
       {adminMode && isAdmin && fixtureManagementHint ? (
         <GlassCard
-          className="mt-3 border border-info/30 bg-info/5 p-4"
+          className={`mt-3 border p-4 ${tHint.glass}`}
           role="status"
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <p className="font-semibold text-fg">
-                Fixture management is currently unavailable
-              </p>
-              <p className="mt-1 text-sm leading-6 text-muted">
-                {fixtureManagementHint}
-              </p>
+            <div className="flex items-start gap-3">
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tHint.chip}`}><ToneIcon d={ICONS.info} /></span>
+              <div>
+                <p className={`font-semibold ${tHint.text}`}>
+                  Fixture management is currently unavailable
+                </p>
+                <p className="mt-1 text-sm leading-6 text-muted">
+                  {fixtureManagementHint}
+                </p>
+              </div>
             </div>
             {selectedSeason && selectedSeason.status !== "active" ? (
               <Link
@@ -824,61 +833,44 @@ export function SeasonMatchDetailsPage(props: {
         </GlassCard>
       ) : null}
 
-      {match.eventAuditHistory?.length ? (
-        <GlassCard className="mt-3 p-4">
-          <h2 className="font-display text-lg text-fg">Goal and Card audit history</h2>
-          <p className="mt-1 text-xs text-muted">Event timestamps below are record/audit times. The match-event position is shown separately using the stored period, minute and added time.</p>
-          <ul className="mt-3 space-y-3">
-            {[...match.eventAuditHistory].reverse().map((entry, index) => (
-              <li key={`${entry.eventId}:${entry.timestamp}:${index}`} className="rounded-lg border border-line bg-surface p-3 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <strong className="text-fg">{entry.eventType === "goal" ? "Goal" : "Card"} {entry.operation}</strong>
-                  <span className="text-xs text-muted">{formatDate(entry.timestamp)} · {new Date(entry.timestamp).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
-                </div>
-                <p className="mt-1 text-xs text-muted">Event ID: {entry.eventId} · Admin: {entry.actor}</p>
-                {entry.previousValue ? <p className="mt-2 text-xs text-muted">Previous: {getEventAuditSummary(entry.previousValue)}</p> : null}
-                {entry.newValue ? <p className="mt-1 text-xs text-fg">New: {getEventAuditSummary(entry.newValue)}</p> : null}
-                {entry.reason ? <p className="mt-2 text-xs text-muted">Reason: {entry.reason}</p> : null}
-              </li>
-            ))}
-          </ul>
+      {/* Edit Fixture */}
+      {showEdit ? (
+        <GlassCard className={`mt-3 flex flex-wrap items-center justify-between gap-3 border p-4 ${tFixture.glass}`}>
+          <ToneHeader
+            as="h2"
+            tone="primary"
+            icon={<ToneIcon d={ICONS.edit} />}
+            title="Fixture Details"
+            description="Update venue, participants or other fixture information."
+          />
+          <Button size="sm" variant="surface" onClick={() => setEditing(true)}>
+            Edit Fixture
+          </Button>
         </GlassCard>
       ) : null}
 
-      {match.correctionHistory?.length ? (
-        <GlassCard className="mt-3 p-4">
-          <h2 className="font-display text-lg text-fg">
-            Correction audit history
-          </h2>
-          <ul className="mt-3 space-y-3">
-            {match.correctionHistory.map((entry, index) => (
-              <li
-                key={entry.correctedAt + index}
-                className="rounded-lg border border-line bg-surface p-3 text-sm"
-              >
-                <div className="flex flex-wrap justify-between gap-2">
-                  <strong className="text-fg">Correction {index + 1}</strong>
-                  <span className="text-muted">
-                    {formatDate(entry.correctedAt)} ·{" "}
-                    {new Date(entry.correctedAt).toLocaleTimeString("en-IN", {
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                </div>
-                <p className="mt-1 text-muted">{entry.reason}</p>
-                <p className="mt-2 text-xs text-muted">
-                  Original: {entry.originalResult.homeScore} -{" "}
-                  {entry.originalResult.awayScore} · Corrected:{" "}
-                  {entry.correctedResult.homeScore} -{" "}
-                  {entry.correctedResult.awayScore} · Admin: {entry.correctedBy}
-                </p>
-              </li>
-            ))}
-          </ul>
+      {/* Completed Result Correction Section */}
+      {canManageActiveSeason && match.status === "completed" ? (
+        <GlassCard className={`mt-3 flex flex-wrap items-center justify-between gap-3 border p-4 ${tCorrection.glass}`}>
+          <ToneHeader
+            as="h2"
+            tone="gold"
+            icon={<ToneIcon d={ICONS.alert} />}
+            title="Completed Result Correction"
+            description="Use the audited correction workflow to amend the official result. Ordinary goal editing is disabled."
+          />
+          <Button
+            size="sm"
+            variant="surface"
+            onClick={() => setCorrectionOpen(true)}
+          >
+            Correct Completed Result
+          </Button>
         </GlassCard>
       ) : null}
 
+
+      {/* Match Engine Corrections Section */}
       <MatchEngineCorrectionSection
         key={`${match._id}:corrections:${match.updatedAt}`}
         seasonId={seasonId}
@@ -888,16 +880,8 @@ export function SeasonMatchDetailsPage(props: {
           matchQuery.setData((current) => current ? { ...current, data: updatedMatch } : current);
         }}
       />
-      <MatchStatusManager
-        seasonId={seasonId}
-        match={match}
-        isAdmin={canManageActiveSeason}
-        onMatchUpdated={(updatedMatch) => {
-          matchQuery.setData((current) =>
-            current ? { ...current, data: updatedMatch } : current,
-          );
-        }}
-      />
+
+      {/* Match Deciding Rules Section */}
       {selectedSeason ? (
         <MatchDecidingRulesSection
           key={`${match._id}:${match.updatedAt}`}
@@ -911,28 +895,28 @@ export function SeasonMatchDetailsPage(props: {
         />
       ) : null}
 
-      {showEdit ? (
-        <GlassCard className="mt-3 flex flex-wrap items-center justify-between gap-3 p-4 backdrop-blur-xl">
-          <div className="min-w-0">
-            <h2 className="font-display text-lg text-fg">Fixture details</h2>
-            <p className="mt-0.5 text-sm text-muted">
-              Update venue, participants or other fixture information.
-            </p>
-          </div>
-          <Button size="sm" variant="surface" onClick={() => setEditing(true)}>
-            Edit fixture
-          </Button>
-        </GlassCard>
-      ) : null}
 
-      {/* Match header / Match Score card */}
-      <GlassCard className="relative mt-4 overflow-hidden p-5 backdrop-blur-xl sm:p-8">
+      {/* Match Status Manager (Match Status & Clock) */}
+      <MatchStatusManager
+        seasonId={seasonId}
+        match={match}
+        isAdmin={canManageActiveSeason}
+        onMatchUpdated={(updatedMatch) => {
+          matchQuery.setData((current) =>
+            current ? { ...current, data: updatedMatch } : current,
+          );
+        }}
+      />
+
+
+      {/* Match Header / Match Score Card */}
+      <GlassCard className={`relative mt-4 overflow-hidden border p-5 sm:p-8 ${tFixture.glass}`}>
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
           style={{
             background:
-              "radial-gradient(ellipse 60% 70% at 0% 0%, color-mix(in oklab, var(--csl-primary) 30%, transparent), transparent 65%), radial-gradient(ellipse 50% 60% at 100% 0%, color-mix(in oklab, var(--csl-accent) 12%, transparent), transparent 65%)",
+              "radial-gradient(ellipse 60% 70% at 0% 0%, color-mix(in oklab, var(--csl-primary) 30%, transparent), transparent 65%), radial-gradient(ellipse 50% 60% at 100% 0%, color-mix(in oklab, var(--csl-info) 18%, transparent), transparent 65%), radial-gradient(ellipse 60% 40% at 50% 100%, color-mix(in oklab, var(--csl-accent) 10%, transparent), transparent 70%)",
           }}
         />
         <div
@@ -948,14 +932,14 @@ export function SeasonMatchDetailsPage(props: {
               {groupName ? ` · ${groupName}` : ""}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2">
-              <span className={chipClass}>Match {match.matchNumber}</span>
-              <span className={chipClass}>Round {match.roundNumber}</span>
-              <span className={chipClass}>
+              <span className={pillClass("primary")}>Match {match.matchNumber}</span>
+              <span className={pillClass("info")}>Round {match.roundNumber}</span>
+              <span className={pillClass("gold")}>
                 <CalendarIcon />
                 {formatDate(match.kickoffAt)} · {formatTime(match.kickoffAt)}
               </span>
               {venueName ? (
-                <span className={chipClass}>
+                <span className={pillClass("accent")}>
                   <PinIcon />
                   {venueName}
                 </span>
@@ -971,7 +955,7 @@ export function SeasonMatchDetailsPage(props: {
             {/* Only the score is in the flow, so it centres on the team row.
                 Status (and penalties) hang below it without shifting it. */}
             <div className="relative flex justify-center">
-              <p className="font-display text-4xl tabular text-fg sm:text-6xl">
+              <p className="rounded-2xl border border-line bg-glass px-4 py-1 font-display text-4xl tabular text-fg backdrop-blur-md sm:px-6 sm:text-6xl">
                 {showScore ? `${homeScore} - ${awayScore}` : "vs"}
               </p>
               <div className="absolute left-1/2 top-full mt-2 flex -translate-x-1/2 flex-col items-center gap-2 whitespace-nowrap">
@@ -1004,7 +988,7 @@ export function SeasonMatchDetailsPage(props: {
             <p className="mt-5 text-center text-sm text-muted">{match.notes}</p>
           ) : null}
           {hasPreMatchGoals ? (
-            <p className="mt-4 text-center text-xs text-warning" role="status">
+            <p className={`mt-4 rounded-xl border px-3 py-2 text-center text-xs ${TONES.gold.note}`} role="status">
               This Upcoming fixture contains {match.goals.length} previously
               saved goal event(s). They are preserved for review, but cannot be
               edited or removed until the match is Live.
@@ -1012,7 +996,7 @@ export function SeasonMatchDetailsPage(props: {
           ) : null}
 
           {/* Events under each team, icon on the centre line */}
-          <div className="mt-8 border-t border-line pt-5">
+          <div className={`mt-8 border-t pt-5 ${tFixture.divider}`}>
             {events.length === 0 ? (
               <p className="text-center text-sm text-muted">
                 No match events recorded.
@@ -1021,6 +1005,7 @@ export function SeasonMatchDetailsPage(props: {
               <ul className="flex flex-col gap-3">
                 {events.map((event) => {
                   const side = event.teamId === away.id ? "away" : "home";
+                  const et = TONES[EVENT_TONE[event.kind] ?? "info"];
                   return (
                     <li
                       key={event.id}
@@ -1039,7 +1024,7 @@ export function SeasonMatchDetailsPage(props: {
                       ) : (
                         <span />
                       )}
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-glass backdrop-blur-md">
+                      <span className={`flex h-9 w-9 items-center justify-center rounded-full border backdrop-blur-md ${et.pill}`}>
                         <MatchEventIcon kind={event.kind} className="h-5 w-5" />
                       </span>
                       {side === "away" ? (
@@ -1102,9 +1087,10 @@ export function SeasonMatchDetailsPage(props: {
               </div>
             ) : null}
             {canManageShootout ? (
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-3 border-t border-line pt-4">
+              <div className={`mt-5 flex flex-wrap items-center justify-center gap-3 rounded-xl border p-3 backdrop-blur-md ${tShootout.section}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tShootout.chip}`}><ToneIcon d={ICONS.target} /></span>
                 <div className="text-center">
-                  <p className="text-sm font-semibold text-fg">
+                  <p className={`text-sm font-semibold ${tShootout.text}`}>
                     Penalty shootout
                   </p>
                   <p className="text-xs text-muted">
@@ -1125,15 +1111,15 @@ export function SeasonMatchDetailsPage(props: {
           </div>
 
           {match.resolutionHistory?.length ? (
-            <div className="mt-6 border-t border-line pt-4">
-              <h3 className="text-sm font-semibold text-fg">
+            <div className={`mt-6 border-t pt-4 ${tResolution.divider}`}>
+              <h3 className={`text-sm font-semibold ${tResolution.text}`}>
                 Fixture resolution history
               </h3>
               <ul className="mt-2 space-y-2">
                 {match.resolutionHistory.map((entry, index) => (
                   <li
                     key={entry.decidedAt + entry.status + index}
-                    className="rounded-control border border-line bg-glass p-3 text-sm backdrop-blur-md"
+                    className={`rounded-control border p-3 text-sm backdrop-blur-md ${tResolution.cardOff}`}
                   >
                     <p className="font-medium text-fg">
                       {entry.status === "cancelled" ? "Cancelled" : "Abandoned"}{" "}
@@ -1147,6 +1133,77 @@ export function SeasonMatchDetailsPage(props: {
           ) : null}
         </div>
       </GlassCard>
+
+
+      {/* ============== AUDIT HISTORIES ======================= */}
+
+      {/* Goal & Card Audit History */}
+      {match.eventAuditHistory?.length ? (
+        <GlassCard className={`mt-3 border p-4 ${tEventAudit.glass}`}>
+          <ToneHeader
+            as="h2"
+            tone="accent"
+            icon={<ToneIcon d={ICONS.list} />}
+            title="Goal And Card Audit History"
+            description="Event timestamps below are record/audit times. The match-event position is shown separately using the stored period, minute and added time."
+          />
+          <ul className="mt-3 space-y-3">
+            {[...match.eventAuditHistory].reverse().map((entry, index) => (
+              <li key={`${entry.eventId}:${entry.timestamp}:${index}`} className={`rounded-xl border p-3 text-sm backdrop-blur-md ${tEventAudit.cardOff}`}>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <strong className={tEventAudit.text}>{entry.eventType === "goal" ? "Goal" : "Card"} {entry.operation}</strong>
+                  <span className="text-xs text-muted">{formatDate(entry.timestamp)} · {new Date(entry.timestamp).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted">Event ID: {entry.eventId} · Admin: {entry.actor}</p>
+                {entry.previousValue ? <p className="mt-2 text-xs text-muted">Previous: {getEventAuditSummary(entry.previousValue)}</p> : null}
+                {entry.newValue ? <p className="mt-1 text-xs text-fg">New: {getEventAuditSummary(entry.newValue)}</p> : null}
+                {entry.reason ? <p className="mt-2 text-xs text-muted">Reason: {entry.reason}</p> : null}
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      ) : null}
+
+      {/* Match Correction Audit History */}
+      {match.correctionHistory?.length ? (
+        <GlassCard className={`mt-3 border p-4 ${tCorrAudit.glass}`}>
+          <ToneHeader
+            as="h2"
+            tone="gold"
+            icon={<ToneIcon d={ICONS.shield} />}
+            title="Correction audit history"
+          />
+          <ul className="mt-3 space-y-3">
+            {match.correctionHistory.map((entry, index) => (
+              <li
+                key={entry.correctedAt + index}
+                className={`rounded-xl border p-3 text-sm backdrop-blur-md ${tCorrAudit.cardOff}`}
+              >
+                <div className="flex flex-wrap justify-between gap-2">
+                  <strong className={tCorrAudit.text}>Correction {index + 1}</strong>
+                  <span className="text-muted">
+                    {formatDate(entry.correctedAt)} ·{" "}
+                    {new Date(entry.correctedAt).toLocaleTimeString("en-IN", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
+                <p className="mt-1 text-muted">{entry.reason}</p>
+                <p className="mt-2 text-xs text-muted">
+                  Original: {entry.originalResult.homeScore} -{" "}
+                  {entry.originalResult.awayScore} · Corrected:{" "}
+                  {entry.correctedResult.homeScore} -{" "}
+                  {entry.correctedResult.awayScore} · Admin: {entry.correctedBy}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </GlassCard>
+      ) : null}
+
+
+      {/* ============== DRAWERS & MODALS ======================= */}
 
       <GoalManagementDrawer
         open={goalOpen}
@@ -1341,6 +1398,7 @@ export function SeasonMatchDetailsPage(props: {
           }}
         />
       </Drawer>
+
     </PageContainer>
   );
 }

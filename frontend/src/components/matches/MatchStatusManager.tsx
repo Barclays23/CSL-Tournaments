@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/ui/GlassCard";
 import { Input } from "@/components/ui/Input";
 import { Modal } from "@/components/ui/Modal";
 import { Textarea } from "@/components/ui/Textarea";
+import { ICONS, TONES, ToneIcon } from "@/components/ui/Tones";
 import {
   changeSeasonMatchStatus,
   completeSeasonMatch,
@@ -214,17 +215,24 @@ export function MatchStatusManager({
   const canReschedule = match.status === "postponed" && !match.actualStartedAt;
   const canResumePostponed = match.status === "postponed" && Boolean(match.actualStartedAt);
 
+  // Tones: card = success, clock readout = gold, guidance = info, modal = primary
+  const tCard = TONES.success;
+  const tClock = TONES.gold;
+  const tGuide = TONES.info;
+  const tModal = TONES.primary;
+
   return (
     <>
-      <GlassCard className="mt-4 p-4 sm:p-5">
+      <GlassCard className={`mt-4 p-4 sm:p-5 ${tCard.glass} ${tCard.labels}`}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="font-display text-lg text-fg">Match status & clock</h2>
-              <span className={`rounded-full px-3 py-1 text-xs font-bold ${match.status === "live" ? "bg-success/15 text-success" : match.status === "postponed" ? "bg-warning/15 text-warning" : "bg-surface text-muted"}`}>
+              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tCard.chip}`}><ToneIcon d={ICONS.clock} /></span>
+              <h2 className="font-display text-lg text-fg">Match Status & Clock</h2>
+              <span className={`rounded-full border px-3 py-1 text-xs font-bold ${match.status === "live" ? tCard.pill : match.status === "postponed" ? TONES.gold.pill : "border-line bg-surface text-muted"}`}>
                 {statusLabel(match.status)}
               </span>
-              {hasStartedClock ? <span className="rounded-full border border-line px-2 py-1 text-xs text-muted">{match.clock.isRunning ? "Clock running" : "Clock paused"}</span> : null}
+              {hasStartedClock ? <span className={`rounded-full border px-2 py-1 text-xs ${match.clock.isRunning ? tClock.pill : "border-line text-muted"}`}>{match.clock.isRunning ? "Clock running" : "Clock paused"}</span> : null}
             </div>
             <p className="mt-1 text-sm text-muted">Phase · {getMatchPhaseLabel(match.phase)}</p>
             <p className="mt-1 text-xs text-faint">
@@ -237,8 +245,8 @@ export function MatchStatusManager({
             {match.actualStartedAt ? <p className="mt-1 text-xs text-faint">Actual kickoff · {formatDate(match.actualStartedAt)} · {formatTime(match.actualStartedAt)}</p> : null}
           </div>
           {hasStartedClock ? (
-            <div className="min-w-36 rounded-xl border border-line bg-surface/60 px-4 py-3 text-center">
-              <p className="font-display text-3xl tabular-nums text-fg" aria-live="off">{formatMatchClock(match, now)}</p>
+            <div className={`min-w-36 rounded-xl border px-4 py-3 text-center backdrop-blur-md ${tClock.section}`}>
+              <p className={`font-display text-3xl tabular-nums ${tClock.text}`} aria-live="off">{formatMatchClock(match, now)}</p>
               <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">{match.clock.isRunning ? "Live clock" : "Paused clock"}</p>
             </div>
           ) : null}
@@ -278,9 +286,9 @@ export function MatchStatusManager({
           </div>
         ) : null}
 
-        <div className="mt-4 rounded-xl border border-line bg-surface/40 p-3 text-xs leading-relaxed text-muted">
-          <p className="font-semibold text-fg">Administrator guidance</p>
-          <ul className="mt-1 list-disc space-y-1 pl-4">
+        <div className={`mt-4 rounded-xl border p-3 text-xs leading-relaxed backdrop-blur-md ${tGuide.section}`}>
+          <p className={`flex items-center gap-1.5 font-semibold ${tGuide.text}`}><ToneIcon d={ICONS.info} />Administrator guidance</p>
+          <ul className="mt-1 list-disc space-y-1 pl-4 text-muted marker:text-info">
             <li>Complete only after all required phases and deciding stages have been resolved.</li>
             <li>Postpone when the same Match will resume later or be rescheduled. A running clock must be paused first.</li>
             <li>Abandon a started Match that will not resume.</li>
@@ -301,17 +309,19 @@ export function MatchStatusManager({
       >
         {activeModal ? (
           <form className="grid gap-4" onSubmit={(event) => void submitModal(event)}>
-            {activeModal === "reschedule" ? (
-              <label className="grid gap-1.5 text-sm font-semibold text-fg">
-                New kickoff
-                <Input type="datetime-local" required value={newKickoff} onChange={(event) => setNewKickoff(event.target.value)} />
-              </label>
-            ) : (
-              <label className="grid gap-1.5 text-sm font-semibold text-fg">
-                Reason
-                <Textarea required minLength={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={`Why is this Match being ${activeModal}?`} />
-              </label>
-            )}
+            <div className={`rounded-xl border p-3 ${tModal.section} ${tModal.labels}`}>
+              {activeModal === "reschedule" ? (
+                <label className="grid gap-1.5 text-sm">
+                  New kickoff
+                  <Input className={tModal.input} type="datetime-local" required value={newKickoff} onChange={(event) => setNewKickoff(event.target.value)} />
+                </label>
+              ) : (
+                <label className="grid gap-1.5 text-sm">
+                  Reason
+                  <Textarea className={tModal.input} required minLength={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} placeholder={`Why is this Match being ${activeModal}?`} />
+                </label>
+              )}
+            </div>
             {submitError ? <p className="text-sm text-danger" role="alert">{submitError}</p> : null}
             <div className="flex justify-end gap-2 border-t border-line pt-3">
               <Button type="button" variant="surface" disabled={saving} onClick={() => setActiveModal(null)}>Back</Button>
