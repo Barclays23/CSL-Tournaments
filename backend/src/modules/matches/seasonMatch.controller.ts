@@ -7,6 +7,7 @@ import {
   decidingRulesUpdateSchema, matchStatusActionSchema, actualKickoffCorrectionSchema,
   matchClockCorrectionSchema, matchShootoutUpdateSchema, matchPhaseTransitionSchema,
   matchPhaseCorrectionSchema,
+  matchEventDeleteSchema,
 } from "./seasonMatch.schema.js";
 import type { ISeasonMatchService } from "./seasonMatch.interfaces.js";
 
@@ -114,33 +115,33 @@ export class SeasonMatchController {
   addGoal = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = seasonGoalSchema.parse(req.body);
-      res.status(201).json(ApiResponse.success("Goal added", await this.service.addGoal(this.matchId(req), input)));
+      res.status(201).json(ApiResponse.success("Goal added", await this.service.addGoal(this.matchId(req), input, this.actor(req))));
     } catch (error) { next(error); }
   };
   updateGoal = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = seasonGoalSchema.parse(req.body);
-      res.status(200).json(ApiResponse.success("Goal updated", await this.service.updateGoal(this.matchId(req), getRequiredRouteParam(req.params.goalId, "goalId"), input)));
+      res.status(200).json(ApiResponse.success("Goal updated", await this.service.updateGoal(this.matchId(req), getRequiredRouteParam(req.params.goalId, "goalId"), input, this.actor(req))));
     } catch (error) { next(error); }
   };
   deleteGoal = async (req: Request, res: Response, next: NextFunction) => {
-    try { res.status(200).json(ApiResponse.success("Goal deleted", await this.service.deleteGoal(this.matchId(req), getRequiredRouteParam(req.params.goalId, "goalId")))); }
+    try { res.status(200).json(ApiResponse.success("Goal deleted", await this.service.deleteGoal(this.matchId(req), getRequiredRouteParam(req.params.goalId, "goalId"), this.actor(req), matchEventDeleteSchema.parse(req.body).reason))); }
     catch (error) { next(error); }
   };
   addCard = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = seasonMatchCardSchema.parse(req.body);
-      res.status(201).json(ApiResponse.success("Card recorded", await this.service.addCard(this.matchId(req), input)));
+      res.status(201).json(ApiResponse.success("Card recorded", await this.service.addCard(this.matchId(req), input, this.actor(req))));
     } catch (error) { next(error); }
   };
   updateCard = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const input = seasonMatchCardSchema.parse(req.body);
-      res.status(200).json(ApiResponse.success("Card updated", await this.service.updateCard(this.matchId(req), getRequiredRouteParam(req.params.cardId, "cardId"), input)));
+      res.status(200).json(ApiResponse.success("Card updated", await this.service.updateCard(this.matchId(req), getRequiredRouteParam(req.params.cardId, "cardId"), input, this.actor(req))));
     } catch (error) { next(error); }
   };
   deleteCard = async (req: Request, res: Response, next: NextFunction) => {
-    try { res.status(200).json(ApiResponse.success("Card deleted", await this.service.deleteCard(this.matchId(req), getRequiredRouteParam(req.params.cardId, "cardId")))); }
+    try { res.status(200).json(ApiResponse.success("Card deleted", await this.service.deleteCard(this.matchId(req), getRequiredRouteParam(req.params.cardId, "cardId"), this.actor(req), matchEventDeleteSchema.parse(req.body).reason))); }
     catch (error) { next(error); }
   };
 }

@@ -128,8 +128,8 @@ export interface MatchEventAuditHistoryDto {
   newValue: MatchEventAuditValueDto | null;
   reason: string | null;
 }
-export interface SeasonGoalDto extends MatchEventTimingDto {scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:SeasonGoalType;}
-export interface SeasonMatchCardDto extends MatchEventTimingDto {seasonTeamRef:string;playerRef:string;cardType:SeasonCardType;}
+export interface SeasonGoalDto extends MatchEventTimingDto {scoringSeasonTeamRef:string;scorerPlayerRef?:string|null;goalType:SeasonGoalType;reason?:string;}
+export interface SeasonMatchCardDto extends MatchEventTimingDto {seasonTeamRef:string;playerRef:string;cardType:SeasonCardType;reason?:string;}
 export interface SeasonMatchCardResponseDto { _id:string;seasonTeamRef:SeasonMatchTeamDto|string;playerRef:SeasonMatchPlayerDto|string;cardType:SeasonCardType;period?:MatchTimedPeriod|null;minute?:number|null;addedMinutes?:number|null;createdAt:string;}
 export interface SeasonMatchTeamDto {
   _id: string;
