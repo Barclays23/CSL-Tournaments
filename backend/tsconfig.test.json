@@ -1,0 +1,15 @@
+
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../frontend/src/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts",
+    "../frontend/src/mocks/**/*.ts",
+    "../frontend/src/utils/**/*.ts"
+  ],
+  "exclude": ["node_modules", "dist"]
+}
