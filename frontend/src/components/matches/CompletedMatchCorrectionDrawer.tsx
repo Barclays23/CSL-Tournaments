@@ -117,7 +117,7 @@ export function CompletedMatchCorrectionDrawer({
                 </div>
               </li>;
             })}
-          </ul> : <p className="text-sm text-muted">No goal events. A 0-0 result is valid when competition rules allow it.</p>
+          </ul> : <p className="text-sm text-muted">No goal events. A 0-0 result is valid when competition rules allow it.</p>}
 
           <div className="grid gap-2 rounded-xl border border-line p-3">
             <label className="grid gap-1 text-xs font-semibold text-muted">Team credited
