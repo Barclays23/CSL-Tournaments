@@ -15,7 +15,7 @@ import {
   calculateCompletedMatchWinner,
 } from "./seasonMatch.completionRules.js";
 import { assertMatchStatusTransition } from "./seasonMatch.statusRules.js";
-import { getTimedPeriodForPhase, MATCH_TIMED_PERIODS, MATCH_PERIOD_CLOCK_KEYS, resolveMatchEventTiming, stopTimedPeriodClock, startTimedPeriodClock, eventElapsedSeconds, type MatchPhaseAction, type MatchEventTimingInput } from "./seasonMatch.engine.js";
+import { getTimedPeriodForPhase, getLastAvailablePeriodIndex, MATCH_TIMED_PERIODS, MATCH_PERIOD_CLOCK_KEYS, resolveMatchEventTiming, stopTimedPeriodClock, startTimedPeriodClock, eventElapsedSeconds, type MatchPhaseAction, type MatchEventTimingInput } from "./seasonMatch.engine.js";
 import { assertPhaseTransitionAllowed, getRegularFullTimeOutcome, getExtraTimeOutcome } from "./seasonMatch.phaseRules.js";
 import { AppError } from "../../shared/errors/appError.js";
 import type { PaginatedResult } from "../../shared/types/common.types.js";
@@ -455,6 +455,26 @@ export class SeasonMatchService implements ISeasonMatchService {
       throw new AppError("Pause the clock before correcting elapsed Match time.", 409, "MATCH_CLOCK_MUST_BE_STOPPED");
     }
     const nextElapsed = { ...match.clock.periodElapsedSecondsByPeriod, ...input.periodElapsedSecondsByPeriod };
+    const lastAvailablePeriodIndex = getLastAvailablePeriodIndex(match);
+    for (const [index, period] of MATCH_TIMED_PERIODS.entries()) {
+      if (index > lastAvailablePeriodIndex && nextElapsed[MATCH_PERIOD_CLOCK_KEYS[period]] > 0) {
+        throw new AppError(
+          "Clock correction cannot add elapsed time to a period that the Match has not reached.",
+          409,
+          "MATCH_CLOCK_FUTURE_PERIOD",
+        );
+      }
+    }
+    if (
+      (match.stage === "group" || !match.decidingRules.extraTime.isAllowed)
+      && (nextElapsed.extraTimeFirstHalf > 0 || nextElapsed.extraTimeSecondHalf > 0)
+    ) {
+      throw new AppError(
+        "Extra Time clock values are not valid for a fixture with Extra Time disabled.",
+        409,
+        "EXTRA_TIME_DISABLED",
+      );
+    }
     for (const goal of match.goals) {
       const elapsed = eventElapsedSeconds(match, goal);
       if (elapsed !== null && elapsed > nextElapsed[MATCH_PERIOD_CLOCK_KEYS[goal.period!]]) {

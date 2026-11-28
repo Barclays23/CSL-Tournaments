@@ -13,6 +13,7 @@ import { getAuctionCompletionBlockers, getAuctionStartBlockers } from "./auction
 import type { CreateSeasonDto } from "./season.dto.js";
 import type { SeasonTeamEntity, SeasonTeamFields } from "../seasonTeams/seasonTeam.types.js";
 import type { SeasonMatchEntity } from "../matches/seasonMatch.types.js";
+import { AppError } from "../../shared/errors/appError.js";
 
 export class SeasonRepository implements ISeasonRepository {
   async findSeasons(filter: SeasonListFilter): Promise<SeasonEntity[]> {
@@ -62,7 +63,11 @@ export class SeasonRepository implements ISeasonRepository {
     return created.toObject() as unknown as SeasonEntity;
   }
 
-  async update(id: string, data: Partial<SeasonFields>): Promise<SeasonEntity | null> {
+  async update(
+    id: string,
+    data: Partial<SeasonFields>,
+    options: { requireNoFixturesForMatchRules?: boolean } = {},
+  ): Promise<SeasonEntity | null> {
     const { matchRules, ...fields } = data;
     const set: Record<string, unknown> = { ...fields };
     if (matchRules) {
@@ -72,10 +77,62 @@ export class SeasonRepository implements ISeasonRepository {
       set["matchRules.shootoutCountsForMatchScore"] = matchRules.shootoutCountsForMatchScore;
       set["matchRules.shootoutCountsForPlayerGoals"] = matchRules.shootoutCountsForPlayerGoals;
     }
-    return SeasonModel.findByIdAndUpdate(id, { $set: set }, {
-      returnDocument: "after",
-      runValidators: true,
-    }).lean<SeasonEntity>().exec();
+
+    if (!options.requireNoFixturesForMatchRules) {
+      return SeasonModel.findByIdAndUpdate(id, { $set: set }, {
+        returnDocument: "after",
+        runValidators: true,
+      }).lean<SeasonEntity>().exec();
+    }
+
+    // Fixture creation takes the same Season document write lock by incrementing
+    // auctionRevision. Serialize this settings update against fixture creation and
+    // lifecycle transitions, then re-check the fixture count inside the transaction.
+    const session = await mongoose.startSession();
+    try {
+      let updated: SeasonEntity | null = null;
+      await session.withTransaction(async () => {
+        const seasonLock = await SeasonModel.updateOne(
+          { _id: new Types.ObjectId(id), status: { $in: ["draft", "upcoming"] } },
+          { $inc: { auctionRevision: 1 } },
+          { session },
+        ).exec();
+
+        if (seasonLock.matchedCount !== 1) {
+          const exists = await SeasonModel.exists({ _id: new Types.ObjectId(id) }).session(session).exec();
+          if (!exists) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
+          throw new AppError(
+            "Match rules and fixture configuration can only be changed before the Season is activated.",
+            409,
+            "SEASON_MATCH_RULES_LOCKED",
+          );
+        }
+
+        const matchCount = await SeasonMatchModel.countDocuments({
+          seasonRef: new Types.ObjectId(id),
+        }).session(session).exec();
+        if (matchCount > 0) {
+          throw new AppError(
+            "Points, tiebreaker, match and group-stage rules are locked after the first fixture is created.",
+            409,
+            "SEASON_MATCH_RULES_LOCKED",
+          );
+        }
+
+        updated = await SeasonModel.findOneAndUpdate(
+          { _id: new Types.ObjectId(id), status: { $in: ["draft", "upcoming"] } },
+          { $set: set },
+          { session, returnDocument: "after", runValidators: true },
+        ).lean<SeasonEntity>().exec();
+
+        if (!updated) {
+          throw new AppError("Season configuration changed concurrently. Refresh and try again.", 409, "SEASON_MATCH_RULES_CONFLICT");
+        }
+      });
+      return updated;
+    } finally {
+      await session.endSession();
+    }
   }
 
   async updateStatus(id: string, current: SeasonStatus, next: SeasonStatus): Promise<SeasonEntity | null> {

@@ -95,6 +95,44 @@ test("Draft season name remains editable after teams and groups are registered",
 });
 
 
+test("match-related Season settings request the repository's atomic first-fixture lock", async () => {
+  const now = new Date("2026-11-18T00:00:00.000Z");
+  const current = {
+    _id: id, seasonNumber: 1, name: "Season One", year: 2026,
+    startDate: null, endDate: null, timeZone: "Asia/Kolkata" as const,
+    groupStageEnabled: true, homeAndAwayFixtures: false, status: "upcoming" as const,
+    historyCompleteness: "not_applicable" as const,
+    auctionSettings: { currency: "INR" as const, budgetPerTeam: 10000, playersCount: 50, seasonTeamCount: 6, teamSquadSize: 9, iconPlayerLimit: 1, goalkeeperLimit: 1 },
+    pointsRules: { win: 3, draw: 1, loss: 0 },
+    standingsTieBreakers: ["points" as const],
+    matchRules: {
+      defaultMatchDurationMinutes: 30,
+      extraTime: { isAllowedByDefault: false, defaultDurationMinutes: 10 },
+      penaltyShootout: { isAllowedByDefault: true },
+      shootoutCountsForMatchScore: false as const,
+      shootoutCountsForPlayerGoals: false as const,
+    },
+    auctionLifecycleStatus: "completed" as const,
+    createdAt: now, updatedAt: now,
+  };
+  let updateOptions: unknown;
+  const instance = service({
+    findById: async () => current,
+    countSeasonTeams: async () => 2,
+    countGroups: async () => 2,
+    countLots: async () => 0,
+    countMatches: async () => 0,
+    getMaxSoldSquadSize: async () => 0,
+    update: async (_seasonId: string, _patch: Record<string, unknown>, options: unknown) => {
+      updateOptions = options;
+      return current;
+    },
+  });
+
+  await instance.update(id, { matchRules: { defaultMatchDurationMinutes: 32 } });
+  assert.deepEqual(updateOptions, { requireNoFixturesForMatchRules: true });
+});
+
 test("activation requires the exact eligible participating team count", async () => {
   const instance = service({
     countEligibleSeasonTeams: async () => 3,

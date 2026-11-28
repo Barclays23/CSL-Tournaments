@@ -178,7 +178,15 @@ export class SeasonService implements ISeasonService {
       };
     }
     try {
-      const updated = await this.repo.update(id, update);
+      const updated = await this.repo.update(id, update, {
+        requireNoFixturesForMatchRules: Boolean(
+          input.pointsRules
+          || input.standingsTieBreakers
+          || input.matchRules
+          || input.groupStageEnabled !== undefined
+          || input.homeAndAwayFixtures !== undefined,
+        ),
+      });
       if (!updated) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
       return this.map(updated);
     } catch (error) {
