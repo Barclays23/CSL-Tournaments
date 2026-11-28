@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { Types } from "mongoose";
 import { VenueService } from "./venue.service.js";
-import type { VenueEntity, VenueFields, VenueStatus } from "./venue.types.js";
+import type { VenueEntity, VenueStatus } from "./venue.types.js";
 import { venueRouter } from "./venue.routes.js";
 
 class MemoryVenueRepository {
@@ -68,12 +68,12 @@ test("duplicate Venue names are rejected after NFKC, whitespace and case normali
   await service.create({ name: "  North   Stadium " });
   await assert.rejects(
     service.create({ name: "north stadium" }),
-    (error: unknown) => Boolean(error && typeof error === "object" && "code" in error && error.code === "DUPLICATE_VENUE"),
+    (error: unknown) => Boolean(error && typeof error === "object" && "errorCode" in error && error.errorCode === "DUPLICATE_VENUE"),
   );
-  await service.create({ name: "North Stadium" }).catch((error: unknown) => {
-    // The standard normalization collapses whitespace after NFKC and should reject this duplicate too.
-    assert.ok(error);
-  });
+  await assert.rejects(
+    service.create({ name: "North Stadium" }),
+    (error: unknown) => Boolean(error && typeof error === "object" && "errorCode" in error && error.errorCode === "DUPLICATE_VENUE"),
+  );
 });
 
 test("Venue list returns active, inactive and all records according to admin visibility", async () => {
@@ -92,7 +92,7 @@ test("Inactive Venues cannot be fetched by public users", async () => {
   const venue = await service.create({ name: "Closed Ground" });
   await service.update(venue._id, { status: "inactive" });
   await assert.rejects(service.get(venue._id, false), (error: unknown) =>
-    Boolean(error && typeof error === "object" && "code" in error && error.code === "VENUE_NOT_FOUND"),
+    Boolean(error && typeof error === "object" && "errorCode" in error && error.errorCode === "VENUE_NOT_FOUND"),
   );
   assert.equal((await service.get(venue._id, true)).status, "inactive");
 });
@@ -102,7 +102,7 @@ test("deleting a Venue referenced by fixtures is rejected", async () => {
   const venue = await service.create({ name: "History Ground" });
   repository.referencedIds.add(venue._id);
   await assert.rejects(service.delete(venue._id), (error: unknown) =>
-    Boolean(error && typeof error === "object" && "code" in error && error.code === "VENUE_IN_USE"),
+    Boolean(error && typeof error === "object" && "errorCode" in error && error.errorCode === "VENUE_IN_USE"),
   );
   assert.ok(await repository.findById(venue._id));
 });

@@ -1063,7 +1063,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     const card = await this.buildCard(match, input, old);
     card._id = new Types.ObjectId(cardId);
     card.createdAt = old.createdAt ?? new Date();
-    const auditEntry = this.createCardAuditEntry(card, "updated", actorId, old, this.auditReason(input.reason));
+    const auditEntry = this.createCardAuditEntry(card, "updated", actorId, old, this.auditReason(input.reason, true));
     const saved = await this._seasonMatchRepo.updateCard(id, cardId, card, match.updatedAt, auditEntry);
     if (!saved) throw new AppError("Match or Card changed while the correction was being saved. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
@@ -1078,7 +1078,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     this.id(cardId, "card");
     const old = (match.cards ?? []).find((card) => String(card._id) === cardId);
     if (!old) throw new AppError("Card not found", 404, "CARD_NOT_FOUND");
-    const auditEntry = this.createCardAuditEntry(old, "deleted", actorId, old, this.auditReason(reason));
+    const auditEntry = this.createCardAuditEntry(old, "deleted", actorId, old, this.auditReason(reason, true));
     const saved = await this._seasonMatchRepo.removeCard(id, cardId, match.updatedAt, auditEntry);
     if (!saved) throw new AppError("Match or Card changed while the deletion was being saved. Refresh and try again.", 409, "MATCH_EVENT_CONFLICT");
     const populated = await this._seasonMatchRepo.findPopulatedById(id);
@@ -1127,7 +1127,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!season.matchRules) throw new AppError("Match rules are unavailable for this season", 409, "SEASON_RULES_UNAVAILABLE");
     const winner = this.calculateWinner({ ...match, goals }, season.matchRules, season.pointsRules);
-    const auditEntry = this.createGoalAuditEntry(goal, "updated", actorId, existingGoal, this.auditReason(input.reason));
+    const auditEntry = this.createGoalAuditEntry(goal, "updated", actorId, existingGoal, this.auditReason(input.reason, true));
     const saved = await this._seasonMatchRepo.updateGoalWithWinner(
       id,
       goalId,
@@ -1154,7 +1154,7 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (!season) throw new AppError("Season not found", 404, "SEASON_NOT_FOUND");
     if (!season.matchRules) throw new AppError("Match rules are unavailable for this season", 409, "SEASON_RULES_UNAVAILABLE");
     const winner = this.calculateWinner({ ...match, goals }, season.matchRules, season.pointsRules);
-    const auditEntry = this.createGoalAuditEntry(existingGoal, "deleted", actorId, existingGoal, this.auditReason(reason));
+    const auditEntry = this.createGoalAuditEntry(existingGoal, "deleted", actorId, existingGoal, this.auditReason(reason, true));
     const saved = await this._seasonMatchRepo.removeGoalWithWinner(
       id,
       goalId,
@@ -1872,9 +1872,9 @@ export class SeasonMatchService implements ISeasonMatchService {
     return new Types.ObjectId(actor);
   }
 
-  private auditReason(reason?: string): string | null {
+  private auditReason(reason?: string, required = false): string | null {
     const normalized = reason?.trim() ?? "";
-    if (normalized && (normalized.length < 3 || normalized.length > 1000)) {
+    if ((required && normalized.length < 3) || (normalized && (normalized.length < 3 || normalized.length > 1000))) {
       throw new AppError("Event audit reason must be between 3 and 1000 characters.", 422, "MATCH_EVENT_AUDIT_REASON_INVALID");
     }
     return normalized || null;

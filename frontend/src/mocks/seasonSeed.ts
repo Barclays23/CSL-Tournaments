@@ -1,5 +1,5 @@
 import type { Asset } from "@/types/api.types";
-import type { MatchAuditHistoryEntry, MatchEventAuditHistoryEntry } from "@/types/seasonMatch.types";
+import type { MatchAuditHistoryEntry, MatchAuditSnapshot, MatchEventAuditHistoryEntry } from "@/types/seasonMatch.types";
 
 const oid = (value: number) => value.toString(16).padStart(24, "0");
 const timestamp = (value: string) => new Date(value).toISOString();

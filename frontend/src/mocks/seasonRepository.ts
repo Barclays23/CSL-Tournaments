@@ -11,7 +11,7 @@ import { ApiError } from "@/utils/errorHandler";
 import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
 import { assertMockPhaseCorrectionAllowed, assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, resolveMockClockCorrection, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
-import type { MatchDecidingRules, MatchEventAuditHistoryEntry, MatchEventAuditValue, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
+import type { MatchAuditSnapshot, MatchDecidingRules, MatchEventAuditHistoryEntry, MatchEventAuditValue, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
 import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
@@ -165,7 +165,7 @@ function assertLiveMatch(match: MockSeasonMatch): void {
   assertMockGoalManagementAllowed(match.status, fail);
 }
 
-function mockMatchAuditSnapshot(match: MockSeasonMatch): Record<string, unknown> {
+function mockMatchAuditSnapshot(match: MockSeasonMatch): MatchAuditSnapshot {
   return {
     status: match.status,
     phase: match.phase,
@@ -185,7 +185,7 @@ function mockMatchAuditSnapshot(match: MockSeasonMatch): Record<string, unknown>
 function appendMockMatchAudit(
   match: MockSeasonMatch,
   action: string,
-  previousValue: Record<string, unknown>,
+  previousValue: MatchAuditSnapshot,
   reason: string | null = null,
   timestamp = now(),
 ): void {

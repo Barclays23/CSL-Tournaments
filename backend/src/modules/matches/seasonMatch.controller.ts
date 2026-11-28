@@ -125,7 +125,7 @@ export class SeasonMatchController {
     } catch (error) { next(error); }
   };
   deleteGoal = async (req: Request, res: Response, next: NextFunction) => {
-    try { res.status(200).json(ApiResponse.success("Goal deleted", await this.service.deleteGoal(this.matchId(req), getRequiredRouteParam(req.params.goalId, "goalId"), this.actor(req), matchEventDeleteSchema.parse(req.body).reason))); }
+    try { res.status(200).json(ApiResponse.success("Goal deleted", await this.service.deleteGoal(this.matchId(req), getRequiredRouteParam(req.params.goalId, "goalId"), this.actor(req), matchEventDeleteSchema.parse(req.body ?? {}).reason))); }
     catch (error) { next(error); }
   };
   addCard = async (req: Request, res: Response, next: NextFunction) => {
