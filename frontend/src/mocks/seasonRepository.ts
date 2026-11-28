@@ -12,7 +12,7 @@ import { getMockAuctionSetupBlockers } from "@/mocks/auctionCompletionRules";
 import { createMockObjectId } from "@/mocks/objectId";
 import { assertMockPhaseTransitionAllowed, getMockExtraTimeOutcome, getMockRegularFullTimeOutcome, mockTimedPeriodForPhase, resolveMockEventTiming, startMockMatchClock, stopMockMatchClock } from "@/mocks/matchOperations";
 import type { MatchDecidingRules, MatchPhaseAction, MatchStatusAction, MatchTimedPeriod } from "@/types/seasonMatch.types";
-import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents } from "@/mocks/seasonFixtureRules";
+import { getMockFixtureGroupReadinessBlockers, hasMockMatchIncidents, resolveMockFixtureDecidingRulesForStage } from "@/mocks/seasonFixtureRules";
 import {
   assertMockGoalManagementAllowed,
   assertMockShootoutScore,
@@ -1142,9 +1142,6 @@ export const seasonPreviewRepository = {
       return fail(422, "Both teams must be eligible participants in this season");
     }
     if (stage === "group" && season.groupStageEnabled === false) fail(409, "Group-stage fixtures are disabled for this season");
-    if (stage === "group" && (match.decidingRules.extraTime.isAllowed || match.decidingRules.penaltyShootout.isAllowed)) {
-      fail(422, "Disable Extra Time and Penalty Shootout through Match Deciding Rules before changing this fixture to Group Stage.", "GROUP_DECIDING_RULES");
-    }
     if (stage !== "group") {
       const eligible = mockKnockoutEligibleTeams(db, season, stage);
       if (!eligible.has(homeId) || !eligible.has(awayId)) fail(422, "Both teams must have qualified for this knockout stage");
@@ -1163,6 +1160,14 @@ export const seasonPreviewRepository = {
     if (input.matchNumber !== undefined && db.matches.some((item) => item._id !== matchId && item.seasonRef === seasonId && item.matchNumber === input.matchNumber)) fail(409, "Match number already exists in this season");
 
     match.matchNumber = input.matchNumber ?? match.matchNumber;
+    if (stage !== match.stage) {
+      match.decidingRules = resolveMockFixtureDecidingRulesForStage(
+        match.stage,
+        stage,
+        match.decidingRules,
+        season.matchRules,
+      );
+    }
     match.stage = stage;
     match.roundNumber = roundNumber;
     match.groupRef = groupRef;

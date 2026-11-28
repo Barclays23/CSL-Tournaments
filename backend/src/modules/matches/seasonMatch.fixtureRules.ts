@@ -37,3 +37,36 @@ export function getLiveMatchConflictingTeamIds(
 
   return [...conflicts];
 }
+
+
+export interface FixtureStageDecidingDefaults {
+  extraTime: { isAllowedByDefault: boolean; defaultDurationMinutes: number };
+  penaltyShootout: { isAllowedByDefault: boolean };
+}
+
+export function resolveFixtureDecidingRulesForStage(
+  previousStage: import("./seasonMatch.types.js").SeasonMatchStage,
+  nextStage: import("./seasonMatch.types.js").SeasonMatchStage,
+  current: import("./seasonMatch.types.js").MatchDecidingRules,
+  defaults: FixtureStageDecidingDefaults,
+): import("./seasonMatch.types.js").MatchDecidingRules {
+  if (nextStage === "group") {
+    return {
+      extraTime: { isAllowed: false, durationMinutes: current.extraTime.durationMinutes },
+      penaltyShootout: { isAllowed: false },
+    };
+  }
+  if (previousStage === "group") {
+    return {
+      extraTime: {
+        isAllowed: defaults.extraTime.isAllowedByDefault,
+        durationMinutes: defaults.extraTime.defaultDurationMinutes,
+      },
+      penaltyShootout: { isAllowed: defaults.penaltyShootout.isAllowedByDefault },
+    };
+  }
+  return {
+    extraTime: { ...current.extraTime },
+    penaltyShootout: { ...current.penaltyShootout },
+  };
+}

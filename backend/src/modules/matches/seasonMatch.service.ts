@@ -1,6 +1,6 @@
 import { getFixtureGroupReadinessBlockers } from "./seasonMatch.readiness.js";
 import { Types } from "mongoose";
-import { getPairFixtureError } from "./seasonMatch.fixtureRules.js";
+import { getPairFixtureError, resolveFixtureDecidingRulesForStage } from "./seasonMatch.fixtureRules.js";
 import { hasRecordedMatchIncidents } from "./seasonMatch.deletion.js";
 import {
   assertStageMatchesResolved,
@@ -754,6 +754,14 @@ export class SeasonMatchService implements ISeasonMatchService {
     if (input.homeSeasonTeamRef !== undefined) data.homeSeasonTeamRef = new Types.ObjectId(input.homeSeasonTeamRef);
     if (input.awaySeasonTeamRef !== undefined) data.awaySeasonTeamRef = new Types.ObjectId(input.awaySeasonTeamRef);
     if (input.matchDurationMinutes !== undefined) data.matchDurationMinutes = input.matchDurationMinutes;
+    if (stage !== existing.stage) {
+      data.decidingRules = resolveFixtureDecidingRulesForStage(
+        existing.stage,
+        stage,
+        existing.decidingRules,
+        season.matchRules,
+      );
+    }
     if (input.notes !== undefined) data.notes = input.notes ?? null;
 
     const saved = await this._seasonMatchRepo.update(
