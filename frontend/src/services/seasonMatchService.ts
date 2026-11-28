@@ -79,6 +79,7 @@ export type SeasonGoalWrite = {
   scoringSeasonTeamRef: string;
   scorerPlayerRef?: string | null;
   goalType: "normal" | "own_goal";
+  reason?: string;
 } & MatchEventTimingWrite;
 
 export function deleteSeasonMatch(seasonId: string, matchId: string) {
@@ -113,7 +114,7 @@ export function deleteSeasonMatchGoal(seasonId: string, matchId: string, goalId:
   );
 }
 
-export interface SeasonMatchCardWrite extends MatchEventTimingWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; }
+export interface SeasonMatchCardWrite extends MatchEventTimingWrite { seasonTeamRef: string; playerRef: string; cardType: SeasonMatchCardType; reason?: string; }
 
 export function addSeasonMatchCard(seasonId: string, matchId: string, data: SeasonMatchCardWrite) {
   return run(() => USE_MOCK_API
@@ -125,10 +126,10 @@ export function updateSeasonMatchCard(seasonId: string, matchId: string, cardId:
     ? seasonPreviewRepository.updateSeasonMatchCard(seasonId, matchId, cardId, data)
     : api.patch<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`, data).then((response) => response.data));
 }
-export function deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string) {
+export function deleteSeasonMatchCard(seasonId: string, matchId: string, cardId: string, reason?: string) {
   return run(() => USE_MOCK_API
-    ? seasonPreviewRepository.deleteSeasonMatchCard(seasonId, matchId, cardId)
-    : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`).then((response) => response.data));
+    ? seasonPreviewRepository.deleteSeasonMatchCard(seasonId, matchId, cardId, reason)
+    : api.delete<ApiResponse<SeasonMatch>>(`/seasons/${seasonId}/matches/${matchId}/cards/${cardId}`, { data: reason ? { reason } : {} }).then((response) => response.data));
 }
 
 export function correctCompletedSeasonMatch(seasonId: string, matchId: string, data: SeasonMatchCorrectionWrite) {

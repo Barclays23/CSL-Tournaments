@@ -1,4 +1,5 @@
 import type { Asset } from "@/types/api.types";
+import type { MatchAuditHistoryEntry, MatchEventAuditHistoryEntry } from "@/types/seasonMatch.types";
 
 const oid = (value: number) => value.toString(16).padStart(24, "0");
 const timestamp = (value: string) => new Date(value).toISOString();
@@ -71,7 +72,8 @@ export interface MockSeasonMatch {
   cards?: Array<{ _id: string; seasonTeamRef: string; playerRef: string; cardType: "yellow_card" | "red_card" | "second_yellow"; period?: "first_half"|"second_half"|"extra_time_first_half"|"extra_time_second_half"|null; minute?: number|null; addedMinutes?: number|null; createdAt: string }>;
   penaltyShootout: null | { status: "pending" | "completed"; homeTeamScore: number; awayTeamScore: number; kicks: Array<{ seasonTeamRef: string; playerRef: string | null; result: "scored" | "missed" | "saved" }> };
   winnerSeasonTeamRef: string | null; notes: string | null; resolutionHistory?: Array<{ status: "cancelled" | "abandoned"; reason: string; decidedAt: string }>; statusHistory?: Array<{ fromStatus: MockSeasonMatch["status"]; toStatus: MockSeasonMatch["status"]; reason: string | null; changedBy: string; changedAt: string; fromKickoffAt: string | null; toKickoffAt: string | null }>; correctionHistory?: Array<{ reason: string; correctedBy: string; correctedAt: string; originalResult: { homeScore: number; awayScore: number; goals: MockSeasonMatch["goals"]; penaltyShootout: MockSeasonMatch["penaltyShootout"]; winnerSeasonTeamRef: string | null }; correctedResult: { homeScore: number; awayScore: number; goals: MockSeasonMatch["goals"]; penaltyShootout: MockSeasonMatch["penaltyShootout"]; winnerSeasonTeamRef: string | null } }>;
-  auditHistory?: Array<{action:string;actor:string;timestamp:string;previousValue:Record<string,unknown>;newValue:Record<string,unknown>;reason:string|null}>;
+  auditHistory?: MatchAuditHistoryEntry[];
+  eventAuditHistory?: MatchEventAuditHistoryEntry[];
   createdAt: string; updatedAt: string;
 }
 export interface MockVenue { _id:string; name:string; location:string|null; notes:string|null; status:"active"|"inactive"; createdAt:string; updatedAt:string; }
